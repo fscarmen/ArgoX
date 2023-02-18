@@ -10,7 +10,7 @@ WS_PATH_DEFAULT='argox'
 WORKDIR='/etc/argox'
 TEMPDIR='/tmp'
 #IP_API=https://api.ip.sb/geoip; ISP=isp
-IP_API=https://ifconfig.co/json; ISP=asn_org
+IP_API=http://ifconfig.co/json; ISP=asn_org
 
 trap "rm -f $TEMPDIR/{cloudflared*,Xray*.zip,xray,geo*.dat}; exit 1" INT
 
@@ -18,14 +18,14 @@ E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
 E[1]="1. extremely fast installation mode, [-f] followed by a parameter file path; 2. Support for switching between the three argo tunnels; 3. Synchronise Argo and Xray to the latest version at any time; 4. Optimize the code to achieve speedup."
 C[1]="1.极速安装模式，[-f] 后带参数文件路径；2.安装后，支持三种argo隧道随意切换；3.随时同步Argo 和 Xray到最新版本；4.优化代码，达到提速的目的。"
-E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods.\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Alpine, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
-C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray，详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式，大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS、 Alpine 和 Arch Linux，请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
+E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods.\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
+C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray，详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式，大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux，请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次，脚本退出"
 E[4]="UUID should be 36 characters, please re-enter \(\${a} times remaining\):"
 C[4]="UUID 应为36位字符，请重新输入 \(剩余\${a}次\):"
-E[5]="The script supports Debian, Ubuntu, CentOS, Arch or Alpine systems only. Feedback: [https://github.com/fscarmen/argox/issues]"
-C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Arch 或 Alpine 系统,问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[5]="The script supports Debian, Ubuntu, CentOS or Arch systems only. Feedback: [https://github.com/fscarmen/argox/issues]"
+C[5]="本脚本只支持 Debian、Ubuntu、CentOS 或 Arch 系统,问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[6]="Curren operating system is \$SYS.\\\n The system lower than \$SYSTEM \${MAJOR[int]} is not supported. Feedback: [https://github.com/fscarmen/argox/issues]"
 C[6]="当前操作是 \$SYS\\\n 不支持 \$SYSTEM \${MAJOR[int]} 以下系统,问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[7]="Install dependence-list:"
@@ -147,7 +147,7 @@ check_install() {
   STATUS[0]=$(text 26) && [ -e /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ $(systemctl is-active argo) = 'active' ] && STATUS[0]=$(text 28)
   STATUS[1]=$(text 26) && [ -e /etc/systemd/system/xray.service ] && STATUS[1]=$(text 27) && [ $(systemctl is-active xray) = 'active' ] && STATUS[1]=$(text 28)
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORKDIR/cloudflared ] && { wget -qO $TEMPDIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $TEMPDIR/cloudflared && rm -f $TEMPDIR/cloudflared*.zip; }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORKDIR/xray ] && { wget -qNP $TEMPDIR https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMPDIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d /tmp; rm -f $TEMPDIR/Xray*.zip; }&
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORKDIR/xray ] && { wget -qO $TEMPDIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMPDIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d /tmp; rm -f $TEMPDIR/Xray*.zip; }&
 }
 
 check_system_info() {
@@ -180,23 +180,13 @@ check_system_info() {
     SYS="$i" && [ -n "$SYS" ] && break
   done
 
-  # 自定义 Alpine 系统若干函数
-  alpine_argox_restart() { \1; }
-  alpine_argox_enable() { echo -e "/usr/bin/tun.sh\nwg-quick up wgcf" > /etc/local.d/wgcf.start; chmod +x /etc/local.d/wgcf.start; rc-update add local; }
-
-  REGEX=("debian" "ubuntu" "centos|red hat|kernel|oracle linux|alma|rocky" "amazon linux" "alpine" "arch linux")
-  RELEASE=("Debian" "Ubuntu" "CentOS" "CentOS" "Alpine" "Arch")
+  REGEX=("debian" "ubuntu" "centos|red hat|kernel|oracle linux|alma|rocky" "amazon linux" "arch linux")
+  RELEASE=("Debian" "Ubuntu" "CentOS" "CentOS" "Arch")
   EXCLUDE=("bookworm")
-  MAJOR=("9" "16" "7" "7" "3" "")
-  PACKAGE_UPDATE=("apt -y update" "apt -y update" "yum -y update" "yum -y update" "apk update -f" "pacman -Sy")
-  PACKAGE_INSTALL=("apt -y install" "apt -y install" "yum -y install" "yum -y install" "apk add -f" "pacman -S --noconfirm")
-  PACKAGE_UNINSTALL=("apt -y autoremove" "apt -y autoremove" "yum -y autoremove" "yum -y autoremove" "apk del -f" "pacman -Rcnsu --noconfirm")
-  SYSTEMCTL_ARGO_START=("systemctl start argo" "systemctl start argo" "systemctl start argo" "systemctl start argo" "wg-quick up wgcf" "systemctl start argo")
-  SYSTEMCTL_ARGO_DISABLE=("systemctl disable --now argo" "systemctl disable --now argo" "systemctl disable --now argo" "systemctl disable --now argo" "alpine_argox_disable --now" "systemctl disable --now argo")
-  SYSTEMCTL_ARGO_ENABLE=("systemctl enable --now argo" "systemctl enable --now argo" "systemctl enable --now argo" "systemctl enable --now argo" "alpine_argox_enable" "systemctl enable --now argo")
-  SYSTEMCTL_XRAY_START=("systemctl start xray" "systemctl start xray" "systemctl start xray" "systemctl start xray" "wg-quick up wgcf" "systemctl start xray")
-  SYSTEMCTL_XRAY_DISABLE=("systemctl disable --now xray" "systemctl disable --now xray" "systemctl disable --now xray" "systemctl disable --now xray" "alpine_xrayx_disable --now" "systemctl disable --now xray")
-  SYSTEMCTL_XRAY_ENABLE=("systemctl enable --now xray" "systemctl enable --now xray" "systemctl enable --now xray" "systemctl enable --now xray" "alpine_xrayx_enable" "systemctl enable --now xray")
+  MAJOR=("9" "16" "7" "7" "")
+  PACKAGE_UPDATE=("apt -y update" "apt -y update" "yum -y update" "yum -y update" "pacman -Sy")
+  PACKAGE_INSTALL=("apt -y install" "apt -y install" "yum -y install" "yum -y install" "pacman -S --noconfirm")
+  PACKAGE_UNINSTALL=("apt -y autoremove" "apt -y autoremove" "yum -y autoremove" "yum -y autoremove" "pacman -Rcnsu --noconfirm")
 
   for ((int=0; int<${#REGEX[@]}; int++)); do
     [[ $(tr 'A-Z' 'a-z' <<< "$SYS") =~ ${REGEX[int]} ]] && SYSTEM="${RELEASE[int]}" && [ -n "$SYSTEM" ] && break
@@ -242,20 +232,16 @@ xray_variable() {
 }
 
 check_dependencies() {
-  # 对于 alpine 系统，升级库并重新安装依赖
-  if [ "$SYSTEM" = Alpine ]; then
-    ${PACKAGE_UPDATE[int]}; ${PACKAGE_INSTALL[int]} curl wget grep
+  # 检测 Linux 系统的依赖，升级库并重新安装依赖
+  DEPS_CHECK=("ping" "wget" "curl" "systemctl" "ip" "unzip")
+  DEPS_INSTALL=(" iputils-ping" " wget" " curl" " systemctl" " iproute2" " unzip")
+  for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "$DEPS" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=${DEPS_INSTALL[g]}; done
+  if [ -n "$DEPS" ]; then
+    info "\n $(text 7) $DEPS \n"
+    ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
+    ${PACKAGE_INSTALL[int]} $DEPS >/dev/null 2>&1
   else
-    DEPS_CHECK=("ping" "wget" "systemctl" "ip")
-    DEPS_INSTALL=(" iputils-ping" " wget" " systemctl" " iproute2")
-    for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && DEPS+=${DEPS_INSTALL[g]}; done
-    if [ -n "$DEPS" ]; then
-      info "\n $(text 7) $DEPS \n"
-      ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
-      ${PACKAGE_INSTALL[int]} $DEPS >/dev/null 2>&1
-    else
-      info "\n $(text 8) \n"
-    fi
+    info "\n $(text 8) \n"
   fi
 }
 
@@ -503,8 +489,8 @@ EOF
 
   # 再次检测状态，运行 Argo 和 Xray
   check_install
-  [[ ${STATUS[0]} = "$(text 27)" ]] && ${SYSTEMCTL_ARGO_ENABLE[int]} && info "\n Argo $(text 28)$(text 37) \n" || warning "\n Argo $(text 28)$(text 38) \n"
-  [[ ${STATUS[1]} = "$(text 27)" ]] && ${SYSTEMCTL_XRAY_ENABLE[int]} && info "\n Xray $(text 28)$(text 37) \n" || warning "\n Xray $(text 28)$(text 38) \n"
+  [[ ${STATUS[0]} = "$(text 27)" ]] && systemctl enable --now argo && info "\n Argo $(text 28)$(text 37) \n" || warning "\n Argo $(text 28)$(text 38) \n"
+  [[ ${STATUS[1]} = "$(text 27)" ]] && systemctl enable --now xray && info "\n Xray $(text 28)$(text 37) \n" || warning "\n Xray $(text 28)$(text 38) \n"
 }
 
 export_list() {
@@ -572,22 +558,22 @@ change_argo() {
   unset ARGO_DOMAIN
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
-      1 ) ${SYSTEMCTL_ARGO_DISABLE[int]}
+      1 ) systemctl disable --now argo
           sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
-          ${SYSTEMCTL_ARGO_ENABLE[int]}
+          systemctl enable --now argo
           ;;
       2 ) argo_variable
-          ${SYSTEMCTL_ARGO_DISABLE[int]}
+          systemctl disable --now argo
           sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
-          ${SYSTEMCTL_ARGO_ENABLE[int]}
+          systemctl enable --now argo
           ;;
       3 ) argo_variable
-          ${SYSTEMCTL_ARGO_DISABLE[int]}
+          systemctl disable --now argo
           rm -f $WORKDIR/tunnel.{json,yml}
           [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
           [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
           sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate --config $WORKDIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
-          ${SYSTEMCTL_ARGO_ENABLE[int]}
+          systemctl enable --now argo
           ;;
       * ) exit 0
           ;;
@@ -622,15 +608,15 @@ version() {
 
   [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
   if [[ ${UPDATE[0]} = [Yy] ]]; then
-    ${SYSTEMCTL_ARGO_DISABLE[int]}
+    systemctl disable --now argo
     wget -qO $WORKDIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $WORKDIR/cloudflared && rm -f $WORKDIR/cloudflared*.zip
-    ${SYSTEMCTL_ARGO_ENABLE[int]} && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "
+    systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
-    ${SYSTEMCTL_XRAY_DISABLE[int]}
+    systemctl disable --now xray
     wget -qO $WORKDIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip
     unzip -qo $WORKDIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d /tmp; rm -f $WORKDIR/Xray*.zip
-    ${SYSTEMCTL_XRAY_ENABLE[int]} && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "
+    systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "
   fi
 }
 # 判断当前 Argo-X 的运行状态，并对应的给菜单和动作赋值
@@ -639,8 +625,8 @@ menu_setting() {
   ACTION[0]() { exit; }
 
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
-    [ -e $WORKDIR/cloudflared ] && ARGO_VERSION=$($WORKDIR/cloudflared -v | sed "s@cloudflared version@Version:@")
-    [ -e $WORKDIR/xray ] && XRAY_VERSION=$($WORKDIR/xray version | head -n 1 | sed "s@Xray@Version:@g")
+    [ -e $WORKDIR/cloudflared ] && ARGO_VERSION=$($WORKDIR/cloudflared -v | awk '{print $3}')
+    [ -e $WORKDIR/xray ] && XRAY_VERSION=$($WORKDIR/xray version | awk 'NR==1 {print $2}')
     OPTION[1]="1.  $(text 29)"
     [ ${STATUS[0]} = "$(text 28)" ] && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
     [ ${STATUS[1]} = "$(text 28)" ] && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
@@ -650,8 +636,8 @@ menu_setting() {
     OPTION[7]="7.  $(text 33)"
 
     ACTION[1]() { export_list; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { ${SYSTEMCTL_ARGO_DISABLE[int]}; [ $(systemctl is-active argo) = 'inactive' ] && info " $(text 27) Argo $(text 37)" || error " $(text27) Argo $(text 38) "; } || ACTION[2]() { ${SYSTEMCTL_ARGO_ENABLE[int]} && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "; }
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { ${SYSTEMCTL_XRAY_DISABLE[int]}; [ $(systemctl is-active xray) = 'inactive' ] && info " $(text 27) Xray $(text 37)" || error " $(text27) Xray $(text 38) "; } || ACTION[3]() { ${SYSTEMCTL_XRAY_ENABLE[int]} && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "; }
+    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { systemctl disable --now argo; [ $(systemctl is-active argo) = 'inactive' ] && info " $(text 27) Argo $(text 37)" || error " $(text27) Argo $(text 38) "; } || ACTION[2]() { systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "; }
+    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ $(systemctl is-active xray) = 'inactive' ] && info " $(text 27) Xray $(text 37)" || error " $(text27) Xray $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "; }
     ACTION[4]() { change_argo; }
     ACTION[5]() { version; }
     ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
@@ -673,7 +659,7 @@ menu() {
   info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
-  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION"
+  info "\t Argo: ${STATUS[0]}\t Version: $ARGO_VERSION\n\t Xray: ${STATUS[1]}\t Version: $XRAY_VERSION"
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "
