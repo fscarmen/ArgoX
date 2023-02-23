@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=beta2
+VERSION=beta3
 
 # 各变量默认值
 SERVER_DEFAULT='icook.hk'
@@ -94,10 +94,10 @@ E[38]="fail"
 C[38]="失败"
 E[39]="ArgoX is not installed."
 C[39]="ArgoX 未安装"
-E[40]="Argo tunnel is: \$ARGO_TYPE.\\\n The domain is: \$ARGO_DOMAIN"
-C[40]="Argo 隧道类型为: \$ARGO_TYPE，\\\n 域名是: \$ARGO_DOMAIN"
-E[41]="Argo tunnel type:\n 1. Try\n 2. Token\n 3. Json"
-C[41]="Argo 隧道类型:\n 1. Try\n 2. Token\n 3. Json"
+E[40]="Argo tunnel is: \$ARGO_TYPE\\\n The domain is: \$ARGO_DOMAIN"
+C[40]="Argo 隧道类型为: \$ARGO_TYPE\\\n 域名是: \$ARGO_DOMAIN"
+E[41]="Argo tunnel type:\n 1. Try\n 2. Token or Json"
+C[41]="Argo 隧道类型:\n 1. Try\n 2. Token 或者 Json"
 E[42]="Please input Xray Server \(Default is \$SERVER_DEFAULT\):"
 C[42]="请输入 Xray server \(默认为 \$SERVER_DEFAULT\):"
 E[43]="\$APP local verion: \$LOCAL.\\\t The newest verion: \$ONLINE"
@@ -114,11 +114,6 @@ reading() { read -rp "$(info "$1")" "$2"; }
 text() { eval echo "\${${L}[$*]}"; }
 text_eval() { eval echo "\$(eval echo "\${${L}[$*]}")"; }
 translate() { [ -n "$1" ] && curl -ksm8 "http://fanyi.youdao.com/translate?&doctype=json&type=AUTO&i=$1" | cut -d \" -f18 2>/dev/null; }
-
-# 脚本当天及累计运行次数统计
-statistics_of_run-times() {
-  :
-}
 
 # 选择中英语言
 select_language() {
@@ -151,19 +146,6 @@ check_install() {
 }
 
 check_system_info() {
-  if [ -z "$VARIABLE_FILE" ]; then
-    # 检测 IPv4 IPv6 信息，WARP Ineterface 开启，普通还是 Plus账户 和 IP 信息
-    IP4=$(curl -ks4m5 -A Mozilla $IP_API)
-    WAN4=$(expr "$IP4" : '.*ip\":[ ]*\"\([^"]*\).*')
-    COUNTRY4=$(expr "$IP4" : '.*country\":[ ]*\"\([^"]*\).*')
-    ASNORG4=$(expr "$IP4" : '.*'$ISP'\":[ ]*\"\([^"]*\).*')
-
-    IP6=$(curl -ks6m5 -A Mozilla $IP_API)
-    WAN6=$(expr "$IP6" : '.*ip\":[ ]*\"\([^"]*\).*')
-    COUNTRY6=$(expr "$IP6" : '.*country\":[ ]*\"\([^"]*\).*')
-    ASNORG6=$(expr "$IP6" : '.*'$ISP'\":[ ]*\"\([^"]*\).*')
-  fi
-
   # 判断虚拟化，选择 Wireguard内核模块 还是 Wireguard-Go
   VIRT=$(systemd-detect-virt 2>/dev/null | tr 'A-Z' 'a-z')
   [ -n "$VIRT" ] || VIRT=$(hostnamectl 2>/dev/null | tr 'A-Z' 'a-z' | grep virtualization | sed "s/.*://g")
@@ -196,6 +178,21 @@ check_system_info() {
   # 先排除 EXCLUDE 里包括的特定系统，其他系统需要作大发行版本的比较
   for ex in "${EXCLUDE[@]}"; do [[ ! $(tr 'A-Z' 'a-z' <<< "$SYS")  =~ $ex ]]; done &&
   [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text_eval 6) "
+}
+
+check_system_ip() {
+  if [ -z "$VARIABLE_FILE" ]; then
+    # 检测 IPv4 IPv6 信息，WARP Ineterface 开启，普通还是 Plus账户 和 IP 信息
+    IP4=$(curl -ks4m5 -A Mozilla $IP_API)
+    WAN4=$(expr "$IP4" : '.*ip\":[ ]*\"\([^"]*\).*')
+    COUNTRY4=$(expr "$IP4" : '.*country\":[ ]*\"\([^"]*\).*')
+    ASNORG4=$(expr "$IP4" : '.*'$ISP'\":[ ]*\"\([^"]*\).*')
+
+    IP6=$(curl -ks6m5 -A Mozilla $IP_API)
+    WAN6=$(expr "$IP6" : '.*ip\":[ ]*\"\([^"]*\).*')
+    COUNTRY6=$(expr "$IP6" : '.*country\":[ ]*\"\([^"]*\).*')
+    ASNORG6=$(expr "$IP6" : '.*'$ISP'\":[ ]*\"\([^"]*\).*')
+  fi
 }
 
 # 定义 Argo 变量
@@ -564,15 +561,14 @@ change_argo() {
           ;;
       2 ) argo_variable
           systemctl disable --now argo
-          sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
-          systemctl enable --now argo
-          ;;
-      3 ) argo_variable
-          systemctl disable --now argo
-          rm -f $WORKDIR/tunnel.{json,yml}
-          [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
-          [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
-          sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate --config $WORKDIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
+          if [ -n "$ARGO_TOKEN" ]; then
+            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+          elif [ -n "$ARGO_JSON" ]; then
+            rm -f $WORKDIR/tunnel.{json,yml}
+            [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
+            [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
+            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate --config $WORKDIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
+          fi
           systemctl enable --now argo
           ;;
       * ) exit 0
@@ -625,8 +621,8 @@ menu_setting() {
   ACTION[0]() { exit; }
 
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
-    [ -e $WORKDIR/cloudflared ] && ARGO_VERSION=$($WORKDIR/cloudflared -v | awk '{print $3}')
-    [ -e $WORKDIR/xray ] && XRAY_VERSION=$($WORKDIR/xray version | awk 'NR==1 {print $2}')
+    [ -e $WORKDIR/cloudflared ] && ARGO_VERSION=$($WORKDIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
+    [ -e $WORKDIR/xray ] && XRAY_VERSION=$($WORKDIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
     OPTION[1]="1.  $(text 29)"
     [ ${STATUS[0]} = "$(text 28)" ] && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
     [ ${STATUS[1]} = "$(text 28)" ] && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
@@ -659,7 +655,7 @@ menu() {
   info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
-  info "\t Argo: ${STATUS[0]}\t Version: $ARGO_VERSION\n\t Xray: ${STATUS[1]}\t Version: $XRAY_VERSION"
+  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION"
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "
@@ -687,11 +683,11 @@ while getopts ":SsUuVvLlF:f:" OPTNAME; do
   esac
 done
 
-statistics_of_run-times
 select_language
 check_arch
-check_install
 check_system_info
 check_dependencies
+check_system_ip
+check_install
 menu_setting
 [ -z "$VARIABLE_FILE" ] && menu || ACTION[1]
