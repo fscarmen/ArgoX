@@ -47,7 +47,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 ## Argo Token 的获取
 
-详细教程: [群晖套件：Cloudflare Tunnel 内网穿透中文教程 支持DSM6、7](https://imnks.com/5984.html)
+详细教程: [我不是矿神 -群晖套件：Cloudflare Tunnel 内网穿透中文教程 支持DSM6、7](https://imnks.com/5984.html)
 
 <img width="1409" alt="image" src="https://user-images.githubusercontent.com/92626977/218253461-c079cddd-3f4c-4278-a109-95229f1eb299.png">
 
@@ -57,7 +57,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 ## Argo Json 的获取
 
-以 Debian 为例，需要用到的命令，[官方安装教程](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation)
+以 Debian 为例，需要用到的命令，[Deron Cheng - CloudFlare Argo Tunnel 试用](https://zhengweidong.com/try-cloudflare-argo-tunnel)
+
 ```
 wget -O cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb # 下载安装包
 dpkg -i cloudflared.deb && rm -f cloudflared.deb # 安装并删除安装包

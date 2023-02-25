@@ -9,8 +9,8 @@ UUID_DEFAULT='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH_DEFAULT='argox'
 WORKDIR='/etc/argox'
 TEMPDIR='/tmp'
-#IP_API=https://api.ip.sb/geoip; ISP=isp
-IP_API=http://ifconfig.co/json; ISP=asn_org
+IP_API=https://api.ip.sb/geoip; ISP=isp
+#IP_API=http://ifconfig.co/json; ISP=asn_org
 
 trap "rm -f $TEMPDIR/{cloudflared*,Xray*.zip,xray,geo*.dat}; exit 1" INT
 
@@ -113,7 +113,7 @@ hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
 reading() { read -rp "$(info "$1")" "$2"; } 
 text() { eval echo "\${${L}[$*]}"; }
 text_eval() { eval echo "\$(eval echo "\${${L}[$*]}")"; }
-translate() { [ -n "$1" ] && curl -ksm8 "http://fanyi.youdao.com/translate?&doctype=json&type=AUTO&i=$1" | cut -d \" -f18 2>/dev/null; }
+translate() { [ -n "$1" ] && wget -qO- -t1T1 "http://fanyi.youdao.com/translate?&doctype=json&type=EN2ZH_CN&i=${1//[[:space:]]/}" | cut -d \" -f18 2>/dev/null; }
 
 # 选择中英语言
 select_language() {
@@ -183,12 +183,12 @@ check_system_info() {
 check_system_ip() {
   if [ -z "$VARIABLE_FILE" ]; then
     # 检测 IPv4 IPv6 信息，WARP Ineterface 开启，普通还是 Plus账户 和 IP 信息
-    IP4=$(curl -ks4m5 -A Mozilla $IP_API)
+    IP4=$(wget -4 -qO- --no-check-certificate --user-agent=Mozilla --tries=1 --timeout=2 $IP_API)
     WAN4=$(expr "$IP4" : '.*ip\":[ ]*\"\([^"]*\).*')
     COUNTRY4=$(expr "$IP4" : '.*country\":[ ]*\"\([^"]*\).*')
     ASNORG4=$(expr "$IP4" : '.*'$ISP'\":[ ]*\"\([^"]*\).*')
 
-    IP6=$(curl -ks6m5 -A Mozilla $IP_API)
+    IP6=$(wget -6 -qO- --no-check-certificate --user-agent=Mozilla --tries=1 --timeout=2 $IP_API)
     WAN6=$(expr "$IP6" : '.*ip\":[ ]*\"\([^"]*\).*')
     COUNTRY6=$(expr "$IP6" : '.*country\":[ ]*\"\([^"]*\).*')
     ASNORG6=$(expr "$IP6" : '.*'$ISP'\":[ ]*\"\([^"]*\).*')
@@ -230,8 +230,8 @@ xray_variable() {
 
 check_dependencies() {
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
-  DEPS_CHECK=("ping" "wget" "curl" "systemctl" "ip" "unzip")
-  DEPS_INSTALL=(" iputils-ping" " wget" " curl" " systemctl" " iproute2" " unzip")
+  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip")
+  DEPS_INSTALL=(" iputils-ping" " wget" " systemctl" " iproute2" " unzip")
   for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "$DEPS" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=${DEPS_INSTALL[g]}; done
   if [ -n "$DEPS" ]; then
     info "\n $(text 7) $DEPS \n"
@@ -636,7 +636,7 @@ menu_setting() {
     [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ $(systemctl is-active xray) = 'inactive' ] && info " $(text 27) Xray $(text 37)" || error " $(text27) Xray $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "; }
     ACTION[4]() { change_argo; }
     ACTION[5]() { version; }
-    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
+    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
     ACTION[7]() { uninstall; }
 
   else
@@ -644,7 +644,7 @@ menu_setting() {
     OPTION[2]="2.  $(text 32)"
 
     ACTION[1]() { install_argox; export_list; }
-    ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
+    ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
   fi
 }
 
