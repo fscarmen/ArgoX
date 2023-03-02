@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=beta3
+VERSION=beta4
 
 # 各变量默认值
 SERVER_DEFAULT='icook.hk'
@@ -16,14 +16,14 @@ trap "rm -f $TEMPDIR/{cloudflared*,Xray*.zip,xray,geo*.dat}; exit 1" INT
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. extremely fast installation mode, [-f] followed by a parameter file path; 2. Support for switching between the three argo tunnels; 3. Synchronise Argo and Xray to the latest version at any time; 4. Optimize the code to achieve speedup."
-C[1]="1.极速安装模式，[-f] 后带参数文件路径；2.安装后，支持三种argo隧道随意切换；3.随时同步Argo 和 Xray到最新版本；4.优化代码，达到提速的目的。"
+E[1]="Change listening to all network addresses to only Argo tunnel directed listening for added security."
+C[1]="把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性。"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods.\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
-C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray，详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式，大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux，请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
+C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
-C[3]="输入错误达5次，脚本退出"
+C[3]="输入错误达5次,脚本退出"
 E[4]="UUID should be 36 characters, please re-enter \(\${a} times remaining\):"
-C[4]="UUID 应为36位字符，请重新输入 \(剩余\${a}次\):"
+C[4]="UUID 应为36位字符,请重新输入 \(剩余\${a}次\):"
 E[5]="The script supports Debian, Ubuntu, CentOS or Arch systems only. Feedback: [https://github.com/fscarmen/argox/issues]"
 C[5]="本脚本只支持 Debian、Ubuntu、CentOS 或 Arch 系统,问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[6]="Curren operating system is \$SYS.\\\n The system lower than \$SYSTEM \${MAJOR[int]} is not supported. Feedback: [https://github.com/fscarmen/argox/issues]"
@@ -104,6 +104,8 @@ E[43]="\$APP local verion: \$LOCAL.\\\t The newest verion: \$ONLINE"
 C[43]="\$APP 本地版本: \$LOCAL.\\\t 最新版本: \$ONLINE"
 E[44]="No upgrade required."
 C[44]="不需要升级"
+E[45]="Argo authentication message does not match the rules, neither Token nor Json, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
+C[45]="Argo 认证信息不符合规则，既不是 Token,也是不是 Json,脚本退出,问题反馈:[https://github.com/fscarmen/argox/issues]"
 
 # 自定义字体彩色，read 函数，友道翻译函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -201,8 +203,13 @@ argo_variable() {
 
   if [ -n "$ARGO_DOMAIN" ]; then
     [ -z "$ARGO_AUTH" ] && reading "\n $(text 11) " ARGO_AUTH
-    [[ $ARGO_AUTH =~ TunnelSecret ]] && ARGO_JSON=$ARGO_AUTH
-    [[ $ARGO_AUTH =~ ^[A-Z0-9a-z]{120,250}$ ]] && ARGO_TOKEN=$ARGO_AUTH
+    if [[ $ARGO_AUTH =~ TunnelSecret ]]; then
+      ARGO_JSON=$ARGO_AUTH
+    elif [[ $ARGO_AUTH =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
+      ARGO_TOKEN=$ARGO_AUTH
+    else
+      error "\n $(text 45) \n"
+    fi
   fi
 }
 
@@ -288,6 +295,7 @@ EOF
     },
     "inbounds":[
         {
+            "listen":"127.0.0.1",
             "port":8080,
             "protocol":"vless",
             "settings":{
@@ -636,7 +644,7 @@ menu_setting() {
     [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ $(systemctl is-active xray) = 'inactive' ] && info " $(text 27) Xray $(text 37)" || error " $(text27) Xray $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "; }
     ACTION[4]() { change_argo; }
     ACTION[5]() { version; }
-    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
+    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
     ACTION[7]() { uninstall; }
 
   else
@@ -644,7 +652,7 @@ menu_setting() {
     OPTION[2]="2.  $(text 32)"
 
     ACTION[1]() { install_argox; export_list; }
-    ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); }
+    ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
   fi
 }
 

@@ -23,7 +23,7 @@
 ## 项目特点:
 
 * 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + WebSocket + TLS
-* 使用 CloudFlare 的 Argo 隧道，使用TLS加密通信，可以将应用程序流量安全地传输到Cloudflare网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel也可以防止IP泄露和DDoS攻击等网络威胁。因为是内网穿透，Xray 的 inbound 甚至可以由监听所有 0.0.0.0 改为只监听本地 127.0.0.1
+* 使用 CloudFlare 的 Argo 隧道，使用TLS加密通信，可以将应用程序流量安全地传输到Cloudflare网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel也可以防止IP泄露和DDoS攻击等网络威胁。因为是内网穿透，Xray 从对所有的网络地址监听改为只对 Argo 隧道作定向监听。
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换
 * 回落分流，同时支持 Xray 4 种主流协议: vless /  vmess / trojan / shadowsocks + WSS (ws + tls)
 * vmess 和 vless 的 uuid，trojan 和 shadowsocks 的 password，各协议的 ws 路径既可以自定义，又或者使用默认值
