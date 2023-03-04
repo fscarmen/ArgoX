@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=beta4
+VERSION=beta5
 
 # 各变量默认值
 SERVER_DEFAULT='icook.hk'
@@ -16,8 +16,8 @@ trap "rm -f $TEMPDIR/{cloudflared*,Xray*.zip,xray,geo*.dat}; exit 1" INT
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Change listening to all network addresses to only Argo tunnel directed listening for added security."
-C[1]="把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性。"
+E[1]="1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack"
+C[1]="1. 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性 2. Argo 隧道支持双栈"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods.\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -258,13 +258,13 @@ install_argox() {
   # Argo 生成守护进程文件
   [ ! -e $WORKDIR/cloudflared ] && { mv $TEMPDIR/cloudflared $WORKDIR; }
   if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORKDIR/cloudflared tunnel --no-autoupdate --config $WORKDIR/tunnel.yml --url http://localhost:8080 run"
+    ARGO_RUNS="$WORKDIR/cloudflared tunnel --edge-ip-version auto --config $WORKDIR/tunnel.yml --url http://localhost:8080 run"
     [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
     [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORKDIR/cloudflared tunnel --no-autoupdate run --token ${ARGO_TOKEN}"
+    ARGO_RUNS="$WORKDIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORKDIR/cloudflared tunnel --no-autoupdate --url http://localhost:8080"
+    ARGO_RUNS="$WORKDIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080"
   fi
 
   cat > /etc/systemd/system/argo.service << EOF
@@ -564,18 +564,18 @@ change_argo() {
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
       1 ) systemctl disable --now argo
-          sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
           systemctl enable --now argo
           ;;
       2 ) argo_variable
           systemctl disable --now argo
           if [ -n "$ARGO_TOKEN" ]; then
-            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
           elif [ -n "$ARGO_JSON" ]; then
             rm -f $WORKDIR/tunnel.{json,yml}
             [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
             [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
-            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --no-autoupdate --config $WORKDIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
+            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --edge-ip-version auto --config $WORKDIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
           fi
           systemctl enable --now argo
           ;;
