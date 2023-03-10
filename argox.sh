@@ -4,6 +4,7 @@
 VERSION=beta6
 
 # 各变量默认值
+CDN='https://ghproxy.com'
 SERVER_DEFAULT='icook.hk'
 UUID_DEFAULT='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH_DEFAULT='argox'
@@ -145,8 +146,8 @@ check_arch() {
 check_install() {
   STATUS[0]=$(text 26) && [ -e /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ $(systemctl is-active argo) = 'active' ] && STATUS[0]=$(text 28)
   STATUS[1]=$(text 26) && [ -e /etc/systemd/system/xray.service ] && STATUS[1]=$(text 27) && [ $(systemctl is-active xray) = 'active' ] && STATUS[1]=$(text 28)
-  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/cloudflared ] && { wget -qO $TEMP_DIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $TEMP_DIR/cloudflared; }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/xray ] && { wget -qO $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $TEMP_DIR; }&
+  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/cloudflared ] && { wget -qO $TEMP_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $TEMP_DIR/cloudflared; }&
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/xray ] && { wget -qO $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $TEMP_DIR; }&
 }
 
 check_system_info() {
@@ -266,7 +267,7 @@ install_argox() {
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics localhost:55555 --url http://localhost:8080"
   fi
 
   cat > /etc/systemd/system/argo.service << EOF
@@ -496,15 +497,15 @@ EOF
 
   # 再次检测状态，运行 Argo 和 Xray
   check_install
-  [[ ${STATUS[0]} = "$(text 27)" ]] && systemctl enable --now argo && info "\n Argo $(text 28)$(text 37) \n" || warning "\n Argo $(text 28)$(text 38) \n"
-  [[ ${STATUS[1]} = "$(text 27)" ]] && systemctl enable --now xray && info "\n Xray $(text 28)$(text 37) \n" || warning "\n Xray $(text 28)$(text 38) \n"
+  [[ ${STATUS[0]} = "$(text 27)" ]] && systemctl enable --now argo && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
+  [[ ${STATUS[1]} = "$(text 27)" ]] && systemctl enable --now xray && info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
 }
 
 export_list() {
   check_install
 
   if grep -q "^ExecStart.*8080$" /etc/systemd/system/argo.service; then
-    sleep 5 && ARGO_DOMAIN=$(journalctl -u argo | grep -o "https://.*trycloudflare.com" | sed "s@https://@@g" | tail -n 1)
+    sleep 5 && ARGO_DOMAIN=$(wget -qO- http://localhost:55555/quicktunnel | cut -d\" -f4)
   else
     ARGO_DOMAIN=${ARGO_DOMAIN:-"$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")"}
   fi
@@ -558,7 +559,7 @@ change_argo() {
   case $(grep "ExecStart" /etc/systemd/system/argo.service) in 
     *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(journalctl -u argo | grep -o "https://.*trycloudflare.com" | sed "s@https://@@g" | tail -n 1) ;;
+    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:55555/quicktunnel | cut -d\" -f4) ;;
   esac
 
   hint "\n $(text_eval 40) \n"
@@ -566,7 +567,7 @@ change_argo() {
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
       1 ) systemctl disable --now argo
-          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics localhost:55555 --url http://localhost:8080@g" /etc/systemd/system/argo.service
           systemctl enable --now argo
           ;;
       2 ) argo_variable
@@ -613,16 +614,17 @@ version() {
   [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
   if [[ ${UPDATE[0]} = [Yy] ]]; then
     systemctl disable --now argo
-    wget -qO $WORK_DIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $WORK_DIR/cloudflared && rm -f $WORK_DIR/cloudflared*.zip
+    wget -qO $WORK_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $WORK_DIR/cloudflared && rm -f $WORK_DIR/cloudflared*.zip
     systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
     systemctl disable --now xray
-    wget -qO $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip
+    wget -qO $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip
     unzip -qo $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $WORK_DIR; rm -f $WORK_DIR/Xray*.zip
     systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "
   fi
 }
+
 # 判断当前 Argo-X 的运行状态，并对应的给菜单和动作赋值
 menu_setting() {
   OPTION[0]="0.  $(text 35)"
