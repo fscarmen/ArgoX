@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=beta5
+VERSION=beta6
 
 # 各变量默认值
 SERVER_DEFAULT='icook.hk'
 UUID_DEFAULT='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH_DEFAULT='argox'
-WORKDIR='/etc/argox'
-TEMPDIR='/tmp'
+WORK_DIR='/etc/argox'
+TEMP_DIR='/tmp/argox'
 IP_API=https://api.ip.sb/geoip; ISP=isp
 #IP_API=http://ifconfig.co/json; ISP=asn_org
 
-trap "rm -f $TEMPDIR/{cloudflared*,Xray*.zip,xray,geo*.dat}; exit 1" INT
+trap "rm -rf $TEMP_DIR" INT QUIT TERM EXIT
+
+mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack"
-C[1]="1. 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性 2. Argo 隧道支持双栈"
+E[1]="1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc ; 2. Change the sensitive path names."
+C[1]="1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc;  2. 改掉敏感路径名"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods.\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -36,8 +38,8 @@ E[9]="To upgrade, press [y]. No upgrade by default:"
 C[9]="升级请按 [y]，默认不升级:"
 E[10]="Please input Argo Domain (Default is temporary domain if left blank):"
 C[10]="请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
-E[11]="Please input Argo Token or Json:"
-C[11]="请输入 Argo Token 或者 Json:"
+E[11]="Please input Argo Token or Json ( User can easily obtain the json at https://fscarmen.cloudflare.now.cc ):"
+C[11]="请输入 Argo Token 或者 Json ( 用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc ):"
 E[12]="Please input Xray UUID \(Default is \$UUID_DEFAULT\):"
 C[12]="请输入 Xray UUID \(默认为 \$UUID_DEFAULT\):"
 E[13]="Please input Xray WS Path \(Default is \$WS_PATH_DEFAULT\):"
@@ -120,7 +122,7 @@ translate() { [ -n "$1" ] && wget -qO- -t1T1 "http://fanyi.youdao.com/translate?
 # 选择中英语言
 select_language() {
   if [ -z "$L" ]; then
-    case $(cat $WORKDIR/language 2>&1) in
+    case $(cat $WORK_DIR/language 2>&1) in
       E ) L=E ;;
       C ) L=C ;;
       * ) [ -z "$L" ] && L=E && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
@@ -143,8 +145,8 @@ check_arch() {
 check_install() {
   STATUS[0]=$(text 26) && [ -e /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ $(systemctl is-active argo) = 'active' ] && STATUS[0]=$(text 28)
   STATUS[1]=$(text 26) && [ -e /etc/systemd/system/xray.service ] && STATUS[1]=$(text 27) && [ $(systemctl is-active xray) = 'active' ] && STATUS[1]=$(text 28)
-  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORKDIR/cloudflared ] && { wget -qO $TEMPDIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $TEMPDIR/cloudflared && rm -f $TEMPDIR/cloudflared*.zip; }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORKDIR/xray ] && { wget -qO $TEMPDIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMPDIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d /tmp; rm -f $TEMPDIR/Xray*.zip; }&
+  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/cloudflared ] && { wget -qO $TEMP_DIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $TEMP_DIR/cloudflared; }&
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/xray ] && { wget -qO $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $TEMP_DIR; }&
 }
 
 check_system_info() {
@@ -253,18 +255,18 @@ install_argox() {
   argo_variable
   xray_variable
   wait
-  mkdir -p $WORKDIR && echo "$L" > $WORKDIR/language
-  [ -e "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORKDIR/
+  mkdir -p $WORK_DIR && echo "$L" > $WORK_DIR/language
+  [ -e "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORK_DIR/
   # Argo 生成守护进程文件
-  [ ! -e $WORKDIR/cloudflared ] && { mv $TEMPDIR/cloudflared $WORKDIR; }
+  [ ! -e $WORK_DIR/cloudflared ] && { mv $TEMP_DIR/cloudflared $WORK_DIR; }
   if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORKDIR/cloudflared tunnel --edge-ip-version auto --config $WORKDIR/tunnel.yml --url http://localhost:8080 run"
-    [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
-    [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml --url http://localhost:8080 run"
+    [ ! -e $WORK_DIR/tunnel.json ] && echo $ARGO_JSON > $WORK_DIR/tunnel.json
+    [ ! -e $WORK_DIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORK_DIR/tunnel.json" > $WORK_DIR/tunnel.yml
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORKDIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORKDIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080"
   fi
 
   cat > /etc/systemd/system/argo.service << EOF
@@ -285,8 +287,8 @@ WantedBy=multi-user.target
 EOF
 
   # 生成配置文件及守护进程文件
-  [ ! -e $WORKDIR/xray ] && { mv $TEMPDIR/{xray,geo*.dat} $WORKDIR; }
-  cat > $WORKDIR/config.json << EOF
+  [ ! -e $WORK_DIR/xray ] && { mv $TEMP_DIR/{xray,geo*.dat} $WORK_DIR; }
+  cat > $WORK_DIR/config.json << EOF
 {
     "log":{
         "access":"/dev/null",
@@ -311,19 +313,19 @@ EOF
                         "dest":3001
                     },
                     {
-                        "path":"/${WS_PATH}-vless",
+                        "path":"/${WS_PATH}-vl",
                         "dest":3002
                     },
                     {
-                        "path":"/${WS_PATH}-vmess",
+                        "path":"/${WS_PATH}-vm",
                         "dest":3003
                     },
                     {
-                        "path":"/${WS_PATH}-trojan",
+                        "path":"/${WS_PATH}-tr",
                         "dest":3004
                     },
                     {
-                        "path":"/${WS_PATH}-shadowsocks",
+                        "path":"/${WS_PATH}-sh",
                         "dest":3005
                     }
                 ]
@@ -366,7 +368,7 @@ EOF
                 "network":"ws",
                 "security":"none",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-vless"
+                    "path":"/${WS_PATH}-vl"
                 }
             },
             "sniffing":{
@@ -393,7 +395,7 @@ EOF
             "streamSettings":{
                 "network":"ws",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-vmess"
+                    "path":"/${WS_PATH}-vm"
                 }
             },
             "sniffing":{
@@ -420,7 +422,7 @@ EOF
                 "network":"ws",
                 "security":"none",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-trojan"
+                    "path":"/${WS_PATH}-tr"
                 }
             },
             "sniffing":{
@@ -448,7 +450,7 @@ EOF
             "streamSettings":{
                 "network":"ws",
                 "wsSettings":{
-                    "path":"/${WS_PATH}-shadowsocks"
+                    "path":"/${WS_PATH}-sh"
                 }
             },
             "sniffing":{
@@ -484,7 +486,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 NoNewPrivileges=yes
-ExecStart=$WORKDIR/xray run -c $WORKDIR/config.json
+ExecStart=$WORK_DIR/xray run -c $WORK_DIR/config.json
 Restart=on-failure
 RestartPreventExitStatus=23
 
@@ -504,49 +506,49 @@ export_list() {
   if grep -q "^ExecStart.*8080$" /etc/systemd/system/argo.service; then
     sleep 5 && ARGO_DOMAIN=$(journalctl -u argo | grep -o "https://.*trycloudflare.com" | sed "s@https://@@g" | tail -n 1)
   else
-    ARGO_DOMAIN=${ARGO_DOMAIN:-"$(grep '^vless' $WORKDIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")"}
+    ARGO_DOMAIN=${ARGO_DOMAIN:-"$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")"}
   fi
-  SERVER=${SERVER:-"$(grep '^vless' $WORKDIR/list | head -n 1 | sed "s/.*@\(.*\):443.*/\1/g")"}
-  UUID=${UUID:-"$(grep 'password' $WORKDIR/config.json | awk -F \" 'NR==1{print $4}')"}
-  WS_PATH=${WS_PATH:-"$(grep 'path.*vmess' $WORKDIR/config.json | head -n 1 | sed "s@.*/\(.*\)-vmess.*@\1@g")"} 
+  SERVER=${SERVER:-"$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s/.*@\(.*\):443.*/\1/g")"}
+  UUID=${UUID:-"$(grep 'password' $WORK_DIR/config.json | awk -F \" 'NR==1{print $4}')"}
+  WS_PATH=${WS_PATH:-"$(grep 'path.*vmess' $WORK_DIR/config.json | head -n 1 | sed "s@.*/\(.*\)-vmess.*@\1@g")"} 
 
   # 生成配置文件
-  VMESS="{ \"v\": \"2\", \"ps\": \"Argo-Vmess\", \"add\": \"icook.hk\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vmess\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
-  cat > $WORKDIR/list << EOF
+  VMESS="{ \"v\": \"2\", \"ps\": \"ArgoX-Vm\", \"add\": \"icook.hk\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
+  cat > $WORK_DIR/list << EOF
 *******************************************
 V2-rayN:
 ----------------------------
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vless#Argo-Vless
+vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl#ArgoX-Vl
 ----------------------------
 vmess://$(base64 -w0 <<< $VMESS)
 ----------------------------
-trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-trojan#Argo-Trojan
+trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-tr#ArgoX-Tr
 ----------------------------
-ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)@${SERVER}:443#Argo-Shadowsocks
-由于该软件导出的链接不全，请自行处理如下: 传输协议: WS ， 伪装域名: ${ARGO_DOMAIN} ，路径: /${WS_PATH}-shadowsocks ， 传输层安全: tls ， sni: ${ARGO_DOMAIN}
+ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)@${SERVER}:443#ArgoX-Sh
+由于该软件导出的链接不全，请自行处理如下: 传输协议: WS ， 伪装域名: ${ARGO_DOMAIN} ，路径: /${WS_PATH}-sh ， 传输层安全: tls ， sni: ${ARGO_DOMAIN}
 *******************************************
 小火箭 Shadowrocket:
 ----------------------------
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vless&sni=${ARGO_DOMAIN}#Argo-Vless
+vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&sni=${ARGO_DOMAIN}#ArgoX-Vl
 ----------------------------
-vmess://$(echo "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=Argo-Vmess&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vmess&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0
+vmess://$(echo "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=ArgoX-Vm&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0
 ----------------------------
-trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-trojan#Argo-Trojan
+trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr#ArgoX-Tr
 ----------------------------
-ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?obfs=wss&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-shadowsocks#Argo-Shadowsocks
+ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?obfs=wss&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-sh#ArgoX-Sh
 *******************************************
 Clash:
 ----------------------------
-- {name: Argo-Vless, type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: /${WS_PATH}-vless, headers: { Host: ${ARGO_DOMAIN}}}, udp: true}
+- {name: ArgoX-Vl, type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: /${WS_PATH}-vl, headers: { Host: ${ARGO_DOMAIN}}}, udp: true}
 ----------------------------
-- {name: Argo-Vmess, type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: {path: /${WS_PATH}-vmess, headers: {Host: ${ARGO_DOMAIN}}}, udp: true}
+- {name: ArgoX-Vm, type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: {path: /${WS_PATH}-vm, headers: {Host: ${ARGO_DOMAIN}}}, udp: true}
 ----------------------------
-- {name: Argo-Trojan, type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-trojan, headers: { Host: ${ARGO_DOMAIN} } } }
+- {name: ArgoX-Tr, type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr, headers: { Host: ${ARGO_DOMAIN} } } }
 ----------------------------
-- {name: Argo-Shadowsocks, type: ss, server: ${SERVER}, port: 443, cipher: chacha20-ietf-poly1305, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: /${WS_PATH}-shadowsocks, tls: true, skip-cert-verify: false, mux: false } }
+- {name: ArgoX-Sh, type: ss, server: ${SERVER}, port: 443, cipher: chacha20-ietf-poly1305, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: /${WS_PATH}-sh, tls: true, skip-cert-verify: false, mux: false } }
 *******************************************
 EOF
-  cat $WORKDIR/list
+  cat $WORK_DIR/list
 }
 
 change_argo() {
@@ -554,8 +556,8 @@ change_argo() {
   [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
 
   case $(grep "ExecStart" /etc/systemd/system/argo.service) in 
-    *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep '^vless' $WORKDIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep '^vless' $WORKDIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+    *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+    *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(journalctl -u argo | grep -o "https://.*trycloudflare.com" | sed "s@https://@@g" | tail -n 1) ;;
   esac
 
@@ -564,18 +566,18 @@ change_argo() {
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
       1 ) systemctl disable --now argo
-          sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
           systemctl enable --now argo
           ;;
       2 ) argo_variable
           systemctl disable --now argo
           if [ -n "$ARGO_TOKEN" ]; then
-            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+            sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
           elif [ -n "$ARGO_JSON" ]; then
-            rm -f $WORKDIR/tunnel.{json,yml}
-            [ ! -e $WORKDIR/tunnel.json ] && echo $ARGO_JSON > $WORKDIR/tunnel.json
-            [ ! -e $WORKDIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORKDIR/tunnel.json" > $WORKDIR/tunnel.yml
-            sed -i "s@ExecStart.*@ExecStart=$WORKDIR/cloudflared tunnel --edge-ip-version auto --config $WORKDIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
+            rm -f $WORK_DIR/tunnel.{json,yml}
+            [ ! -e $WORK_DIR/tunnel.json ] && echo $ARGO_JSON > $WORK_DIR/tunnel.json
+            [ ! -e $WORK_DIR/tunnel.yml ] && echo -e "tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)\ncredentials-file: $WORK_DIR/tunnel.json" > $WORK_DIR/tunnel.yml
+            sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml --url http://localhost:8080 run@g" /etc/systemd/system/argo.service
           fi
           systemctl enable --now argo
           ;;
@@ -587,11 +589,9 @@ change_argo() {
 }
 
 uninstall() {
-  if [ -d $WORKDIR ]; then
+  if [ -d $WORK_DIR ]; then
     systemctl disable --now {argo,xray} 2>/dev/null
-    rm -f /etc/systemd/system/{xray,argo}.service
-    rm -rf $WORKDIR
-    rm -f $TEMPDIR/{cloudflared*,Xray*.zip,xray,geo*.dat}
+    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
@@ -602,24 +602,24 @@ uninstall() {
 version() {
   # Argo 版本
   local ONLINE=$(wget -qO- "https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
-  local LOCAL=$($WORKDIR/cloudflared -v | grep -oP "version \K\S+")
+  local LOCAL=$($WORK_DIR/cloudflared -v | grep -oP "version \K\S+")
   local APP=ARGO && info "\n $(text_eval 43) "
   [[ "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
   local ONLINE=$(wget -qO- "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
-  local LOCAL=$($WORKDIR/xray version | grep -oP "Xray \K\S+")
+  local LOCAL=$($WORK_DIR/xray version | grep -oP "Xray \K\S+")
   local APP=Xray && info "\n $(text_eval 43) "
   [[ "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
 
   [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
   if [[ ${UPDATE[0]} = [Yy] ]]; then
     systemctl disable --now argo
-    wget -qO $WORKDIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $WORKDIR/cloudflared && rm -f $WORKDIR/cloudflared*.zip
+    wget -qO $WORK_DIR/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $WORK_DIR/cloudflared && rm -f $WORK_DIR/cloudflared*.zip
     systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
     systemctl disable --now xray
-    wget -qO $WORKDIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip
-    unzip -qo $WORKDIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d /tmp; rm -f $WORKDIR/Xray*.zip
+    wget -qO $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip
+    unzip -qo $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $WORK_DIR; rm -f $WORK_DIR/Xray*.zip
     systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "
   fi
 }
@@ -629,8 +629,8 @@ menu_setting() {
   ACTION[0]() { exit; }
 
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
-    [ -e $WORKDIR/cloudflared ] && ARGO_VERSION=$($WORKDIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-    [ -e $WORKDIR/xray ] && XRAY_VERSION=$($WORKDIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
+    [ -e $WORK_DIR/cloudflared ] && ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
+    [ -e $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
     OPTION[1]="1.  $(text 29)"
     [ ${STATUS[0]} = "$(text 28)" ] && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
     [ ${STATUS[1]} = "$(text 28)" ] && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
