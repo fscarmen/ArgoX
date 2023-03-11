@@ -13,7 +13,7 @@ TEMP_DIR='/tmp/argox'
 IP_API=https://api.ip.sb/geoip; ISP=isp
 #IP_API=http://ifconfig.co/json; ISP=asn_org
 
-trap "rm -rf $TEMP_DIR" INT QUIT TERM EXIT
+trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
 mkdir -p $TEMP_DIR
 
@@ -109,6 +109,8 @@ E[44]="No upgrade required."
 C[44]="不需要升级"
 E[45]="Argo authentication message does not match the rules, neither Token nor Json, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
 C[45]="Argo 认证信息不符合规则，既不是 Token,也是不是 Json,脚本退出,问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[46]="Connect"
+C[46]="连接"
 
 # 自定义字体彩色，read 函数，友道翻译函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -146,8 +148,8 @@ check_arch() {
 check_install() {
   STATUS[0]=$(text 26) && [ -e /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ $(systemctl is-active argo) = 'active' ] && STATUS[0]=$(text 28)
   STATUS[1]=$(text 26) && [ -e /etc/systemd/system/xray.service ] && STATUS[1]=$(text 27) && [ $(systemctl is-active xray) = 'active' ] && STATUS[1]=$(text 28)
-  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/cloudflared ] && { wget -qO $TEMP_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $TEMP_DIR/cloudflared; }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/xray ] && { wget -qO $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip; unzip -qo $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $TEMP_DIR; }&
+  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/cloudflared ] && { wget -qO $TEMP_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1; }&
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -e $WORK_DIR/xray ] && { wget -qO $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip >/dev/null 2>&1; unzip -qo $TEMP_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $TEMP_DIR >/dev/null 2>&1; }&
 }
 
 check_system_info() {
@@ -267,7 +269,7 @@ install_argox() {
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics localhost:55555 --url http://localhost:8080"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080"
   fi
 
   cat > /etc/systemd/system/argo.service << EOF
@@ -505,7 +507,7 @@ export_list() {
   check_install
 
   if grep -q "^ExecStart.*8080$" /etc/systemd/system/argo.service; then
-    sleep 5 && ARGO_DOMAIN=$(wget -qO- http://localhost:55555/quicktunnel | cut -d\" -f4)
+    sleep 5 && local LOCALHOST=$(ss -nltp | grep '"cloudflared"' | awk '{print $4}') && ARGO_DOMAIN=$(wget -qO- http://$LOCALHOST/quicktunnel | cut -d\" -f4)
   else
     ARGO_DOMAIN=${ARGO_DOMAIN:-"$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")"}
   fi
@@ -526,7 +528,7 @@ vmess://$(base64 -w0 <<< $VMESS)
 trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-tr#ArgoX-Tr
 ----------------------------
 ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)@${SERVER}:443#ArgoX-Sh
-由于该软件导出的链接不全，请自行处理如下: 传输协议: WS ， 伪装域名: ${ARGO_DOMAIN} ，路径: /${WS_PATH}-sh ， 传输层安全: tls ， sni: ${ARGO_DOMAIN}
+由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /${WS_PATH}-sh , 传输层安全: tls , sni: ${ARGO_DOMAIN}
 *******************************************
 小火箭 Shadowrocket:
 ----------------------------
@@ -559,7 +561,7 @@ change_argo() {
   case $(grep "ExecStart" /etc/systemd/system/argo.service) in 
     *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:55555/quicktunnel | cut -d\" -f4) ;;
+    * ) ARGO_TYPE='Try'; local LOCALHOST=$(ss -nltp | grep '"cloudflared"' | awk '{print $4}') && ARGO_DOMAIN=$(wget -qO- http://$LOCALHOST/quicktunnel | cut -d\" -f4) ;;
   esac
 
   hint "\n $(text_eval 40) \n"
@@ -567,7 +569,7 @@ change_argo() {
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
       1 ) systemctl disable --now argo
-          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics localhost:55555 --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
           systemctl enable --now argo
           ;;
       2 ) argo_variable
@@ -631,7 +633,11 @@ menu_setting() {
   ACTION[0]() { exit; }
 
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
-    [ -e $WORK_DIR/cloudflared ] && ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
+    if [ -e $WORK_DIR/cloudflared ]; then
+      ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
+      local LOCALHOST=$(ss -nltp | grep '"cloudflared"' | awk '{print $4}')
+      [ -n "$LOCALHOST" ] && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://$LOCALHOST/healthcheck | sed "s/OK/$(text 37)/")"
+    fi
     [ -e $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
     OPTION[1]="1.  $(text 29)"
     [ ${STATUS[0]} = "$(text 28)" ] && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
@@ -665,7 +671,7 @@ menu() {
   info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
-  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION"
+  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $ARGO_CHECKHEALTH\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION"
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "

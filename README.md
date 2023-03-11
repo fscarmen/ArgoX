@@ -30,14 +30,14 @@
 
 ## 项目特点:
 
-* 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + WebSocket + TLS
-* 使用 CloudFlare 的 Argo 隧道，使用TLS加密通信，可以将应用程序流量安全地传输到Cloudflare网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel也可以防止IP泄露和DDoS攻击等网络威胁。
-* Argo 是内网穿透的隧道，Xray 的 inbound 可以不对外暴露增加安全性的同时，不用做伪装网增加资源占用的同时，还支持 Cloudflare 的全部端口  这样就不会死守443被封，
-* Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换
-* 回落分流，同时支持 Xray 4 种主流协议: vless /  vmess / trojan / shadowsocks + WSS (ws + tls)
-* vmess 和 vless 的 uuid，trojan 和 shadowsocks 的 password，各协议的 ws 路径既可以自定义，又或者使用默认值
-* 节点信息以 V2rayN / Clash / 小火箭 链接方式输出
-* 极速安装，即可交互式安装，也在同类脚本中使用类似于 docker compose，提前把所有的参数放到一个配置文件，全程不到5秒
+* 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + WebSocket + TLS；
+* 使用 CloudFlare 的 Argo 隧道，使用TLS加密通信，可以将应用程序流量安全地传输到Cloudflare网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel也可以防止IP泄露和DDoS攻击等网络威胁；
+* Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守443被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
+* Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
+* 回落分流，同时支持 Xray 4 种主流协议: vless /  vmess / trojan / shadowsocks + WSS (ws + tls)；
+* vmess 和 vless 的 uuid，trojan 和 shadowsocks 的 password，各协议的 ws 路径既可以自定义，又或者使用默认值；
+* 节点信息以 V2rayN / Clash / 小火箭 链接方式输出；
+* 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到5秒。
 
 
 ## ArgoX for VPS 运行脚本:
