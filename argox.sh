@@ -47,7 +47,7 @@ E[13]="Please input Xray WS Path \(Default is \$WS_PATH_DEFAULT\):"
 C[13]="请输入 Xray WS 路径 \(默认为 \$WS_PATH_DEFAULT\):"
 E[14]="Xray WS Path only allow uppercase and lowercase letters and numeric characters, please re-enter \(\${a} times remaining\):"
 C[14]="Xray WS 路径只允许英文大小写及数字字符，请重新输入 \(剩余\${a}次\):"
-E[15]="ArgoX script is installed."
+E[15]="ArgoX script has not been installed yet."
 C[15]="ArgoX 脚本还没有安装"
 E[16]="ArgoX is completely uninstalled."
 C[16]="ArgoX 已彻底卸载"
@@ -71,9 +71,9 @@ E[25]="Curren architecture \$(uname -m) is not supported. Feedback: [https://git
 C[25]="当前架构 \$(uname -m) 暂不支持,问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[26]="Not install"
 C[26]="未安装"
-E[27]="Close"
+E[27]="close"
 C[27]="关闭"
-E[28]="Open"
+E[28]="open"
 C[28]="开启"
 E[29]="View links"
 C[29]="查看节点信息"
@@ -91,9 +91,9 @@ E[35]="Exit"
 C[35]="退出"
 E[36]="Please enter the correct number"
 C[36]="请输入正确数字"
-E[37]="Succeed"
+E[37]="successful"
 C[37]="成功"
-E[38]="fail"
+E[38]="failed"
 C[38]="失败"
 E[39]="ArgoX is not installed."
 C[39]="ArgoX 未安装"
@@ -617,13 +617,13 @@ version() {
   if [[ ${UPDATE[0]} = [Yy] ]]; then
     systemctl disable --now argo
     wget -qO $WORK_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCHITECTURE && chmod +x $WORK_DIR/cloudflared && rm -f $WORK_DIR/cloudflared*.zip
-    systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "
+    systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
     systemctl disable --now xray
     wget -qO $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCHITECTURE//amd/}.zip
     unzip -qo $WORK_DIR/Xray-linux-${ARCHITECTURE//amd/}.zip xray *.dat -d $WORK_DIR; rm -f $WORK_DIR/Xray*.zip
-    systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "
+    systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
   fi
 }
 
@@ -648,8 +648,8 @@ menu_setting() {
     OPTION[7]="7.  $(text 33)"
 
     ACTION[1]() { export_list; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { systemctl disable --now argo; [ $(systemctl is-active argo) = 'inactive' ] && info " $(text 27) Argo $(text 37)" || error " $(text27) Argo $(text 38) "; } || ACTION[2]() { systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " $(text 28) Argo $(text 37)" || error " $(text28) Argo $(text 38) "; }
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ $(systemctl is-active xray) = 'inactive' ] && info " $(text 27) Xray $(text 37)" || error " $(text27) Xray $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " $(text 28) Xray $(text 37)" || error " $(text28) Xray $(text 38) "; }
+    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { systemctl disable --now argo; [ $(systemctl is-active argo) = 'inactive' ] && info " Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || ACTION[2]() { systemctl enable --now argo && [ $(systemctl is-active argo) = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; }
+    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ $(systemctl is-active xray) = 'inactive' ] && info " Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ $(systemctl is-active xray) = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; }
     ACTION[4]() { change_argo; }
     ACTION[5]() { version; }
     ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
