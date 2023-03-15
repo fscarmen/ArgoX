@@ -513,7 +513,7 @@ export_list() {
   fi
   SERVER=${SERVER:-"$(grep '^vless' $WORK_DIR/list | head -n 1 | sed "s/.*@\(.*\):443.*/\1/g")"}
   UUID=${UUID:-"$(grep 'password' $WORK_DIR/config.json | awk -F \" 'NR==1{print $4}')"}
-  WS_PATH=${WS_PATH:-"$(grep 'path.*vmess' $WORK_DIR/config.json | head -n 1 | sed "s@.*/\(.*\)-vmess.*@\1@g")"} 
+  WS_PATH=${WS_PATH:-"$(grep 'path.*vm' $WORK_DIR/config.json | head -n 1 | sed "s@.*/\(.*\)-vm.*@\1@g")"} 
 
   # 生成配置文件
   VMESS="{ \"v\": \"2\", \"ps\": \"ArgoX-Vm\", \"add\": \"icook.hk\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
