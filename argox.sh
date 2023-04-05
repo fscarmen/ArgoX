@@ -21,8 +21,8 @@ E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
 E[1]="1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc ; 2. Change the sensitive path names."
 C[1]="1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc;  2. 改掉敏感路径名"
-E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods.\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
-C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
+E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu 16.04、18.04、20.04、22.04,Debian 9、10、11,CentOS 7、8、9, Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
+C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次,脚本退出"
 E[4]="UUID should be 36 characters, please re-enter \(\${a} times remaining\):"
@@ -139,6 +139,7 @@ check_arch() {
   case $(uname -m) in
     aarch64|arm64 ) ARGO_ARCH=arm64 ; XRAY_ARCH=arm64-v8a ;;
     x86_64|amd64 ) ARGO_ARCH=amd64 ; XRAY_ARCH=64 ;;
+    armv7l ) ARGO_ARCH=arm ; XRAY_ARCH=arm32-v7a ;;
  #   s390x ) ARCHITECTURE=s390x ;;
     * ) error " $(text_eval 25) " ;;
   esac
