@@ -9,21 +9,27 @@
 - [ArgoX for VPS 运行脚本](README.md#argox-for-vps-运行脚本)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
-- [鸣谢下列作者的文章和项目](README.md#鸣谢下列作者的文章和项目)
 - [免责声明](README.md#免责声明)
 
 * * *
 ## 更新信息
-2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc ; 2. Change the sensitive path names; 3. Add CDN for download; 1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc;  2. 改掉敏感路径名; 3. 下载增加 CDN
+2023.4.13 1.0 正式版
 
-2023.3.4 beta5 1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack; 1. 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性; 2. Argo 隧道支持双栈
+<details>
+    <summary>历史更新 history（点击即可展开或收起）</summary>
+<br>
 
-2023.3.2 beta4 Change listening to all network addresses to only Argo tunnel directed listening for added security; 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性
-
-2023.2.24 beta3 1. Simplify the operation of changing argo tunnel; 2. Use wget global instead of cURL; 1. 简化转换 Argo 隧道的方法; 2. 全局用 wget 替代 cURL
-
-2023.2.17 beta2 1. extremely fast installation mode, [-f] followed by a parameter file path; 2. Support for switching between the three argo tunnels; 3. Synchronise Argo and Xray to the latest version at any time; 4. Optimize the code to achieve speedup.
-1.极速安装模式，[-f] 后带参数文件路径；2.安装后，支持三种argo隧道随意切换；3.随时同步Argo 和 Xray到最新版本；4.优化代码，达到提速的目的。
+>2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc ; 2. Change the sensitive path names; 3. Add CDN for download; 1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc;  2. 改掉敏感路径名; 3. 下载增加 CDN
+>
+>2023.3.4 beta5 1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack; 1. 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性; 2. Argo 隧道支持双栈
+>
+>2023.3.2 beta4 Change listening to all network addresses to only Argo tunnel directed listening for added security; 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性
+>
+>2023.2.24 beta3 1. Simplify the operation of changing argo tunnel; 2. Use wget global instead of cURL; 1. 简化转换 Argo 隧道的方法; 2. 全局用 wget 替代 cURL
+>
+>2023.2.17 beta2 1. extremely fast installation mode, [-f] followed by a parameter file path; 2. Support for switching between the three argo tunnels; 3. Synchronise Argo and Xray to the latest version at any time; 4. Optimize the code to achieve speedup.
+>1.极速安装模式，[-f] 后带参数文件路径；2.安装后，支持三种argo隧道随意切换；3.随时同步Argo 和 Xray到最新版本；4.优化代码，达到提速的目的。
+</details>
 
 2023.2.16 beta1 Argo + Xray for vps
 
@@ -75,9 +81,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 <img width="1619" alt="image" src="https://user-images.githubusercontent.com/92626977/218253838-aa73b63d-1e8a-430e-b601-0b88730d03b0.png">
 
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
-
-
-## 鸣谢下列作者的文章和项目:
 
 
 ## 免责声明:
