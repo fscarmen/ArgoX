@@ -218,10 +218,12 @@ argo_variable() {
 
   if [ -n "$ARGO_DOMAIN" ]; then
     [ -z "$ARGO_AUTH" ] && reading "\n $(text 11) " ARGO_AUTH
-    if [[ $ARGO_AUTH =~ TunnelSecret ]]; then
+    if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
       ARGO_JSON=$ARGO_AUTH
-    elif [[ $ARGO_AUTH =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
+    elif [[ "$ARGO_AUTH" =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
       ARGO_TOKEN=$ARGO_AUTH
+    elif grep -qoP ".*cloudflared.*service install [A-Z0-9a-z=]{120,250}$" <<< "$ARGO_AUTH"; then
+      ARGO_TOKEN=$(awk -F ' ' '{print $NF}' <<< "$ARGO_AUTH")
     else
       error "\n $(text 45) \n"
     fi
@@ -252,8 +254,8 @@ xray_variable() {
 
 check_dependencies() {
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
-  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip")
-  DEPS_INSTALL=("iputils-ping" "wget" "systemctl" "iproute2" "unzip")
+  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip" "bash")
+  DEPS_INSTALL=("iputils-ping" "wget" "systemctl" "iproute2" "unzip" "bash")
   for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
   if [ "${#DEPS[@]}" -ge 1 ]; then
     info "\n $(text 7) ${DEPS[@]} \n"
@@ -264,6 +266,7 @@ check_dependencies() {
   fi
 }
 
+# Json 生成两个配置文件
 json_argo() {
   [ ! -e $WORK_DIR/tunnel.json ] && echo $ARGO_JSON > $WORK_DIR/tunnel.json
   [ ! -e $WORK_DIR/tunnel.yml ] && cat > $WORK_DIR/tunnel.yml << EOF
@@ -285,7 +288,7 @@ install_argox() {
   mkdir -p $WORK_DIR && echo "$L" > $WORK_DIR/language
   [ -e "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORK_DIR/
   # Argo 生成守护进程文件
-  [ ! -e $WORK_DIR/cloudflared ] && { mv $TEMP_DIR/cloudflared $WORK_DIR; }
+  [ ! -e $WORK_DIR/cloudflared ] && wait && { mv $TEMP_DIR/cloudflared $WORK_DIR; }
   if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
     json_argo
@@ -313,7 +316,7 @@ WantedBy=multi-user.target
 EOF
 
   # 生成配置文件及守护进程文件
-  [ ! -e $WORK_DIR/xray ] && { mv $TEMP_DIR/{xray,geo*.dat} $WORK_DIR; }
+  [ ! -e $WORK_DIR/xray ] && wait && { mv $TEMP_DIR/{xray,geo*.dat} $WORK_DIR; }
   cat > $WORK_DIR/config.json << EOF
 {
     "log":{
@@ -398,7 +401,7 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":true,
+                "enabled":false,
                 "destOverride":[
                     "http",
                     "tls"
@@ -425,7 +428,7 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":true,
+                "enabled":false,
                 "destOverride":[
                     "http",
                     "tls"
@@ -452,7 +455,7 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":true,
+                "enabled":false,
                 "destOverride":[
                     "http",
                     "tls"
@@ -480,7 +483,7 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":true,
+                "enabled":false,
                 "destOverride":[
                     "http",
                     "tls"
