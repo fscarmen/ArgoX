@@ -258,8 +258,8 @@ check_dependencies() {
     CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
-    DEPS_CHECK=("bash" "python3")
-    DEPS_INSTALL=("bash" "python3")
+    DEPS_CHECK=("bash" "python3" "rc-update")
+    DEPS_INSTALL=("bash" "python3" "openrc")
     for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
     if [ "${#DEPS[@]}" -ge 1 ]; then
       info "\n $(text 7) ${DEPS[@]} \n"
@@ -546,6 +546,18 @@ EOF
   check_install
   [[ ${STATUS[0]} = "$(text 27)" ]] && systemctl enable --now argo && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
   [[ ${STATUS[1]} = "$(text 27)" ]] && systemctl enable --now xray && info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
+  
+  # 如果 Alpine 系统，放到开机自启动
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    cat > /etc/local.d/argox.start << EOF
+#!/usr/bin/env bash
+
+systemctl start argo
+systemctl start xray
+EOF
+    chmod +x /etc/local.d/argox.start
+    rc-update add local
+  fi
 }
 
 export_list() {
@@ -645,6 +657,9 @@ uninstall() {
   else
     error "\n $(text 15) \n"
   fi
+
+  # 如果 Alpine 系统，删除开机自启动
+  [ "$SYSTEM" = 'Alpine' ] && ( rm -f /etc/local.d/argox.start; rc-update add local )
 }
 
 # Argo 与 Xray 的最新版本 
