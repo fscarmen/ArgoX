@@ -290,7 +290,7 @@ json_argo() {
   [ ! -e $WORK_DIR/tunnel.yml ] && cat > $WORK_DIR/tunnel.yml << EOF
 tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)
 credentials-file: $WORK_DIR/tunnel.json
-protocol: h2mux
+protocol: http2
 
 ingress:
   - hostname: ${ARGO_DOMAIN}
@@ -312,9 +312,9 @@ install_argox() {
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
     json_argo
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol h2mux run --token ${ARGO_TOKEN}"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --protocol h2mux --metrics localhost:$CLOUDFLARED_PORT --url http://localhost:8080"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --metrics localhost:$CLOUDFLARED_PORT --url http://localhost:8080"
   fi
 
   cat > /etc/systemd/system/argo.service << EOF
@@ -627,14 +627,14 @@ change_argo() {
     case "$CHANGE_TO" in
       1 ) systemctl disable --now argo
           [ -e $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol h2mux --no-autoupdate --metrics localhost:$CLOUDFLARED_PORT --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --metrics localhost:$CLOUDFLARED_PORT --url http://localhost:8080@g" /etc/systemd/system/argo.service
           systemctl enable --now argo
           ;;
       2 ) argo_variable
           systemctl disable --now argo
           if [ -n "$ARGO_TOKEN" ]; then
             [ -e $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-            sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol h2mux run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+            sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
           elif [ -n "$ARGO_JSON" ]; then
             [ -e $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
             json_argo            
