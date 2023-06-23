@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.0
+VERSION=1.1
 
 # 各变量默认值
 CDN='https://ghproxy.com'
@@ -18,8 +18,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc"
-C[1]="用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc"
+E[1]="For better network traffic diversion in various scenarios, split config.json into inbound.json and outbound.json"
+C[1]="为了更好的在各种情景下分流，把 config.json 拆分为 inbound.json 和 outbound.json"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -335,7 +335,7 @@ EOF
   local i=1
   [ ! -s $WORK_DIR/xray ] && wait && while [ "$i" -le 20 ]; do [[ -s $TEMP_DIR/xray && -s $TEMP_DIR/geoip.dat && -s $TEMP_DIR/geosite.dat ]] && mv $TEMP_DIR/{xray,geo*.dat} $WORK_DIR && break; ((i++)); sleep 2; done
   [ "$i" -ge 20 ] && local APP=Xray && error "\n $(text_eval 48) "
-  cat > $WORK_DIR/config.json << EOF
+  cat > $WORK_DIR/inbound.json << EOF
 {
     "log":{
         "access":"/dev/null",
@@ -514,7 +514,11 @@ EOF
         "servers":[
             "https+local://8.8.8.8/dns-query"
         ]
-    },
+    }
+}
+EOF
+  cat > $WORK_DIR/outbound.json << EOF
+{
     "outbounds":[
         {
             "protocol":"freedom"
@@ -533,7 +537,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 NoNewPrivileges=yes
-ExecStart=$WORK_DIR/xray run -c $WORK_DIR/config.json
+ExecStart=$WORK_DIR/xray run -confdir $WORK_DIR/
 Restart=on-failure
 RestartPreventExitStatus=23
 

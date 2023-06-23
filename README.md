@@ -9,10 +9,13 @@
 - [ArgoX for VPS 运行脚本](README.md#argox-for-vps-运行脚本)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
+- [各种场景下 xray outbound 和 routing 模板的说明](README.md#各种场景下-xray-outbound-和-routing-模板的说明)
 - [免责声明](README.md#免责声明)
 
 * * *
 ## 更新信息
+2023.6.23 For better network traffic diversion in various scenarios, split `config.json` into `inbound.json` and `outbound.json`; 为了更好的在各种情景下分流，把 `config.json` 拆分为 `inbound.json` 和 `outbound.json`
+
 2023.4.13 1.0 正式版
 
 <details>
@@ -81,6 +84,20 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 <img width="1619" alt="image" src="https://user-images.githubusercontent.com/92626977/218253838-aa73b63d-1e8a-430e-b601-0b88730d03b0.png">
 
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
+
+
+## 各种场景下 xray outbound 和 routing 模板的说明
+
+* 域名分类中包含的各具体域名: https://github.com/v2fly/domain-list-community/blob/master/data
+* Routing 路由说明: https://www.v2fly.org/config/routing.html
+* 修改 `/etc/argox/outbound.json`，注意: 请先备份好原 `outbound.json` 文件，修改的 json 做到 https://www.json.cn/ 查看格式
+* 修改后运行 `systemctl restart xray; sleep 1; systemctl is-active xray` ，反显 active 即生效，如为 failed 即为失败，请检查配置文件格式
+
+| 说明 | 模板示例 |
+| --- | ------ |
+| chatGPT 使用链式 warp 代理，不需要本地安装 warp，其余流量走 vps 默认的网络出口 | [warp](https://github.com/fscarmen/warp#通过-warp-解锁-chatgpt-的方法) |
+| 指定流量走本机指定的网络接口，对于双栈能区分 IPv4 或 IPv6，其余流量走 vps 默认的网络出口 | [interface](https://github.com/fscarmen/warp#指定网站分流到-interface-的-xray-配置模板适用于-warp-client-warp-和-warp-go-非全局) |
+| 指定流量走本机指定的socks5代理，对于双栈能区分 IPv4 或 IPv6，其余流量走 vps 默认的网络出口 | [socks5](https://github.com/fscarmen/warp#指定网站分流到-socks5-的-xray-配置模板-适用于-warp-client-proxy-和-wireproxy) |
 
 
 ## 免责声明:
