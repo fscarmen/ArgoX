@@ -115,15 +115,22 @@ C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运
 E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
 
-# 自定义字体彩色，read 函数，友道翻译函数
+# 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
 error() { echo -e "\033[31m\033[01m$*\033[0m" && exit 1; } # 红色
 info() { echo -e "\033[32m\033[01m$*\033[0m"; }   # 绿色
 hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
-reading() { read -rp "$(info "$1")" "$2"; } 
+reading() { read -rp "$(info "$1")" "$2"; }
 text() { eval echo "\${${L}[$*]}"; }
 text_eval() { eval echo "\$(eval echo "\${${L}[$*]}")"; }
-translate() { [ -n "$1" ] && wget -qO- -t1T1 "http://fanyi.youdao.com/translate?&doctype=json&type=EN2ZH_CN&i=${1//[[:space:]]/}" | cut -d \" -f18 2>/dev/null; }
+
+# 自定义友道或谷歌翻译函数
+#translate() { [ -n "$1" ] && wget -qO- -t1T2 "http://fanyi.youdao.com/translate?&doctype=json&type=EN2ZH_CN&i=${1//[[:space:]]/}" | cut -d \" -f18 2>/dev/null; }
+translate() {
+  [ -n "$@" ] && EN="$@"
+  ZH=$(wget -qO- -t1T2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}")
+  [[ "$ZH" =~ ^\[\".+\"\]$ ]] && cut -d \" -f2 <<< "$ZH"
+}
 
 # 选择中英语言
 select_language() {
@@ -318,7 +325,7 @@ install_argox() {
 [Unit]
 Description=Cloudflare Tunnel
 After=network.target
-   
+
 [Service]
 Type=simple
 NoNewPrivileges=yes
@@ -549,7 +556,7 @@ EOF
   check_install
   [[ ${STATUS[0]} = "$(text 27)" ]] && systemctl enable --now argo && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
   [[ ${STATUS[1]} = "$(text 27)" ]] && systemctl enable --now xray && info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
-  
+
   # 如果 Alpine 系统，放到开机自启动
   if [ "$SYSTEM" = 'Alpine' ]; then
     cat > /etc/local.d/argox.start << EOF
@@ -573,7 +580,7 @@ export_list() {
   fi
   SERVER=${SERVER:-"$(grep -m1 '^vless' $WORK_DIR/list | sed "s/.*@\(.*\):443.*/\1/g")"}
   UUID=${UUID:-"$(grep 'password' $WORK_DIR/inbound.json | awk -F \" 'NR==1{print $4}')"}
-  WS_PATH=${WS_PATH:-"$(grep -m1 'path.*vm' $WORK_DIR/inbound.json | sed "s@.*/\(.*\)-vm.*@\1@g")"} 
+  WS_PATH=${WS_PATH:-"$(grep -m1 'path.*vm' $WORK_DIR/inbound.json | sed "s@.*/\(.*\)-vm.*@\1@g")"}
 
   # 生成配置文件
   VMESS="{ \"v\": \"2\", \"ps\": \"ArgoX-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
@@ -618,7 +625,7 @@ change_argo() {
   check_install
   [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
 
-  case $(grep "ExecStart" /etc/systemd/system/argo.service) in 
+  case $(grep "ExecStart" /etc/systemd/system/argo.service) in
     *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$CLOUDFLARED_PORT/quicktunnel | cut -d\" -f4) ;;
@@ -640,7 +647,7 @@ change_argo() {
             sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
           elif [ -n "$ARGO_JSON" ]; then
             [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-            json_argo            
+            json_argo
             sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
           fi
           systemctl enable --now argo
@@ -665,7 +672,7 @@ uninstall() {
   [ "$SYSTEM" = 'Alpine' ] && ( rm -f /etc/local.d/argox.start; rc-update add local )
 }
 
-# Argo 与 Xray 的最新版本 
+# Argo 与 Xray 的最新版本
 version() {
   # Argo 版本
   local ONLINE=$(wget -qO- "https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
