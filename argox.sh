@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.1
+VERSION=1.2
 
 # 各变量默认值
 CDN='https://ghproxy.com'
-SERVER_DEFAULT='icook.tw'
 UUID_DEFAULT='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
-CLOUDFLARED_PORT='54321'
 TEMP_DIR='/tmp/argox'
+CDN_DOMAIN=("www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cfip.gay")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -18,8 +17,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="For better network traffic diversion in various scenarios, split config.json into inbound.json and outbound.json"
-C[1]="为了更好的在各种情景下分流，把 config.json 拆分为 inbound.json 和 outbound.json"
+E[1]="1. Add the option to use Warp for returning to China; 2. Add a number of quality cdn's that are collected online. 3. Use Warp IPv6 to visit chatGPT."
+C[1]="1. 增加使用 Warp 回国选项; 2. 增加线上收录的若干优质 cdn; 3. 使用 Warp IPv6 访问 chatGPT"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -100,8 +99,8 @@ E[40]="Argo tunnel is: \$ARGO_TYPE\\\n The domain is: \$ARGO_DOMAIN"
 C[40]="Argo 隧道类型为: \$ARGO_TYPE\\\n 域名是: \$ARGO_DOMAIN"
 E[41]="Argo tunnel type:\n 1. Try\n 2. Token or Json"
 C[41]="Argo 隧道类型:\n 1. Try\n 2. Token 或者 Json"
-E[42]="Please input Xray Server \(Default is \$SERVER_DEFAULT\):"
-C[42]="请输入 Xray server \(默认为 \$SERVER_DEFAULT\):"
+E[42]="Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
+C[42]="请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
 E[43]="\$APP local verion: \$LOCAL.\\\t The newest verion: \$ONLINE"
 C[43]="\$APP 本地版本: \$LOCAL.\\\t 最新版本: \$ONLINE"
 E[44]="No upgrade required."
@@ -114,6 +113,14 @@ E[47]="The script must be run as root, you can enter sudo -i and then download a
 C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运行，问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[49]="Do you use warp to access mainland websites?\n Pros: Increase security by using Cloudflare on 104.28.x.x to access domestic websites.\n Cons: Slows down access."
+C[49]="是否使用 warp 访问大陆网站功能?\n 优点: 使用 104.28.x.x 的 Cloudflare 访问国内网站，增加安全性\n 缺点: 减慢访问速度"
+E[50]="Use warp to access mainland websites"
+C[50]="warp 回国"
+E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
+C[51]="安装 Sing-box 协议全家桶脚本 [https://github.com/fscarmen/sing-box]"
+E[52]="Default: [Disabled]. Press [y] if you need it:"
+C[52]="默认为: [不需要]，如需开启请按 [y]:"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -125,7 +132,6 @@ text() { eval echo "\${${L}[$*]}"; }
 text_eval() { eval echo "\$(eval echo "\${${L}[$*]}")"; }
 
 # 自定义友道或谷歌翻译函数
-#translate() { [ -n "$1" ] && wget -qO- -t1T2 "http://fanyi.youdao.com/translate?&doctype=json&type=EN2ZH_CN&i=${1//[[:space:]]/}" | cut -d \" -f18 2>/dev/null; }
 translate() {
   [ -n "$@" ] && EN="$@"
   ZH=$(wget -qO- -t1T2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}")
@@ -234,8 +240,29 @@ argo_variable() {
 
 # 定义 Xray 变量
 xray_variable() {
-  [ -z "$SERVER" ] && reading "\n $(text_eval 42) " SERVER
-  SERVER=${SERVER:-"$SERVER_DEFAULT"}
+  # 提供网上热心网友的anycast域名
+  if [ -z "$SERVER" ]; then
+    echo ""
+    for ((c=0; c<${#CDN_DOMAIN[@]}; c++)); do
+      hint " $[c+1]. ${CDN_DOMAIN[c]} "
+    done
+
+    reading "\n $(text_eval 42) " CUSTOM_CDN
+    case "$CUSTOM_CDN" in
+      [1-${#CDN_DOMAIN[@]}] )
+        SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}"
+      ;;
+      ?????* )
+        SERVER="$CUSTOM_CDN"
+      ;;
+      * )
+        SERVER="${CDN_DOMAIN[0]}"
+    esac
+  fi
+
+  # 是否开启禁止归国模式，默认不开启
+  [ -z "$RETURN" ] && hint "\n $(text 49) " && reading "\n $(text 52) " RETURN
+  RETURN=$(tr 'A-Z' 'a-z' <<< "$RETURN")
 
   [ -z "$UUID" ] && reading "\n $(text_eval 12) " UUID
   local a=5
@@ -274,8 +301,8 @@ check_dependencies() {
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
   unset DEPS_CHECK DEPS_INSTALL DEPS
-  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip" "bash")
-  DEPS_INSTALL=("iputils-ping" "wget" "systemctl" "iproute2" "unzip" "bash")
+  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip" "bash" "pidof")
+  DEPS_INSTALL=("iputils-ping" "wget" "systemctl" "iproute2" "unzip" "bash" "pidof")
   for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
   if [ "${#DEPS[@]}" -ge 1 ]; then
     info "\n $(text 7) ${DEPS[@]} \n"
@@ -318,7 +345,7 @@ install_argox() {
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --metrics localhost:$CLOUDFLARED_PORT --url http://localhost:8080"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --url http://localhost:8080"
   fi
 
   cat > /etc/systemd/system/argo.service << EOF
@@ -426,10 +453,11 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":false,
+                "enabled":true,
                 "destOverride":[
                     "http",
-                    "tls"
+                    "tls",
+                    "quic"
                 ],
                 "metadataOnly":false
             }
@@ -453,10 +481,11 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":false,
+                "enabled":true,
                 "destOverride":[
                     "http",
-                    "tls"
+                    "tls",
+                    "quic"
                 ],
                 "metadataOnly":false
             }
@@ -480,10 +509,11 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":false,
+                "enabled":true,
                 "destOverride":[
                     "http",
-                    "tls"
+                    "tls",
+                    "quic"
                 ],
                 "metadataOnly":false
             }
@@ -508,10 +538,11 @@ EOF
                 }
             },
             "sniffing":{
-                "enabled":false,
+                "enabled":true,
                 "destOverride":[
                     "http",
-                    "tls"
+                    "tls",
+                    "quic"
                 ],
                 "metadataOnly":false
             }
@@ -528,11 +559,116 @@ EOF
 {
     "outbounds":[
         {
-            "protocol":"freedom"
+            "protocol":"freedom",
+            "tag":"direct"
+        },
+        {
+            "protocol":"blackhole",
+            "settings":{
+
+            },
+            "tag":"block"
+        },
+        {
+            "protocol":"wireguard",
+            "settings":{
+                "secretKey":"YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+                "address":[
+                    "172.16.0.2/32",
+                    "2606:4700:110:8a36:df92:102a:9602:fa18/128"
+                ],
+                "peers":[
+                    {
+                        "publicKey":"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                        "allowedIPs":[
+                            "0.0.0.0/0",
+                            "::/0"
+                        ],
+                        "endpoint":"engage.cloudflareclient.com:2408"
+                    }
+                ],
+                "reserved":[
+                    78,
+                    135,
+                    76
+                ],
+                "mtu":1280
+            },
+            "tag":"wireguard"
+        },
+        {
+            "protocol":"freedom",
+            "settings":{
+                "domainStrategy":"UseIPv4"
+            },
+            "proxySettings":{
+                "tag":"wireguard"
+            },
+            "tag":"warp-IPv4"
+        },
+        {
+            "protocol":"freedom",
+            "settings":{
+                "domainStrategy":"UseIPv6"
+            },
+            "proxySettings":{
+                "tag":"wireguard"
+            },
+            "tag":"warp-IPv6"
         }
-    ]
+    ],
+    "routing":{
+        "domainStrategy":"AsIs",
+        "rules":[
+            {
+                "type":"field",
+                "domain":[
+                    "none"
+                ],
+                "outboundTag":"warp-IPv4"
+            },
+            {
+                "type":"field",
+                "domain":[
+                    "geosite:openai"
+                ],
+                "outboundTag":"warp-IPv6"
+            },
+            {
+                "type":"field",
+                "ip":[
+                    "geoip:cn"
+                ],
+                "outboundTag":"direct"
+            },
+            {
+                "type":"field",
+                "domain":[
+                    "geosite:cn"
+                ],
+                "outboundTag":"direct"
+            },
+            {
+                "type":"field",
+                "ip":[
+                    "geoip:cn"
+                ],
+                "outboundTag":"direct"
+            },
+            {
+                "type":"field",
+                "domain":[
+                    "geosite:cn"
+                ],
+                "outboundTag":"direct"
+            }
+        ]
+    }
 }
 EOF
+
+  # 禁止回国开启时，修改路由规则文件
+  [[ "$RETURN" =~ 'y' ]] && local ROW_NUMS=($(grep -n '"outboundTag"' $WORK_DIR/outbound.json | awk -F ':' '{print $1}')) && sed -i "${ROW_NUMS[2]},${ROW_NUMS[3]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv4/; ${ROW_NUMS[4]},${ROW_NUMS[5]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv6/" $WORK_DIR/outbound.json
 
   cat > /etc/systemd/system/xray.service << EOF
 [Unit]
@@ -574,7 +710,7 @@ export_list() {
   check_install
 
   if grep -q "^ExecStart.*8080$" /etc/systemd/system/argo.service; then
-    sleep 5 && ARGO_DOMAIN=$(wget -qO- http://localhost:$CLOUDFLARED_PORT/quicktunnel | cut -d\" -f4)
+    sleep 5 && ARGO_DOMAIN=$(wget -qO- http://$(ss -nltp | awk '/cloudflared/{print $4}')/quicktunnel | cut -d\" -f4)
   else
     ARGO_DOMAIN=${ARGO_DOMAIN:-"$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")"}
   fi
@@ -628,7 +764,7 @@ change_argo() {
   case $(grep "ExecStart" /etc/systemd/system/argo.service) in
     *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$CLOUDFLARED_PORT/quicktunnel | cut -d\" -f4) ;;
+    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://$(ss -nltp | awk '/cloudflared/{print $4}')/quicktunnel | cut -d\" -f4) ;;
   esac
 
   hint "\n $(text_eval 40) \n"
@@ -637,7 +773,7 @@ change_argo() {
     case "$CHANGE_TO" in
       1 ) systemctl disable --now argo
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --metrics localhost:$CLOUDFLARED_PORT --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
           systemctl enable --now argo
           ;;
       2 ) argo_variable
@@ -670,6 +806,23 @@ uninstall() {
 
   # 如果 Alpine 系统，删除开机自启动
   [ "$SYSTEM" = 'Alpine' ] && ( rm -f /etc/local.d/argox.start; rc-update add local )
+}
+
+# 禁止回国切换
+switch_return() {
+  local ROW_NUMS=($(grep -n '"outboundTag"' $WORK_DIR/outbound.json | awk -F ':' '{print $1}'))
+  if grep -q 'outboundTag.*direct' $WORK_DIR/outbound.json; then
+    sed -i "${ROW_NUMS[2]},${ROW_NUMS[3]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv4/; ${ROW_NUMS[4]},${ROW_NUMS[5]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv6/" $WORK_DIR/outbound.json
+  else
+    sed -i "${ROW_NUMS[2]},${ROW_NUMS[5]}s/\(\"outboundTag\":\"\)[^\"]*/\1direct/" $WORK_DIR/outbound.json
+  fi
+
+  systemctl restart xray && sleep 2
+  if [ "$(systemctl is-active xray)" = 'active' ]; then
+    grep -q 'outboundTag.*direct' $WORK_DIR/outbound.json && info "\n $(text 50) $(text 27) $(text 37) " || info "\n $(text 50) $(text 28) $(text 37) "
+  else
+    error "Xray $(text 28) $(text 38) "
+  fi
 }
 
 # Argo 与 Xray 的最新版本
@@ -715,31 +868,39 @@ menu_setting() {
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      ss -nltp | grep -q "127\.0\.0\.1:$CLOUDFLARED_PORT.*cloudflared" && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:$CLOUDFLARED_PORT/healthcheck | sed "s/OK/$(text 37)/")"
+      ss -nltp | grep -q "127\.0\.0\.1:$(pidof cloudflared).*cloudflared" && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://$(ss -nltp | awk '/cloudflared/{print $4}')/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
+    [ -s $WORK_DIR/outbound.json ] && { grep -q 'outboundTag.*direct' $WORK_DIR/outbound.json && RETURN_STATUS=$(text 27) || RETURN_STATUS=$(text 28); }
+
     OPTION[1]="1.  $(text 29)"
     [ ${STATUS[0]} = "$(text 28)" ] && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
     [ ${STATUS[1]} = "$(text 28)" ] && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
     OPTION[4]="4.  $(text 30)"
     OPTION[5]="5.  $(text 31)"
-    OPTION[6]="6.  $(text 32)"
-    OPTION[7]="7.  $(text 33)"
+    [ "$RETURN_STATUS" = "$(text 27)" ] && OPTION[6]="6.  $(text 28) $(text 50)" || OPTION[6]="6.  $(text 27) $(text 50)"
+    OPTION[7]="7.  $(text 32)"
+    OPTION[8]="8.  $(text 33)"
+    OPTION[9]="9.  $(text 51)"
 
     ACTION[1]() { export_list; }
     [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { systemctl disable --now argo; [ "$(systemctl is-active argo)" = 'inactive' ] && info " Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || ACTION[2]() { systemctl enable --now argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; }
     [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ "$(systemctl is-active xray)" = 'inactive' ] && info " Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ "$(systemctl is-active xray)" = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; }
     ACTION[4]() { change_argo; }
     ACTION[5]() { version; }
-    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
-    ACTION[7]() { uninstall; }
+    ACTION[6]() { switch_return; }
+    ACTION[7]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
+    ACTION[8]() { uninstall; }
+    ACTION[9]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
 
   else
     OPTION[1]="1.  $(text 34)"
     OPTION[2]="2.  $(text 32)"
+    OPTION[3]="3.  $(text 51)"
 
     ACTION[1]() { install_argox; export_list; }
     ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
+    ACTION[3]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
   fi
 }
 
@@ -751,6 +912,7 @@ menu() {
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
   info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $ARGO_CHECKHEALTH\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION"
+  [ -n "$RETURN_STATUS" ] && info "\t $(text 50): $RETURN_STATUS "
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "
@@ -768,13 +930,14 @@ menu() {
 [[ "$*" =~ -[Ee] ]] && L=E
 [[ "$*" =~ -[Cc] ]] && L=C
 
-while getopts ":SsUuVvLlF:f:" OPTNAME; do
+while getopts ":SsUuVvNnRrF:f:" OPTNAME; do
   case "$OPTNAME" in
     'S'|'s' ) select_language; change_argo; exit 0 ;;
     'U'|'u' ) select_language; uninstall; exit 0;;
-    'L'|'l' ) select_language; export_list; exit 0 ;;
+    'N'|'n' ) select_language; export_list; exit 0 ;;
     'V'|'v' ) select_language; check_arch; version; exit 0;;
     'F'|'f' ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
+    'R'|'r' ) select_language; switch_return; exit 0 ;;
   esac
 done
 
