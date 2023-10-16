@@ -15,16 +15,18 @@
 
 * * *
 ## 更新信息
+2023.10.16 V1.3 1. Support Alpine; 2. Add Sing-box PID, runtime, and memory usage to the menu; 3. Remove the option of using warp on returning to China; 支持 Alpine; 2. 菜单中增加 sing-box 内存占用显示; 3. 去掉使用 warp 回国的选项
+
 2023.10.11 V1.2 1. Add the option of blocking on returning to China; 2. Add a number of quality cdn's that are collected online; 3. Use Warp IPv6 to visit chatGPT; 1. 增加禁止归国选项; 2. 增加线上收录的若干优质 cdn 3. 使用 Warp IPv6 访问 chatGPT
-
-2023.6.23 V1.1 For better network traffic diversion in various scenarios, split `config.json` into `inbound.json` and `outbound.json`; 为了更好的在各种情景下分流，把 `config.json` 拆分为 `inbound.json` 和 `outbound.json`
-
-2023.4.13 1.0 正式版
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2023.6.23 V1.1 For better network traffic diversion in various scenarios, split `config.json` into `inbound.json` and `outbound.json`; 为了更好的在各种情景下分流，把 `config.json` 拆分为 `inbound.json` 和 `outbound.json`
+>
+>2023.4.13 1.0 正式版
+>
 >2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc ; 2. Change the sensitive path names; 3. Add CDN for download; 1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc;  2. 改掉敏感路径名; 3. 下载增加 CDN
 >
 >2023.3.4 beta5 1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack; 1. 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性; 2. Argo 隧道支持双栈
@@ -67,7 +69,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -u         | Uninstall 卸载 |
   | -n         | Export Nodes list 显示节点信息 |
   | -v         | Sync Argo Xray to the newest 同步 Argo Xray 到最新版本 |
-  | -g         | Enable or disalbe Warp IPv4 for returning to China 切换 Warp IPv4 回国功能的开启和关闭 |
 
 
 ## Argo Json 的获取

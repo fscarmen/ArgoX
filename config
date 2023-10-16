@@ -12,4 +12,3 @@ ARGO_AUTH=''
 SERVER='icook.hk'
 UUID='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH='argox'
-RETURN='n' # Use Warp IPv4 for returning to China. [n] for disable; [y] for enable

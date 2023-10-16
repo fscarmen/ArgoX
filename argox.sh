@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.2
+VERSION=1.3
 
 # 各变量默认值
 CDN='https://ghproxy.com'
@@ -17,8 +17,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add the option to use Warp for returning to China; 2. Add a number of quality cdn's that are collected online. 3. Use Warp IPv6 to visit chatGPT."
-C[1]="1. 增加使用 Warp 回国选项; 2. 增加线上收录的若干优质 cdn; 3. 使用 Warp IPv6 访问 chatGPT"
+E[1]="1. Support Alpine; 2. Add Sing-box PID, runtime, and memory usage to the menu; 3. Remove the option of using warp on returning to China."
+C[1]="1. 支持 Alpine; 2. 菜单中增加 sing-box 内存占用显示; 3. 去掉使用 warp 回国的选项"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -113,14 +113,16 @@ E[47]="The script must be run as root, you can enter sudo -i and then download a
 C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运行，问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
-E[49]="Do you use warp to access mainland websites?\n Pros: Increase security by using Cloudflare on 104.28.x.x to access domestic websites.\n Cons: Slows down access."
-C[49]="是否使用 warp 访问大陆网站功能?\n 优点: 使用 104.28.x.x 的 Cloudflare 访问国内网站，增加安全性\n 缺点: 减慢访问速度"
-E[50]="Use warp to access mainland websites"
-C[50]="warp 回国"
+E[49]="Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
+C[49]="请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
+E[50]="Argo or Xray services are not enabled, node information cannot be output. Press [y] if you want to open."
+C[50]="\${APP[@]} 服务未开启，不能输出节点信息。如需打开请按 [y]: "
 E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
 C[51]="安装 Sing-box 协议全家桶脚本 [https://github.com/fscarmen/sing-box]"
-E[52]="Default: [Disabled]. Press [y] if you need it:"
-C[52]="默认为: [不需要]，如需开启请按 [y]:"
+E[52]="Memory Usage"
+C[52]="内存占用"
+E[53]="The xray service is detected to be installed. Script exits."
+C[53]="检测到已安装 xray 服务，脚本退出!"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -168,15 +170,53 @@ check_arch() {
 # 查安装及运行状态，下标0: argo，下标1: xray，下标2：docker；状态码: 26 未安装， 27 已安装未运行， 28 运行中
 check_install() {
   STATUS[0]=$(text 26) && [ -s /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ "$(systemctl is-active argo)" = 'active' ] && STATUS[0]=$(text 28)
-  STATUS[1]=$(text 26) && [ -s /etc/systemd/system/xray.service ] && STATUS[1]=$(text 27) && [ "$(systemctl is-active xray)" = 'active' ] && STATUS[1]=$(text 28)
+  STATUS[1]=$(text 26)
+  # xray systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
+  if [ -s /etc/systemd/system/xray.service ]; then
+    ! grep -q "$WORK_DIR" /etc/systemd/system/xray.service && error " $(text 53)\n $(grep 'ExecStart=' /etc/systemd/system/xray.service) "
+    STATUS[1]=$(text 27) && [ "$(systemctl is-active xray)" = 'active' ] && STATUS[1]=$(text 28)
+  fi
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] && { wget -qO $TEMP_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1; }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/xray ] && { wget -qO $TEMP_DIR/Xray.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip >/dev/null 2>&1; unzip -qo $TEMP_DIR/Xray.zip xray *.dat -d $TEMP_DIR >/dev/null 2>&1; }&
 }
 
+# 为了适配 alpine，定义 cmd_systemctl 的函数
+cmd_systemctl() {
+  local ENABLE_DISABLE=$1
+  local APP=$2
+  if [ "$ENABLE_DISABLE" = 'enable' ]; then
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      systemctl start $APP
+      cat > /etc/local.d/$APP.start << EOF
+#!/usr/bin/env bash
+
+systemctl start $APP
+EOF
+      chmod +x /etc/local.d/$APP.start
+      rc-update add local >/dev/null 2>&1
+    else
+      systemctl enable --now $APP
+    fi
+
+  elif [ "$ENABLE_DISABLE" = 'disable' ]; then
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      systemctl stop $APP
+      rm -f /etc/local.d/$APP.start
+    else
+      systemctl disable --now $APP
+    fi
+  fi
+}
+
 check_system_info() {
-  # 判断虚拟化，选择 Wireguard内核模块 还是 Wireguard-Go
-  VIRT=$(systemd-detect-virt 2>/dev/null | tr 'A-Z' 'a-z')
-  [ -n "$VIRT" ] || VIRT=$(hostnamectl 2>/dev/null | tr 'A-Z' 'a-z' | grep virtualization | sed "s/.*://g")
+  # 判断虚拟化
+  if [ $(type -p systemd-detect-virt) ]; then
+    VIRT=$(systemd-detect-virt)
+  elif [ $(type -p hostnamectl) ]; then
+    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
+  elif [ $(type -p virt-what) ]; then
+    VIRT=$(virt-what)
+  fi
 
   [ -s /etc/os-release ] && SYS="$(grep -i pretty_name /etc/os-release | cut -d \" -f2)"
   [[ -z "$SYS" && $(type -p hostnamectl) ]] && SYS="$(hostnamectl | grep -i system | cut -d : -f2)"
@@ -187,7 +227,7 @@ check_system_info() {
 
   REGEX=("debian" "ubuntu" "centos|red hat|kernel|oracle linux|alma|rocky" "amazon linux" "arch linux" "alpine")
   RELEASE=("Debian" "Ubuntu" "CentOS" "CentOS" "Arch" "Alpine")
-  EXCLUDE=("bookworm")
+  EXCLUDE=("")
   MAJOR=("9" "16" "7" "7" "" "")
   PACKAGE_UPDATE=("apt -y update" "apt -y update" "yum -y update" "yum -y update" "pacman -Sy" "apk update -f")
   PACKAGE_INSTALL=("apt -y install" "apt -y install" "yum -y install" "yum -y install" "pacman -S --noconfirm" "apk add --no-cache")
@@ -230,7 +270,7 @@ argo_variable() {
       ARGO_JSON=$ARGO_AUTH
     elif [[ "$ARGO_AUTH" =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
       ARGO_TOKEN=$ARGO_AUTH
-    elif grep -qoP ".*cloudflared.*service install [A-Z0-9a-z=]{120,250}$" <<< "$ARGO_AUTH"; then
+    elif [[ "$ARGO_AUTH" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[A-Z0-9a-z=]{1,100} ]]; then
       ARGO_TOKEN=$(awk -F ' ' '{print $NF}' <<< "$ARGO_AUTH")
     else
       error "\n $(text 45) \n"
@@ -260,10 +300,6 @@ xray_variable() {
     esac
   fi
 
-  # 是否开启禁止归国模式，默认不开启
-  [ -z "$RETURN" ] && hint "\n $(text 49) " && reading "\n $(text 52) " RETURN
-  RETURN=$(tr 'A-Z' 'a-z' <<< "$RETURN")
-
   [ -z "$UUID" ] && reading "\n $(text_eval 12) " UUID
   local a=5
   until [[ -z "$UUID" || "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]]; do
@@ -279,6 +315,17 @@ xray_variable() {
     [ "$a" = 0 ] && error " $(text 3) " || reading " $(text_eval 14) " WS_PATH
   done
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
+
+  # 输入节点名，以系统的 hostname 作为默认
+  if [ -s /etc/hostname ]; then
+    NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+  elif [ $(type -p hostname) ]; then
+    NODE_NAME_DEFAULT="$(hostname)"
+  else
+    NODE_NAME_DEFAULT="ArgoX"
+  fi
+  reading "\n $(text_eval 49) " NODE_NAME
+  NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
 }
 
 check_dependencies() {
@@ -287,8 +334,8 @@ check_dependencies() {
     CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
-    DEPS_CHECK=("bash" "python3" "rc-update")
-    DEPS_INSTALL=("bash" "python3" "openrc")
+    DEPS_CHECK=("bash" "python3" "rc-update" "ss" "virt-what")
+    DEPS_INSTALL=("bash" "python3" "openrc" "iproute2" "virt-what")
     for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
     if [ "${#DEPS[@]}" -ge 1 ]; then
       info "\n $(text 7) ${DEPS[@]} \n"
@@ -301,8 +348,8 @@ check_dependencies() {
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
   unset DEPS_CHECK DEPS_INSTALL DEPS
-  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip" "bash" "pidof")
-  DEPS_INSTALL=("iputils-ping" "wget" "systemctl" "iproute2" "unzip" "bash" "pidof")
+  DEPS_CHECK=("ping" "wget" "systemctl" "ip" "unzip" "bash")
+  DEPS_INSTALL=("iputils-ping" "wget" "systemctl" "iproute2" "unzip" "bash")
   for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
   if [ "${#DEPS[@]}" -ge 1 ]; then
     info "\n $(text 7) ${DEPS[@]} \n"
@@ -633,42 +680,11 @@ EOF
                     "geosite:openai"
                 ],
                 "outboundTag":"warp-IPv6"
-            },
-            {
-                "type":"field",
-                "ip":[
-                    "geoip:cn"
-                ],
-                "outboundTag":"direct"
-            },
-            {
-                "type":"field",
-                "domain":[
-                    "geosite:cn"
-                ],
-                "outboundTag":"direct"
-            },
-            {
-                "type":"field",
-                "ip":[
-                    "geoip:cn"
-                ],
-                "outboundTag":"direct"
-            },
-            {
-                "type":"field",
-                "domain":[
-                    "geosite:cn"
-                ],
-                "outboundTag":"direct"
             }
         ]
     }
 }
 EOF
-
-  # 禁止回国开启时，修改路由规则文件
-  [[ "$RETURN" =~ 'y' ]] && local ROW_NUMS=($(grep -n '"outboundTag"' $WORK_DIR/outbound.json | awk -F ':' '{print $1}')) && sed -i "${ROW_NUMS[2]},${ROW_NUMS[3]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv4/; ${ROW_NUMS[4]},${ROW_NUMS[5]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv6/" $WORK_DIR/outbound.json
 
   cat > /etc/systemd/system/xray.service << EOF
 [Unit]
@@ -690,68 +706,101 @@ EOF
 
   # 再次检测状态，运行 Argo 和 Xray
   check_install
-  [[ ${STATUS[0]} = "$(text 27)" ]] && systemctl enable --now argo && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
-  [[ ${STATUS[1]} = "$(text 27)" ]] && systemctl enable --now xray && info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
+  case "${STATUS[0]}" in
+    "$(text 26)" )
+      warning "\n Argo $(text 28) $(text 38) \n"
+      ;;
+    "$(text 27)" )
+      cmd_systemctl enable argo && info "\n Argo $(text 28) $(text 37) \n"
+      ;;
+    "$(text 28)" )
+      info "\n Argo $(text 28) $(text 37) \n"
+  esac
 
-  # 如果 Alpine 系统，放到开机自启动
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    cat > /etc/local.d/argox.start << EOF
-#!/usr/bin/env bash
-
-systemctl start argo
-systemctl start xray
-EOF
-    chmod +x /etc/local.d/argox.start
-    rc-update add local
-  fi
+  case "${STATUS[0]}" in
+    "$(text 26)" )
+      warning "\n Xray $(text 28) $(text 38) \n"
+      ;;
+    "$(text 27)" )
+      cmd_systemctl enable xray && info "\n Xray $(text 28) $(text 37) \n"
+      ;;
+    "$(text 28)" )
+      info "\n Xray $(text 28) $(text 37) \n"
+  esac
 }
 
 export_list() {
   check_install
+  # 没有开启 Argo 和 Xray 服务，将不输出节点信息
+  local APP
+  [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(argo)
+  [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(xray)
+  if [ "${#APP[@]}" -gt 0 ]; then
+    reading "\n $(text_eval 50) " OPEN_APP
+    if [[ "$OPEN_APP" = [Yy] ]]; then
+      [ "${STATUS[0]}" != "$(text 28)" ] && cmd_systemctl enable argo
+      [ "${STATUS[1]}" != "$(text 28)" ] && cmd_systemctl enable xray
+    else
+      exit
+    fi
+  fi
 
   if grep -q "^ExecStart.*8080$" /etc/systemd/system/argo.service; then
     sleep 5 && ARGO_DOMAIN=$(wget -qO- http://$(ss -nltp | awk '/cloudflared/{print $4}')/quicktunnel | cut -d\" -f4)
   else
     ARGO_DOMAIN=${ARGO_DOMAIN:-"$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")"}
   fi
-  SERVER=${SERVER:-"$(grep -m1 '^vless' $WORK_DIR/list | sed "s/.*@\(.*\):443.*/\1/g")"}
+  SERVER=${SERVER:-"$(sed -n "/type: vless/s/.*server:[ ]*\([^,]*\),.*/\1/gp" $WORK_DIR/list)"}
   UUID=${UUID:-"$(grep 'password' $WORK_DIR/inbound.json | awk -F \" 'NR==1{print $4}')"}
   WS_PATH=${WS_PATH:-"$(grep -m1 'path.*vm' $WORK_DIR/inbound.json | sed "s@.*/\(.*\)-vm.*@\1@g")"}
+  NODE_NAME=${NODE_NAME:-"$(sed -n "/type:[ ]*vless/s/.*{name:[ ]*[\"]*\([^-]*\)-.*/\1/gp" $WORK_DIR/list)"}
 
   # 生成配置文件
-  VMESS="{ \"v\": \"2\", \"ps\": \"ArgoX-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
+  VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
   cat > $WORK_DIR/list << EOF
 *******************************************
-V2-rayN:
+┌────────────────┐  ┌────────────────┐
+│                │  │                │
+│     $(warning "V2rayN")     │  │    $(warning "NekoBox")     │
+│                │  │                │
+└────────────────┘  └────────────────┘
 ----------------------------
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl#ArgoX-Vl
-----------------------------
-vmess://$(base64 -w0 <<< $VMESS)
-----------------------------
-trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-tr#ArgoX-Tr
-----------------------------
-ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)@${SERVER}:443#ArgoX-Sh
-由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /${WS_PATH}-sh , 传输层安全: tls , sni: ${ARGO_DOMAIN}
+$(info "vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl#${NODE_NAME}-Vl
+
+vmess://$(base64 -w0 <<< $VMESS | sed "s/Cg==$//")
+
+trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-tr#${NODE_NAME}-Tr
+
+ss://$(base64 -w0 <<< chacha20-ietf-poly1305:${UUID}@${SERVER}:443 | sed "s/Cg==$//")@${SERVER}:443#${NODE_NAME}-Sh
+由于该软件导出的链接不全，请自行处理如下: 传输协议: WS , 伪装域名: ${ARGO_DOMAIN} , 路径: /${WS_PATH}-sh , 传输层安全: tls , sni: ${ARGO_DOMAIN}")
 *******************************************
-小火箭 Shadowrocket:
+┌────────────────┐
+│                │
+│  $(warning "Shadowrocket")  │
+│                │
+└────────────────┘
 ----------------------------
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&sni=${ARGO_DOMAIN}#ArgoX-Vl
-----------------------------
-vmess://$(echo "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=ArgoX-Vm&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0
-----------------------------
-trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr#ArgoX-Tr
-----------------------------
-ss://$(echo "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?obfs=wss&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-sh#ArgoX-Sh
+$(hint "vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&sni=${ARGO_DOMAIN}#${NODE_NAME}-Vl
+
+vmess://$(base64 -w0 <<< none:${UUID}@${SERVER}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}-Vm&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0
+
+trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr#${NODE_NAME}-Tr
+
+ss://$(base64 -w0 <<< chacha20-ietf-poly1305:${UUID}@${SERVER}:443 | sed "s/Cg==$//")?obfs=wss&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-sh#${NODE_NAME}-Sh")
 *******************************************
-Clash:
+┌────────────────┐
+│                │
+│   $(warning "Clash Meta")   │
+│                │
+└────────────────┘
 ----------------------------
-- {name: ArgoX-Vl, type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: /${WS_PATH}-vl, headers: { Host: ${ARGO_DOMAIN}}}, udp: true}
-----------------------------
-- {name: ArgoX-Vm, type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: {path: /${WS_PATH}-vm, headers: {Host: ${ARGO_DOMAIN}}}, udp: true}
-----------------------------
-- {name: ArgoX-Tr, type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr, headers: { Host: ${ARGO_DOMAIN} } } }
-----------------------------
-- {name: ArgoX-Sh, type: ss, server: ${SERVER}, port: 443, cipher: chacha20-ietf-poly1305, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: /${WS_PATH}-sh, tls: true, skip-cert-verify: false, mux: false } }
+$(info "- {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: /${WS_PATH}-vl, headers: { Host: ${ARGO_DOMAIN}}}, udp: true}
+
+- {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: {path: /${WS_PATH}-vm, headers: {Host: ${ARGO_DOMAIN}}}, udp: true}
+
+- {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr, headers: { Host: ${ARGO_DOMAIN} } } }
+
+- {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: chacha20-ietf-poly1305, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: /${WS_PATH}-sh, tls: true, skip-cert-verify: false, mux: false } }")
 *******************************************
 EOF
   cat $WORK_DIR/list
@@ -771,13 +820,13 @@ change_argo() {
   unset ARGO_DOMAIN
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
-      1 ) systemctl disable --now argo
+      1 ) cmd_systemctl disable argo
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
           sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://localhost:8080@g" /etc/systemd/system/argo.service
-          systemctl enable --now argo
+          cmd_systemctl enabl argo
           ;;
       2 ) argo_variable
-          systemctl disable --now argo
+          cmd_systemctl disable argo
           if [ -n "$ARGO_TOKEN" ]; then
             [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
             sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
@@ -786,7 +835,7 @@ change_argo() {
             json_argo
             sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
           fi
-          systemctl enable --now argo
+          cmd_systemctl enable argo
           ;;
       * ) exit 0
           ;;
@@ -797,7 +846,8 @@ change_argo() {
 
 uninstall() {
   if [ -d $WORK_DIR ]; then
-    systemctl disable --now {argo,xray} 2>/dev/null
+    cmd_systemctl disable argo
+    cmd_systemctl disable xray
     rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service
     info "\n $(text 16) \n"
   else
@@ -805,24 +855,7 @@ uninstall() {
   fi
 
   # 如果 Alpine 系统，删除开机自启动
-  [ "$SYSTEM" = 'Alpine' ] && ( rm -f /etc/local.d/argox.start; rc-update add local )
-}
-
-# 禁止回国切换
-switch_return() {
-  local ROW_NUMS=($(grep -n '"outboundTag"' $WORK_DIR/outbound.json | awk -F ':' '{print $1}'))
-  if grep -q 'outboundTag.*direct' $WORK_DIR/outbound.json; then
-    sed -i "${ROW_NUMS[2]},${ROW_NUMS[3]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv4/; ${ROW_NUMS[4]},${ROW_NUMS[5]}s/\(\"outboundTag\":\"\)[^\"]*/\1warp-IPv6/" $WORK_DIR/outbound.json
-  else
-    sed -i "${ROW_NUMS[2]},${ROW_NUMS[5]}s/\(\"outboundTag\":\"\)[^\"]*/\1direct/" $WORK_DIR/outbound.json
-  fi
-
-  systemctl restart xray && sleep 2
-  if [ "$(systemctl is-active xray)" = 'active' ]; then
-    grep -q 'outboundTag.*direct' $WORK_DIR/outbound.json && info "\n $(text 50) $(text 27) $(text 37) " || info "\n $(text 50) $(text 28) $(text 37) "
-  else
-    error "Xray $(text 28) $(text 38) "
-  fi
+  [ "$SYSTEM" = 'Alpine' ] && ( rm -f /etc/local.d/argo.start /etc/local.d/xray.start; rc-update add local >/dev/null 2>&1 )
 }
 
 # Argo 与 Xray 的最新版本
@@ -841,9 +874,9 @@ version() {
   if [[ ${UPDATE[0]} = [Yy] ]]; then
     wget -O $TEMP_DIR/cloudflared $CDN/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
     if [ -s $TEMP_DIR/cloudflared ]; then
-      systemctl disable --now argo
+      cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
-      systemctl enable --now argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
     else
       local APP=ARGO && error "\n $(text_eval 48) "
     fi
@@ -851,9 +884,9 @@ version() {
   if [[ ${UPDATE[1]} = [Yy] ]]; then
     wget -O $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip $CDN/https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip
     if [ -s $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ]; then
-      systemctl disable --now xray
+      cmd_systemctl disable xray
       unzip -qo $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip xray *.dat -d $WORK_DIR; rm -f $TEMP_DIR/Xray*.zip
-      systemctl enable --now xray && [ "$(systemctl is-active xray)" = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+      cmd_systemctl enable xray && [ "$(systemctl is-active xray)" = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
     else
       local APP=Xray && error "\n $(text_eval 48) "
     fi
@@ -868,30 +901,28 @@ menu_setting() {
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      ss -nltp | grep -q "127\.0\.0\.1:$(pidof cloudflared).*cloudflared" && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://$(ss -nltp | awk '/cloudflared/{print $4}')/healthcheck | sed "s/OK/$(text 37)/")"
+      ss -nltp | grep -q '127\.0\.0\.1:.*"cloudflared"' && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://$(ss -nltp | awk '/cloudflared/{print $4}')/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
-    [ -s $WORK_DIR/outbound.json ] && { grep -q 'outboundTag.*direct' $WORK_DIR/outbound.json && RETURN_STATUS=$(text 27) || RETURN_STATUS=$(text 28); }
+    [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | awk '{ $1=""; sub(/^ */, ""); print $0 }')
 
     OPTION[1]="1.  $(text 29)"
-    [ ${STATUS[0]} = "$(text 28)" ] && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
-    [ ${STATUS[1]} = "$(text 28)" ] && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
+    [ ${STATUS[0]} = "$(text 28)" ] && AEGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
+    [ ${STATUS[1]} = "$(text 28)" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/xray.*\/etc\/argox/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
     OPTION[4]="4.  $(text 30)"
     OPTION[5]="5.  $(text 31)"
-    [ "$RETURN_STATUS" = "$(text 27)" ] && OPTION[6]="6.  $(text 28) $(text 50)" || OPTION[6]="6.  $(text 27) $(text 50)"
-    OPTION[7]="7.  $(text 32)"
-    OPTION[8]="8.  $(text 33)"
-    OPTION[9]="9.  $(text 51)"
+    OPTION[6]="6.  $(text 32)"
+    OPTION[7]="7.  $(text 33)"
+    OPTION[8]="8.  $(text 51)"
 
     ACTION[1]() { export_list; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { systemctl disable --now argo; [ "$(systemctl is-active argo)" = 'inactive' ] && info " Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || ACTION[2]() { systemctl enable --now argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; }
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { systemctl disable --now xray; [ "$(systemctl is-active xray)" = 'inactive' ] && info " Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || ACTION[3]() { systemctl enable --now xray && [ "$(systemctl is-active xray)" = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; }
+    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { cmd_systemctl disable argo; [ "$(systemctl is-active argo)" = 'inactive' ] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || ACTION[2]() { cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; }
+    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { cmd_systemctl disable xray; [ "$(systemctl is-active xray)" = 'inactive' ] && info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || ACTION[3]() { cmd_systemctl enable xray && [ "$(systemctl is-active xray)" = 'active' ] && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; }
     ACTION[4]() { change_argo; }
     ACTION[5]() { version; }
-    ACTION[6]() { switch_return; }
-    ACTION[7]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
-    ACTION[8]() { uninstall; }
-    ACTION[9]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
+    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
+    ACTION[7]() { uninstall; }
+    ACTION[8]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
 
   else
     OPTION[1]="1.  $(text 34)"
@@ -911,8 +942,7 @@ menu() {
   info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
-  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $ARGO_CHECKHEALTH\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION"
-  [ -n "$RETURN_STATUS" ] && info "\t $(text 50): $RETURN_STATUS "
+  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $AEGO_MEMORY\t $ARGO_CHECKHEALTH\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION\t\t $XRAY_MEMORY "
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "
@@ -930,14 +960,13 @@ menu() {
 [[ "$*" =~ -[Ee] ]] && L=E
 [[ "$*" =~ -[Cc] ]] && L=C
 
-while getopts ":SsUuVvNnRrF:f:" OPTNAME; do
+while getopts ":SsUuVvNnF:f:" OPTNAME; do
   case "$OPTNAME" in
     'S'|'s' ) select_language; change_argo; exit 0 ;;
-    'U'|'u' ) select_language; uninstall; exit 0;;
+    'U'|'u' ) select_language; check_system_info; uninstall; exit 0;;
     'N'|'n' ) select_language; export_list; exit 0 ;;
     'V'|'v' ) select_language; check_arch; version; exit 0;;
     'F'|'f' ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
-    'R'|'r' ) select_language; switch_return; exit 0 ;;
   esac
 done
 
