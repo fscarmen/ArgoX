@@ -9,7 +9,7 @@ UUID_DEFAULT='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
-CDN_DOMAIN=("www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cfip.gay")
+CDN_DOMAIN=("www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cn.azhz.eu.org" "cfip.gay")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -283,7 +283,7 @@ xray_variable() {
   # 提供网上热心网友的anycast域名
   if [ -z "$SERVER" ]; then
     echo ""
-    for ((c=0; c<${#CDN_DOMAIN[@]}; c++)); do
+    for c in "${!CDN_DOMAIN[@]}"; do
       hint " $[c+1]. ${CDN_DOMAIN[c]} "
     done
 
