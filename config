@@ -1,6 +1,9 @@
 # Language
 L='C' # C for Chinese / E for English
 
+# VPS ip
+SERVER_IP=''
+
 # Argo
 ARGO_DOMAIN=''
 # For example: ARGO_DOMAIN='argo.xray.com'
@@ -12,3 +15,5 @@ ARGO_AUTH=''
 SERVER='icook.hk'
 UUID='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH='argox'
+REALITY_PRIVATE='iFgLurn7LeLvfKLAjn41R7_OISJ0-fDOZvoBMGcnvVU'
+REALITY_PUBLIC='SpFP6OlOOTkBnwOyBwzJT5I7oCIrCtGxU7pHK_qMJwA'
