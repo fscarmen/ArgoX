@@ -147,8 +147,7 @@ error() { echo -e "\033[31m\033[01m$*\033[0m" && exit 1; } # 红色
 info() { echo -e "\033[32m\033[01m$*\033[0m"; }   # 绿色
 hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
 reading() { read -rp "$(info "$1")" "$2"; }
-text() { eval echo "\${${L}[$*]}"; }
-text_eval() { eval echo "\$(eval echo "\${${L}[$*]}")"; }
+text() { grep -q '\$' <<< "${E[$*]}" && eval echo "\$(eval echo "\${${L}[$*]}")" || eval echo "\${${L}[$*]}"; }
 
 # 自定义友道或谷歌翻译函数
 translate() {
@@ -159,7 +158,7 @@ translate() {
 
 # 脚本当天及累计运行次数统计
 statistics_of_run-times() {
-  local COUNT=$(curl --retry 2 -ksm2 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffscarmen%2FArgoX%2Fmain%2Fargox.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
+  local COUNT=$(wget -qO- -t2T2 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffscarmen%2FArgoX%2Fmain%2Fargox.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
   TODAY=$(cut -d " " -f1 <<< "$COUNT") &&
   TOTAL=$(cut -d " " -f3 <<< "$COUNT")
 }
@@ -186,8 +185,7 @@ check_arch() {
     aarch64|arm64 ) ARGO_ARCH=arm64 ; XRAY_ARCH=arm64-v8a ;;
     x86_64|amd64 ) ARGO_ARCH=amd64 ; XRAY_ARCH=64 ;;
     armv7l ) ARGO_ARCH=arm ; XRAY_ARCH=arm32-v7a ;;
- #   s390x ) ARCHITECTURE=s390x ;;
-    * ) error " $(text_eval 25) " ;;
+    * ) error " $(text 25) " ;;
   esac
 }
 
@@ -262,7 +260,7 @@ check_system_info() {
 
   # 先排除 EXCLUDE 里包括的特定系统，其他系统需要作大发行版本的比较
   for ex in "${EXCLUDE[@]}"; do [[ ! $(tr 'A-Z' 'a-z' <<< "$SYS")  =~ $ex ]]; done &&
-  [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text_eval 6) "
+  [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text 6) "
 }
 
 check_system_ip() {
@@ -305,7 +303,7 @@ argo_variable() {
   fi
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
-  [ -z "$SERVER_IP" ] && reading "\n $(text_eval 59) " SERVER_IP
+  [ -z "$SERVER_IP" ] && reading "\n $(text 59) " SERVER_IP
   SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
   [ -z "$SERVER_IP" ] && error " $(text 58) "
 
@@ -338,12 +336,12 @@ xray_variable() {
     ((a--)) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     REALITY_PORT_DEFAULT=$(shuf -i 1000-65535 -n 1)
-    reading "\n $(text_eval 56) " REALITY_PORT
+    reading "\n $(text 56) " REALITY_PORT
     REALITY_PORT=${REALITY_PORT:-"$REALITY_PORT_DEFAULT"}
     if [ "$SYSTEM" = 'Alpine' ]; then
-      netstat -an | awk '/:[0-9]+/{print $4}' | awk -F ":" '{print $NF}' | grep -q $REALITY_PORT && warning "\n $(text_eval 61) \n" && unset REALITY_PORT
+      netstat -an | awk '/:[0-9]+/{print $4}' | awk -F ":" '{print $NF}' | grep -q $REALITY_PORT && warning "\n $(text 61) \n" && unset REALITY_PORT
     else
-      lsof -i:$REALITY_PORT >/dev/null 2>&1 && warning "\n $(text_eval 61) \n" && unset REALITY_PORT
+      lsof -i:$REALITY_PORT >/dev/null 2>&1 && warning "\n $(text 61) \n" && unset REALITY_PORT
     fi
   done
 
@@ -354,7 +352,7 @@ xray_variable() {
       hint " $[c+1]. ${CDN_DOMAIN[c]} "
     done
 
-    reading "\n $(text_eval 42) " CUSTOM_CDN
+    reading "\n $(text 42) " CUSTOM_CDN
     case "$CUSTOM_CDN" in
       [1-${#CDN_DOMAIN[@]}] )
         SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}"
@@ -372,16 +370,16 @@ xray_variable() {
     (( a-- )) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
-    reading "\n $(text_eval 12) " UUID
+    reading "\n $(text 12) " UUID
     UUID=${UUID:-"$UUID_DEFAULT"}
-    [[ ! "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]] && warning "\n $(text_eval 4) "
+    [[ ! "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]] && warning "\n $(text 4) "
   done
 
-  [ -z "$WS_PATH" ] && reading "\n $(text_eval 13) " WS_PATH
+  [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
   local a=5
   until [[ -z "$WS_PATH" || "$WS_PATH" =~ ^[A-Z0-9a-z]+$ ]]; do
     (( a-- )) || true
-    [ "$a" = 0 ] && error " $(text 3) " || reading " $(text_eval 14) " WS_PATH
+    [ "$a" = 0 ] && error " $(text 3) " || reading " $(text 14) " WS_PATH
   done
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
 
@@ -393,7 +391,7 @@ xray_variable() {
   else
     NODE_NAME_DEFAULT="ArgoX"
   fi
-  reading "\n $(text_eval 49) " NODE_NAME
+  reading "\n $(text 49) " NODE_NAME
   NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
 }
 
@@ -460,7 +458,7 @@ install_argox() {
   # Argo 生成守护进程文件
   local i=1
   [ ! -s $WORK_DIR/cloudflared ] && wait && while [ "$i" -le 20 ]; do [ -s $TEMP_DIR/cloudflared ] && mv $TEMP_DIR/cloudflared $WORK_DIR && break; ((i++)); sleep 2; done
-  [ "$i" -ge 20 ] && local APP=ARGO && error "\n $(text_eval 48) "
+  [ "$i" -ge 20 ] && local APP=ARGO && error "\n $(text 48) "
   if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
     json_argo
@@ -490,7 +488,7 @@ EOF
   # 生成配置文件及守护进程文件
   local i=1
   [ ! -s $WORK_DIR/xray ] && wait && while [ "$i" -le 20 ]; do [[ -s $TEMP_DIR/xray && -s $TEMP_DIR/geoip.dat && -s $TEMP_DIR/geosite.dat ]] && mv $TEMP_DIR/{xray,geo*.dat} $WORK_DIR && break; ((i++)); sleep 2; done
-  [ "$i" -ge 20 ] && local APP=Xray && error "\n $(text_eval 48) "
+  [ "$i" -ge 20 ] && local APP=Xray && error "\n $(text 48) "
   cat > $WORK_DIR/inbound.json << EOF
 {
     "log":{
@@ -888,7 +886,7 @@ export_list() {
   [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(argo)
   [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(xray)
   if [ "${#APP[@]}" -gt 0 ]; then
-    reading "\n $(text_eval 50) " OPEN_APP
+    reading "\n $(text 50) " OPEN_APP
     if [[ "$OPEN_APP" = [Yy] ]]; then
       [ "${STATUS[0]}" != "$(text 28)" ] && cmd_systemctl enable argo
       [ "${STATUS[1]}" != "$(text 28)" ] && cmd_systemctl enable xray
@@ -901,7 +899,7 @@ export_list() {
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
       sleep 2
-      ARGO_DOMAIN=$(wget -qO- http://localhost:$(ss -nltp | grep "pid=$(ps -ef | awk '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')," | awk '{print $4}' | sed "s/.*://")/quicktunnel | awk -F '"' '{print $4}')
+      ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | awk -F '"' '{print $4}')
       ((a--)) || true
     done
   else
@@ -926,7 +924,7 @@ export_list() {
   fi
 
   # 若为临时隧道，处理查询方法
-  grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text_eval 60)
+  grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text 60)
 
   # 生成配置文件
   VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
@@ -993,7 +991,7 @@ EOF
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
-  hint "\n $(text_eval 55) \n"
+  hint "\n $(text 55) \n"
 }
 
 change_argo() {
@@ -1001,12 +999,15 @@ change_argo() {
   [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
 
   case $(grep "ExecStart" /etc/systemd/system/argo.service) in
-    *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$(ss -nltp | grep "pid=$(ps -ef | awk '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')," | awk '{print $4}' | sed "s/.*://")/quicktunnel | awk -F '"' '{print $4}') ;;
+    *--config* )
+      ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+    *--token* )
+      ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+    * )
+      ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | awk -F '"' '{print $4}')
   esac
 
-  hint "\n $(text_eval 40) \n"
+  hint "\n $(text 40) \n"
   unset ARGO_DOMAIN
   hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
     case "$CHANGE_TO" in
@@ -1053,11 +1054,11 @@ version() {
   # Argo 版本
   local ONLINE=$(wget -qO- "https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
   local LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=0; i<NF; i++) if ($i=="version") {print $(i+1)}}')
-  local APP=ARGO && info "\n $(text_eval 43) "
+  local APP=ARGO && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
   local ONLINE=$(wget -qO- "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
   local LOCAL=$($WORK_DIR/xray version | awk '{for (i=0; i<NF; i++) if ($i=="Xray") {print $(i+1)}}')
-  local APP=Xray && info "\n $(text_eval 43) "
+  local APP=Xray && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
 
   [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
@@ -1068,7 +1069,7 @@ version() {
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
       cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
     else
-      local APP=ARGO && error "\n $(text_eval 48) "
+      local APP=ARGO && error "\n $(text 48) "
     fi
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
@@ -1078,7 +1079,7 @@ version() {
       unzip -qo $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip xray *.dat -d $WORK_DIR; rm -f $TEMP_DIR/Xray*.zip
       cmd_systemctl enable xray && [ "$(systemctl is-active xray)" = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
     else
-      local APP=Xray && error "\n $(text_eval 48) "
+      local APP=Xray && error "\n $(text 48) "
     fi
   fi
 }
