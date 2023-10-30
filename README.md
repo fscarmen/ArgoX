@@ -15,7 +15,7 @@
 
 * * *
 ## 更新信息
-2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名
+2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names1; 3. After installing, add [argox] shortcut; 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [argox] 的快捷运行方式
 
 2023.10.16 V1.3 1. Support Alpine; 2. Add Sing-box PID, runtime, and memory usage to the menu; 3. Remove the option of using warp on returning to China; 支持 Alpine; 2. 菜单中增加 sing-box 内存占用显示; 3. 去掉使用 warp 回国的选项
 
@@ -63,14 +63,19 @@
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ```
 
-  | Option 参数 | Remark 备注 | 
+  | Option 参数 | Remark 备注 |
   | -----------| ------ |
   | -c         | Chinese 中文 |
-  | -e         | English 英文 | 
-  | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config | 
+  | -e         | English 英文 |
+  | -a         | Argo on-off Argo 开关 |
+  | -x         | Xray on-off Xray 开关 |
+  | -s         | Change the Argo tunnel 更换 Argo 隧道 |
+  | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config |
   | -u         | Uninstall 卸载 |
   | -n         | Export Nodes list 显示节点信息 |
   | -v         | Sync Argo Xray to the newest 同步 Argo Xray 到最新版本 |
+  | -b         | Upgrade kernel, turn on BBR, change Linux system 升级内核、安装BBR、DD脚本 |
+
 
 
 ## Argo Json 的获取
@@ -118,7 +123,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── language                  # 存放脚本语言文件，E 为英文，C 为中文
 ├── list                      # 节点信息列表
 ├── outbound.json             # 出站和路由配置文件，chatGPT 使用 warp ipv6 链式代理出站
-└── xray                      # xray 主程序
+├── xray                      # xray 主程序
+└── ax.sh                     # 快捷方式脚本文件
 ```
 
 

@@ -18,8 +18,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names."
-C[1]="1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名"
+E[1]="1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names; 3. After installing, add [argox] shortcut."
+C[1]="1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [argox] 的快捷运行方式"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -74,16 +74,16 @@ E[27]="close"
 C[27]="关闭"
 E[28]="open"
 C[28]="开启"
-E[29]="View links"
-C[29]="查看节点信息"
-E[30]="Change the Argo tunnel"
-C[30]="更换 Argo 隧道"
-E[31]="Sync Argo and Xray to the latest version"
-C[31]="同步 Argo 和 Xray 至最新版本"
-E[32]="Upgrade kernel, turn on BBR, change Linux system"
-C[32]="升级内核、安装BBR、DD脚本"
-E[33]="Uninstall"
-C[33]="卸载"
+E[29]="View links (argox -n)"
+C[29]="查看节点信息 (argox -n)"
+E[30]="Change the Argo tunnel (argox -t)"
+C[30]="更换 Argo 隧道 (argox -t)"
+E[31]="Sync Argo and Xray to the latest version (argox -v)"
+C[31]="同步 Argo 和 Xray 至最新版本 (argox -v)"
+E[32]="Upgrade kernel, turn on BBR, change Linux system (argox -b)"
+C[32]="升级内核、安装BBR、DD脚本 (argox -b)"
+E[33]="Uninstall (argox -u)"
+C[33]="卸载 (argox -u)"
 E[34]="Install script"
 C[34]="安装脚本"
 E[35]="Exit"
@@ -140,6 +140,8 @@ E[60]="Quicktunnel domain can be obtained from: http://\${SERVER_IP_1}:\${METRIC
 C[60]="临时隧道域名可以从以下网站获取: http://\${SERVER_IP_1}:\${METRICS_PORT}/quicktunnel"
 E[61]="Ports are in used:  \$REALITY_PORT"
 C[61]="正在使用中的端口: \$REALITY_PORT"
+E[62]="Create shortcut [argox] successfully."
+C[62]="创建快捷 [argox] 指令成功!"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -879,6 +881,18 @@ EOF
   esac
 }
 
+# 创建快捷方式
+create_shortcut() {
+  cat > $WORK_DIR/ax.sh << EOF
+#!/usr/bin/env bash
+
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \$1
+EOF
+  chmod +x $WORK_DIR/ax.sh
+  ln -sf $WORK_DIR/ax.sh /usr/bin/argox
+  [ -s /usr/bin/argox ] && hint "\n $(text 62) "
+}
+
 export_list() {
   check_install
   # 没有开启 Argo 和 Xray 服务，将不输出节点信息
@@ -1039,7 +1053,7 @@ uninstall() {
   if [ -d $WORK_DIR ]; then
     cmd_systemctl disable argo
     cmd_systemctl disable xray
-    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service
+    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service /usr/bin/argox
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
@@ -1098,8 +1112,8 @@ menu_setting() {
     [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | awk '{ $1=""; sub(/^ */, ""); print $0 }')
 
     OPTION[1]="1.  $(text 29)"
-    [ ${STATUS[0]} = "$(text 28)" ] && AEGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
-    [ ${STATUS[1]} = "$(text 28)" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/xray.*\/etc\/argox/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3.  $(text 27) Xray" || OPTION[3]="3.  $(text 28) Xray"
+    [ ${STATUS[0]} = "$(text 28)" ] && AEGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[2]="2.  $(text 27) Argo (argox -a)" || OPTION[2]="2.  $(text 28) Argo (argox -a)"
+    [ ${STATUS[1]} = "$(text 28)" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/xray.*\/etc\/argox/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3.  $(text 27) Xray (argox -x)" || OPTION[3]="3.  $(text 28) Xray (argox -x)"
     OPTION[4]="4.  $(text 30)"
     OPTION[5]="5.  $(text 31)"
     OPTION[6]="6.  $(text 32)"
@@ -1123,7 +1137,7 @@ menu_setting() {
     OPTION[3]="3.  $(text 51)"
     OPTION[4]="4.  $(text 57)"
 
-    ACTION[1]() { install_argox; export_list; exit; }
+    ACTION[1]() { install_argox; export_list; create_shortcut; exit; }
     ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
     ACTION[3]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
     ACTION[4]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
@@ -1157,12 +1171,15 @@ statistics_of_run-times
 [[ "$*" =~ -[Ee] ]] && L=E
 [[ "$*" =~ -[Cc] ]] && L=C
 
-while getopts ":SsUuVvNnF:f:" OPTNAME; do
+while getopts ":AaXxSsUuVvBbNnF:f:" OPTNAME; do
   case "$OPTNAME" in
+    'A'|'a' ) select_language; check_system_info; [ "$(systemctl is-active argo)" = 'inactive' ] && { cmd_systemctl enable argo; [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; } || { cmd_systemctl disable argo; [ "$(systemctl is-active argo)" = 'inactive' ] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } ;  exit 0 ;;
+    'X'|'x' ) select_language; check_system_info; [ "$(systemctl is-active xray)" = 'inactive' ] && { cmd_systemctl enable xray; [ "$(systemctl is-active xray)" = 'active' ] && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; } || { cmd_systemctl disable xray; [ "$(systemctl is-active xray)" = 'inactive' ] && info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } ;  exit 0 ;;
     'S'|'s' ) select_language; change_argo; exit 0 ;;
     'U'|'u' ) select_language; check_system_info; uninstall; exit 0;;
     'N'|'n' ) select_language; export_list; exit 0 ;;
     'V'|'v' ) select_language; check_arch; version; exit 0;;
+    'B'|'b' ) select_language; bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     'F'|'f' ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
   esac
 done
