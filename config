@@ -13,7 +13,7 @@ ARGO_AUTH=''
 
 # Xray
 SERVER='icook.hk'
-UUID='ffffffff-ffff-ffff-ffff-ffffffffffff'
+UUID='e12a1e16-40dc-4b97-b80b-fe4a33b520a2'
 WS_PATH='argox'
 REALITY_PRIVATE='iFgLurn7LeLvfKLAjn41R7_OISJ0-fDOZvoBMGcnvVU'
 REALITY_PUBLIC='SpFP6OlOOTkBnwOyBwzJT5I7oCIrCtGxU7pHK_qMJwA'
