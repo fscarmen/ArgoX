@@ -4,7 +4,7 @@
 VERSION=1.4
 
 # 各变量默认值
-GH_PROXY='https://ghproxy.com/'
+# GH_PROXY='https://ghproxy.com/' # 不稳定，暂不使用
 WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
@@ -18,8 +18,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names; 3. After installing, add [argox] shortcut."
-C[1]="1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [argox] 的快捷运行方式"
+E[1]="1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names; 3. After installing, add [ argox ] shortcut; 4. Output the configuration for Sing-box Client."
+C[1]="1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [ argox ] 的快捷运行方式; 4. 输出 Sing-box Client 的配置"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -116,7 +116,7 @@ E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[http
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[49]="Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
 C[49]="请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
-E[50]="Argo or Xray services are not enabled, node information cannot be output. Press [y] if you want to open."
+E[50]="\${APP[@]} services are not enabled, node information cannot be output. Press [y] if you want to open."
 C[50]="\${APP[@]} 服务未开启，不能输出节点信息。如需打开请按 [y]: "
 E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
 C[51]="安装 Sing-box 协议全家桶脚本 [https://github.com/fscarmen/sing-box]"
@@ -140,8 +140,10 @@ E[60]="Quicktunnel domain can be obtained from: http://\${SERVER_IP_1}:\${METRIC
 C[60]="临时隧道域名可以从以下网站获取: http://\${SERVER_IP_1}:\${METRICS_PORT}/quicktunnel"
 E[61]="Ports are in used:  \$REALITY_PORT"
 C[61]="正在使用中的端口: \$REALITY_PORT"
-E[62]="Create shortcut [argox] successfully."
-C[62]="创建快捷 [argox] 指令成功!"
+E[62]="Create shortcut [ argox ] successfully."
+C[62]="创建快捷 [ argox ] 指令成功!"
+E[63]="The full template can be found at: https://t.me/ztvps/37"
+C[63]="完整模板可参照: https://t.me/ztvps/37"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -897,8 +899,8 @@ export_list() {
   check_install
   # 没有开启 Argo 和 Xray 服务，将不输出节点信息
   local APP
-  [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(argo)
-  [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(xray)
+  [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(Argo)
+  [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(Xray)
   if [ "${#APP[@]}" -gt 0 ]; then
     reading "\n $(text 50) " OPEN_APP
     if [[ "$OPEN_APP" = [Yy] ]]; then
@@ -999,8 +1001,139 @@ $(info "- {name: \"${NODE_NAME}-reality-vision\", type: vless, server: ${SERVER_
 
 - {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: chacha20-ietf-poly1305, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: /${WS_PATH}-sh?ed=2048, tls: true, skip-cert-verify: false, mux: false } }")
 *******************************************
+┌────────────────┐
+│                │
+│    $(warning "Sing-box")    │
+│                │
+└────────────────┘
+----------------------------
+$(hint "{
+  \"outbounds\":[
+      {
+        \"type\":\"vless\",
+        \"tag\":\"${NODE_NAME}-reality-vision\",
+        \"server\":\"${SERVER_IP}\",
+        \"server_port\":${REALITY_PORT},
+        \"uuid\":\"${UUID}\",
+        \"flow\":\"xtls-rprx-vision\",
+        \"packet_encoding\":\"xudp\",
+        \"tls\":{
+            \"enabled\":true,
+            \"server_name\":\"${TLS_SERVER}\",
+            \"utls\":{
+                \"enabled\":true,
+                \"fingerprint\":\"chrome\"
+            },
+            \"reality\":{
+                \"enabled\":true,
+                \"public_key\":\"I7wMcE9qQdMdpm8RwwXV9tFv6DXTH6YZSad41psBvDE\",
+                \"short_id\":\"\"
+            }
+        }
+      },
+      {
+        \"type\": \"vless\",
+        \"tag\":\"${NODE_NAME}-reality-grpc\",
+        \"server\": \"${SERVER_IP}\",
+        \"server_port\": ${REALITY_PORT},
+        \"uuid\": \"${UUID}\",
+        \"packet_encoding\":\"xudp\",
+        \"tls\": {
+            \"enabled\": true,
+            \"server_name\": \"${TLS_SERVER}\",
+            \"utls\": {
+                \"enabled\": true,
+                \"fingerprint\": \"chrome\"
+            },
+            \"reality\": {
+                \"enabled\": true,
+                \"public_key\": \"I7wMcE9qQdMdpm8RwwXV9tFv6DXTH6YZSad41psBvDE\",
+                \"short_id\": \"\"
+            }
+        },
+        \"transport\": {
+            \"type\": \"grpc\",
+            \"service_name\": \"grpc\"
+        }
+      },
+      {
+        \"type\":\"vless\",
+        \"tag\":\"${NODE_NAME}-Vl\",
+        \"server\":\"${SERVER}\",
+        \"server_port\":443,
+        \"uuid\":\"${UUID}\",
+        \"tls\": {
+          \"enabled\":true,
+          \"server_name\":\"${ARGO_DOMAIN}\",
+          \"utls\": {
+            \"enabled\":true,
+            \"fingerprint\":\"chrome\"
+          }
+        },
+        \"transport\": {
+          \"type\":\"ws\",
+          \"path\":\"/${WS_PATH}-vl\",
+          \"headers\": {
+            \"Host\": \"${ARGO_DOMAIN}\"
+          },
+          \"max_early_data\":2408,
+          \"early_data_header_name\":\"Sec-WebSocket-Protocol\"
+        }
+      },
+      {
+        \"type\":\"vmess\",
+        \"tag\":\"${NODE_NAME}-Vm\",
+        \"server\":\"${SERVER}\",
+        \"server_port\":443,
+        \"uuid\":\"${UUID}\",
+        \"tls\": {
+          \"enabled\":true,
+          \"server_name\":\"${ARGO_DOMAIN}\",
+          \"utls\": {
+            \"enabled\":true,
+            \"fingerprint\":\"chrome\"
+          }
+        },
+        \"transport\": {
+          \"type\":\"ws\",
+          \"path\":\"/${WS_PATH}-vm\",
+          \"headers\": {
+            \"Host\": \"${ARGO_DOMAIN}\"
+          },
+          \"max_early_data\":2408,
+          \"early_data_header_name\":\"Sec-WebSocket-Protocol\"
+        }
+      },
+      {
+        \"type\":\"trojan\",
+        \"tag\":\"${NODE_NAME}-Tr\",
+        \"server\": \"${SERVER}\",
+        \"server_port\": 443,
+        \"password\": \"${UUID}\",
+        \"tls\": {
+          \"enabled\":true,
+          \"server_name\":\"${ARGO_DOMAIN}\",
+          \"utls\": {
+            \"enabled\":true,
+            \"fingerprint\":\"chrome\"
+          }
+        },
+        \"transport\": {
+          \"type\":\"ws\",
+          \"path\":\"/${WS_PATH}-tr\",
+          \"headers\": {
+            \"Host\": \"${ARGO_DOMAIN}\"
+          },
+          \"max_early_data\":2408,
+          \"early_data_header_name\":\"Sec-WebSocket-Protocol\"
+        }
+      }
+  ]
+}
 
-$(hint " ${QUICK_TUNNEL_URL} ")
+ $(text 63)")
+
+$(info " ${QUICK_TUNNEL_URL} ")
 EOF
   cat $WORK_DIR/list
 
@@ -1126,7 +1259,7 @@ menu_setting() {
     [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { cmd_systemctl disable xray; [ "$(systemctl is-active xray)" = 'inactive' ] && info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || ACTION[3]() { cmd_systemctl enable xray && [ "$(systemctl is-active xray)" = 'active' ] && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; }
     ACTION[4]() { change_argo; exit; }
     ACTION[5]() { version; exit; }
-    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
+    ACTION[6]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
     ACTION[7]() { uninstall; exit; }
     ACTION[8]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
     ACTION[9]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
@@ -1138,7 +1271,7 @@ menu_setting() {
     OPTION[4]="4.  $(text 57)"
 
     ACTION[1]() { install_argox; export_list; create_shortcut; exit; }
-    ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
+    ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
     ACTION[3]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
     ACTION[4]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
   fi
@@ -1179,7 +1312,7 @@ while getopts ":AaXxSsUuVvBbNnF:f:" OPTNAME; do
     'U'|'u' ) select_language; check_system_info; uninstall; exit 0;;
     'N'|'n' ) select_language; export_list; exit 0 ;;
     'V'|'v' ) select_language; check_arch; version; exit 0;;
-    'B'|'b' ) select_language; bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
+    'B'|'b' ) select_language; bash <(wget -qO- --no-check-certificate "https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     'F'|'f' ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
   esac
 done

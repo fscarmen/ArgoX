@@ -15,7 +15,7 @@
 
 * * *
 ## 更新信息
-2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names1; 3. After installing, add [argox] shortcut; 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [argox] 的快捷运行方式
+2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names1; 3. After installing, add [argox] shortcut; 4. Output the configuration for Sing-box Client; 1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [argox] 的快捷运行方式; 4. 输出 Sing-box Client 的配置
 
 2023.10.16 V1.3 1. Support Alpine; 2. Add Sing-box PID, runtime, and memory usage to the menu; 3. Remove the option of using warp on returning to China; 支持 Alpine; 2. 菜单中增加 sing-box 内存占用显示; 3. 去掉使用 warp 回国的选项
 
@@ -53,7 +53,7 @@
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
 * 同时支持 Xray 的直连协议: reality vison 和 reality gRPC; 以及 ws 回落分流的 4 种主流协议: vless /  vmess / trojan / shadowsocks + WSS (ws + tls)；
 * 内置 warp 链式代理解锁 chatGPT；
-* 节点信息以 V2rayN / Clash / 小火箭 链接方式输出；
+* 节点信息输出方式 V2rayN / Clash Meta / 小火箭 / Nekobox / Sing-box；
 * 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到5秒。
 
 
