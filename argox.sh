@@ -1076,7 +1076,7 @@ $(hint "{
           \"headers\": {
             \"Host\": \"${ARGO_DOMAIN}\"
           },
-          \"max_early_data\":2408,
+          \"max_early_data\":2048,
           \"early_data_header_name\":\"Sec-WebSocket-Protocol\"
         }
       },
@@ -1100,7 +1100,7 @@ $(hint "{
           \"headers\": {
             \"Host\": \"${ARGO_DOMAIN}\"
           },
-          \"max_early_data\":2408,
+          \"max_early_data\":2048,
           \"early_data_header_name\":\"Sec-WebSocket-Protocol\"
         }
       },
@@ -1124,7 +1124,7 @@ $(hint "{
           \"headers\": {
             \"Host\": \"${ARGO_DOMAIN}\"
           },
-          \"max_early_data\":2408,
+          \"max_early_data\":2048,
           \"early_data_header_name\":\"Sec-WebSocket-Protocol\"
         }
       }
