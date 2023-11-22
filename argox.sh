@@ -4,7 +4,7 @@
 VERSION=1.4.1
 
 # 各变量默认值
-GH_PROXY='https://gh-proxy.com/'
+GH_PROXY='https://mirror.ghproxy.com/'
 WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
