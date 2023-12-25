@@ -10,7 +10,7 @@ WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER=addons.mozilla.org
 METRICS_PORT='3333'
-CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cfip.gay")
+CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo.com")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -84,8 +84,8 @@ E[32]="Upgrade kernel, turn on BBR, change Linux system (argox -b)"
 C[32]="升级内核、安装BBR、DD脚本 (argox -b)"
 E[33]="Uninstall (argox -u)"
 C[33]="卸载 (argox -u)"
-E[34]="Install script"
-C[34]="安装脚本"
+E[34]="Install ArgoX script (argo + xray)"
+C[34]="安装 ArgoX 脚本 (argo + xray)"
 E[35]="Exit"
 C[35]="退出"
 E[36]="Please enter the correct number"
@@ -156,7 +156,7 @@ text() { grep -q '\$' <<< "${E[$*]}" && eval echo "\$(eval echo "\${${L}[$*]}")"
 # 自定义友道或谷歌翻译函数
 translate() {
   [ -n "$@" ] && EN="$@"
-  ZH=$(wget --no-check-certificate -qO- --tries=1 --timeout=2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}")
+  ZH=$(wget --no-check-certificate -qO- --tries=1 --timeout=2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}" 2>/dev/null)
   [[ "$ZH" =~ ^\[\".+\"\]$ ]] && cut -d \" -f2 <<< "$ZH"
 }
 
@@ -824,7 +824,7 @@ EOF
             {
                 "type":"field",
                 "domain":[
-                    "none"
+                    "api.openai.com"
                 ],
                 "outboundTag":"warp-IPv4"
             },
