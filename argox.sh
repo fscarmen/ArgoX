@@ -179,12 +179,13 @@ select_language() {
   fi
 }
 
+# 只允许 root 用户安装脚本
 check_root() {
   [ "$(id -u)" != 0 ] && error "\n $(text 47) \n"
 }
 
+# 判断处理器架构
 check_arch() {
-  # 判断处理器架构
   case $(uname -m) in
     aarch64|arm64 ) ARGO_ARCH=arm64 ; XRAY_ARCH=arm64-v8a ;;
     x86_64|amd64 ) ARGO_ARCH=amd64 ; XRAY_ARCH=64 ;;
@@ -234,8 +235,8 @@ EOF
   fi
 }
 
+# 判断虚拟化
 check_system_info() {
-  # 判断虚拟化
   if [ $(type -p systemd-detect-virt) ]; then
     VIRT=$(systemd-detect-virt)
   elif [ $(type -p hostnamectl) ]; then
@@ -259,17 +260,17 @@ check_system_info() {
   PACKAGE_INSTALL=("apt -y install" "apt -y install" "yum -y install" "yum -y install" "pacman -S --noconfirm" "apk add --no-cache")
   PACKAGE_UNINSTALL=("apt -y autoremove" "apt -y autoremove" "yum -y autoremove" "yum -y autoremove" "pacman -Rcnsu --noconfirm" "apk del -f")
 
-  for int in "${!REGEX[@]}"; do [[ $(tr 'A-Z' 'a-z' <<< "$SYS") =~ ${REGEX[int]} ]] && SYSTEM="${RELEASE[int]}" && break; done
+  for int in "${!REGEX[@]}"; do [[ "${SYS,,}" =~ ${REGEX[int]} ]] && SYSTEM="${RELEASE[int]}" && break; done
   [ -z "$SYSTEM" ] && error " $(text 5) "
 
   # 先排除 EXCLUDE 里包括的特定系统，其他系统需要作大发行版本的比较
-  for ex in "${EXCLUDE[@]}"; do [[ ! $(tr 'A-Z' 'a-z' <<< "$SYS")  =~ $ex ]]; done &&
+  for ex in "${EXCLUDE[@]}"; do [[ ! "${SYS,,}" =~ $ex ]]; done &&
   [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text 6) "
 }
 
+# 检测 IPv4 IPv6 信息
 check_system_ip() {
   if [ -z "$VARIABLE_FILE" ]; then
-    # 检测 IPv4 IPv6 信息，WARP Ineterface 开启，普通还是 Plus账户 和 IP 信息
     IP4=$(wget -4 -qO- --no-check-certificate --user-agent=Mozilla --tries=2 --timeout=3 http://ip-api.com/json/) &&
     WAN4=$(expr "$IP4" : '.*query\":[ ]*\"\([^"]*\).*') &&
     COUNTRY4=$(expr "$IP4" : '.*country\":[ ]*\"\([^"]*\).*') &&
@@ -317,13 +318,13 @@ argo_variable() {
 
   if [[ -n "$ARGO_DOMAIN" && -z "$ARGO_AUTH" ]]; then
     local a=5
-    until [[ "$ARGO_AUTH" =~ TunnelSecret || "$ARGO_AUTH" =~ ^[A-Z0-9a-z=]{120,250}$ || "$ARGO_AUTH" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[A-Z0-9a-z=]{1,100} ]]; do
+    until [[ "$ARGO_AUTH" =~ TunnelSecret || "${ARGO_AUTH,,}" =~ ^[a-z0-9=]{120,250}$ || "${ARGO_AUTH,,}" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[a-z0-9=]{1,100} ]]; do
       [ "$a" = 0 ] && error "\n $(text 3) \n" || reading "\n $(text 11) " ARGO_AUTH
       if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
         ARGO_JSON=${ARGO_AUTH//[ ]/}
-      elif [[ "$ARGO_AUTH" =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
+      elif [[ "${ARGO_AUTH,,}" =~ ^[a-z0-9=]{120,250}$ ]]; then
         ARGO_TOKEN=$ARGO_AUTH
-      elif [[ "$ARGO_AUTH" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[A-Z0-9a-z=]{1,100} ]]; then
+      elif [[ "{$ARGO_AUTH,,}" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[a-z0-9=]{1,100} ]]; then
         ARGO_TOKEN=$(awk -F ' ' '{print $NF}' <<< "$ARGO_AUTH")
       else
         warning "\n $(text 45) \n"
@@ -370,18 +371,18 @@ xray_variable() {
   fi
 
   local a=6
-  until [[ "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]]; do
+  until [[ "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; do
     (( a-- )) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
     reading "\n $(text 12) " UUID
     UUID=${UUID:-"$UUID_DEFAULT"}
-    [[ ! "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]] && warning "\n $(text 4) "
+    [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning "\n $(text 4) "
   done
 
   [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
   local a=5
-  until [[ -z "$WS_PATH" || "$WS_PATH" =~ ^[A-Z0-9a-z]+$ ]]; do
+  until [[ -z "$WS_PATH" || "${WS_PATH,,}" =~ ^[a-z0-9]+$ ]]; do
     (( a-- )) || true
     [ "$a" = 0 ] && error " $(text 3) " || reading " $(text 14) " WS_PATH
   done
@@ -902,7 +903,7 @@ export_list() {
   [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(Xray)
   if [ "${#APP[@]}" -gt 0 ]; then
     reading "\n $(text 50) " OPEN_APP
-    if [[ "$OPEN_APP" = [Yy] ]]; then
+    if [ "${OPEN_APP,,}" = y ]; then
       [ "${STATUS[0]}" != "$(text 28)" ] && cmd_systemctl enable argo
       [ "${STATUS[1]}" != "$(text 28)" ] && cmd_systemctl enable xray
     else
@@ -1025,7 +1026,7 @@ $(hint "{
             },
             \"reality\":{
                 \"enabled\":true,
-                \"public_key\":\"I7wMcE9qQdMdpm8RwwXV9tFv6DXTH6YZSad41psBvDE\",
+                \"public_key\":\"${REALITY_PUBLIC}\",
                 \"short_id\":\"\"
             }
         }
@@ -1046,7 +1047,7 @@ $(hint "{
             },
             \"reality\": {
                 \"enabled\": true,
-                \"public_key\": \"I7wMcE9qQdMdpm8RwwXV9tFv6DXTH6YZSad41psBvDE\",
+                \"public_key\": \"${REALITY_PUBLIC}\",
                 \"short_id\": \"\"
             }
         },
@@ -1207,8 +1208,8 @@ version() {
   local APP=Xray && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
 
-  [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
-  if [[ ${UPDATE[0]} = [Yy] ]]; then
+  [[ "${UPDATE[*],,}" =~ y ]] && check_system_info
+  if [ "${UPDATE[0],,}" = y ]; then
     wget --no-check-certificate -O $TEMP_DIR/cloudflared https://${GH_PROXY}github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
@@ -1218,7 +1219,7 @@ version() {
       local APP=ARGO && error "\n $(text 48) "
     fi
   fi
-  if [[ ${UPDATE[1]} = [Yy] ]]; then
+  if [ "${UPDATE[1],,}" = y ]; then
     wget --no-check-certificate -O $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip https://${GH_PROXY}github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip
     if [ -s $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ]; then
       cmd_systemctl disable xray
@@ -1235,7 +1236,7 @@ menu_setting() {
   OPTION[0]="0.  $(text 35)"
   ACTION[0]() { exit; }
 
-  if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
+  if [[ "${STATUS[*]}" =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
       ss -nltp | grep -q '127\.0\.0\.1:.*"cloudflared"' && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:$(ss -nltp | grep "pid=$(ps -ef | awk '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')," | awk '{print $4}' | sed "s/.*://")/healthcheck | sed "s/OK/$(text 37)/")"
@@ -1300,8 +1301,8 @@ menu() {
 statistics_of_run-times
 
 # 传参
-[[ "$*" =~ -[Ee] ]] && L=E
-[[ "$*" =~ -[Cc] ]] && L=C
+[[ "${*,,}" =~ -e ]] && L=E
+[[ "${*,,}" =~ -c ]] && L=C
 
 while getopts ":AaXxSsUuVvBbNnF:f:" OPTNAME; do
   case "$OPTNAME" in
