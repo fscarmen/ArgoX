@@ -15,6 +15,8 @@
 
 * * *
 ## 更新信息
+2024.3.2 v1.6 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\> ; 1. 增加 V2rayN / Nekobox / Clash / sing-box / Shadowrocket 订阅，https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>， 所有订阅的索引: https://\<argo tunnel url\>/\<uuid\>/，需要重新安装; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
+
 2024.2.6 V1.5 Argo run protocol uses default instead of http2. The default value is auto, what will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol; Argo 运行的协议使用默认值，而不是 http2。默认值为 auto，将自动配置 quic 协议。如果 cloudflared 无法建立 UDP 连接，它将回落到使用 http2 协议。
 
 <details>
@@ -55,7 +57,7 @@
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
 * 同时支持 Xray 的直连协议: reality vison 和 reality gRPC; 以及 ws 回落分流的 4 种主流协议: vless /  vmess / trojan / shadowsocks + WSS (ws + tls)；
 * 内置 warp 链式代理解锁 chatGPT；
-* 节点信息输出方式 V2rayN / Clash Meta / 小火箭 / Nekobox / Sing-box；
+* 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Nekobox / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
 * 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到5秒。
 
 
@@ -118,6 +120,16 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 ```
 /etc/argox                    # 项目主体目录
+├── subscribe                 # 订阅文件目录
+│   ├── qr                    # Nekoray / V2rayN 订阅二维码
+│   ├── base64                # Nekoray / V2rayN 订阅文件
+│   ├── clash                 # Clash 订阅文件
+│   ├── clash2                # Clash 订阅文件2
+│   ├── proxies               # Clash proxy provider 订阅文件
+│   ├── shadowrocket          # Shadowrocket 订阅文件
+│   ├── sing-box-pc           # SFM 订阅文件
+│   ├── sing-box-phone        # SFI / SFA 订阅文件
+│   └── sing-box2             # SFI / SFA / SFM 订阅文件2
 ├── cloudflared               # argo tunnel 主程序
 ├── geoip.dat                 # 用于根据 IP 地址来进行地理位置策略或访问控制
 ├── geosite.dat               # 用于基于域名或网站分类来进行访问控制、内容过滤或安全策略
@@ -126,6 +138,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── list                      # 节点信息列表
 ├── outbound.json             # 出站和路由配置文件，chatGPT 使用 warp ipv6 链式代理出站
 ├── xray                      # xray 主程序
+├── nginx.conf                # Nginx 配置文件
 └── ax.sh                     # 快捷方式脚本文件
 ```
 
