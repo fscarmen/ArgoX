@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.6
+VERSION=1.6.1
 
 # 各变量默认值
 GH_PROXY='https://cdn2.cloudflare.now.cc/'
@@ -12,7 +12,7 @@ TLS_SERVER=addons.mozilla.org
 METRICS_PORT='3333'
 CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo.com")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-SUBSCRIBE_API="api.v1.mk"
+SUBSCRIBE_API=("back.889876.xyz" "api.v1.mk")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -20,8 +20,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://<argo tunnel url>/<uuid>/<qr | clash | base64 | proxies | shadowrocket | sing-box-pc | sing-box-phone>. Index of all subscribes: https://<argo tunnel url>/<uuid>/  . Reinstall is required; 2. Adaptive the above clients. https://<argo tunnel url>/<uuid>/<auto | auto2>"
-C[1]="1. 增加 V2rayN / Nekobox / Clash / sing-box / Shadowrocket 订阅，https://<argo tunnel url>/<uuid>/<qr | clash | base64 | proxies | shadowrocket | sing-box-pc | sing-box-phone>， 所有订阅的索引: https://<argo tunnel url>/<uuid>/，需要重新安装; 2. 自适应以上的客户端，https://<argo tunnel url>/<uuid>/<auto | auto2"
+E[1]="1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://<argo tunnel url>/<uuid>/<auto | auto2>"
+C[1]="1. 为保护节点数据安全，在 api 转订阅时，使用虚假信息; 2. 自适应以上的客户端，https://<argo tunnel url>/<uuid>/<auto | auto2>"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -222,11 +222,118 @@ check_install() {
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/xray ] && { wget --no-check-certificate -qO $TEMP_DIR/Xray.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip >/dev/null 2>&1; unzip -qo $TEMP_DIR/Xray.zip xray *.dat -d $TEMP_DIR >/dev/null 2>&1; }&
 }
 
-# 订阅 api 函数
-get_subscribe() {
+# 订阅 api 函数，为保证节点数据的安全性，将置换为伪造数据去获取 api 配置信息，之后再置换为真实的
+fetch_subscribe() {
+  # 1. 获取参数
   local TARGET=$1
-  local URL=$2
-  curl -sL "https://$SUBSCRIBE_API/sub?target=$TARGET&url=$URL&insert=false&config=https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online.ini&emoji=true&list=false&tfo=false&scv=false&fdn=false&sort=false&new_name=true"
+  local REAL_FILE=$2
+  local URL=$3
+
+  # 2. 获取重点键值，由于 sing-box 使用 v2ray 插件不成功的原因，所以 sing-box 去掉 shadowsocks+WSS 的协议
+  [ "$TARGET" = 'singbox' ] && local REAL_CONTENT=$(sed '/type: ss/d' $REAL_FILE) || local REAL_CONTENT=$(cat $REAL_FILE)
+  local REAL_NAME=($(sed -n 's/.*\-[ ]*{[ ]*name:[ ]*"\([^"]*\)".*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_SERVER=($(sed -n 's/.*,[ ]*server:[ ]*\([^,]\+\),.*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_SERVERNAME=($(sed -n 's/.*servername:[ ]*\([^,]\+\),.*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_HOST=($(sed -n 's/.*ost:[ ]*\([^,}]\+\).*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_SNI=($(sed -n 's/.*sni:[ ]*\([^,]\+\),.*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_PORT=($(sed -n 's/.*,[ ]*port:[ ]*\([^,]\+\),.*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_UUID=($(sed -n 's/.*,[ ]*uuid:[ ]*\([^,]\+\),.*/\1/gp'  <<< "$REAL_CONTENT"))
+  local REAL_PASSWORD=($(sed -n 's/.*,[ ]*password:[ ]*\([^,]\+\),.*/\1/gp' <<< "$REAL_CONTENT"))
+  local REAL_PUBLIC=($(sed -n 's/.*{[ ]*public-key:[ ]*\([^,]\+\),.*/\1/gp'  <<< "$REAL_CONTENT"))
+  local REAL_PATH=($(sed -n 's/.*path:[ ]*"\/\([^"]\+\)",.*/\1/gp' <<< "$REAL_CONTENT"))
+
+  # 3. 混淆各键值
+  local FAKE_CONTENT=$REAL_CONTENT
+  local FAKE_FILE=${REAL_FILE}-${TARGET}-fake
+  local FAKE_URL=${URL}-${TARGET}-fake
+
+  for d in ${!REAL_NAME[@]}; do
+    local FAKE_NAME[d]=$(cat /proc/sys/kernel/random/uuid)
+    local FAKE_CONTENT=$(sed "1,/name: \"${REAL_NAME[d]}/s/${REAL_NAME[d]}/${FAKE_NAME[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_SERVER[@]}; do
+    local FAKE_SERVER[d]="$(cat /proc/sys/kernel/random/uuid)"
+    local FAKE_CONTENT=$(sed "1,/server: ${REAL_SERVER[d]}/s/server: ${REAL_SERVER[d]}/server: ${FAKE_SERVER[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_SERVERNAME[@]}; do
+    local FAKE_SERVERNAME[d]="$(cat /proc/sys/kernel/random/uuid)"
+    local FAKE_CONTENT=$(sed "1,/servername: ${REAL_SERVERNAME[d]}/s/servername: ${REAL_SERVERNAME[d]}/servername: ${FAKE_SERVERNAME[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_SNI[@]}; do
+    local FAKE_SNI[d]="$(cat /proc/sys/kernel/random/uuid)"
+    local FAKE_CONTENT=$(sed "1,/sni: ${REAL_SNI[d]}/s/sni: ${REAL_SNI[d]}/sni: ${FAKE_SNI[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_HOST[@]}; do
+    local FAKE_HOST[d]="$(cat /proc/sys/kernel/random/uuid)"
+    local FAKE_CONTENT=$(sed "1,/ost: ${REAL_HOST[d]}/s/ost: ${REAL_HOST[d]}/ost: ${FAKE_HOST[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_PORT[@]}; do
+    local FAKE_PORT[d]=$(shuf -i 10000-65535 -n 1)
+    local FAKE_CONTENT=$(sed "1,/port: ${REAL_PORT[d]}/s/port: ${REAL_PORT[d]}/port: ${FAKE_PORT[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_UUID[@]}; do
+    local FAKE_UUID[d]=$(cat /proc/sys/kernel/random/uuid)
+    local FAKE_CONTENT=$(sed "1,/uuid: ${REAL_UUID[d]}/s/uuid: ${REAL_UUID[d]}/uuid: ${FAKE_UUID[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_PASSWORD[@]}; do
+    local FAKE_PASSWORD[d]=$(cat /proc/sys/kernel/random/uuid)
+    local FAKE_CONTENT=$(sed "1,/password: ${REAL_PASSWORD[d]}/s/password: ${REAL_PASSWORD[d]}/password: ${FAKE_PASSWORD[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_PUBLIC[@]}; do
+    local FAKE_PUBLIC[d]=$(cat /proc/sys/kernel/random/uuid)
+    local FAKE_CONTENT=$(sed "1,/public-key: ${REAL_PUBLIC[d]}/s/public-key: ${REAL_PUBLIC[d]}/public-key: ${FAKE_PUBLIC[d]}/" <<< "$FAKE_CONTENT")
+  done
+  for d in ${!REAL_PATH[@]}; do
+    local FAKE_PATH[d]=$(cat /proc/sys/kernel/random/uuid)
+    local FAKE_CONTENT=$(sed "1,/path: \"${REAL_PATH[d]}\"/s#path: \"/${REAL_PATH[d]}#path: \"/${FAKE_PATH[d]}#" <<< "$FAKE_CONTENT")
+  done
+
+  # 4. 把混淆节点保存到本地，以让外网能访问
+  echo "$FAKE_CONTENT" > $FAKE_FILE
+
+  # 5. 通过转订阅后端 api 获取配置信息
+  FROM_API=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 "https://${SUBSCRIBE_API[0]}/sub?target=$TARGET&url=$FAKE_URL&insert=false&config=https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online.ini&emoji=true&list=false&tfo=false&scv=false&fdn=false&sort=false&new_name=true")
+
+  # 6. 删除临时文件
+  rm -f $FAKE_FILE
+
+  # 7. 还原数据
+  local REAL_CONFIG="$FROM_API"
+  for d in ${!FAKE_NAME[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_NAME[d]}/${REAL_NAME[d]}/g" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_SERVER[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_SERVER[d]}/${REAL_SERVER[d]}/g" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_SERVERNAME[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_SERVERNAME[d]}/${REAL_SERVERNAME[d]}/" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_SNI[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_SNI[d]}/${REAL_SNI[d]}/g" <<< "$REAL_CONFIG")
+  done
+  ### 此处修正理订阅服务里存在的 bug，在 trojan + WSS 协议转换中，server_name 本应是 sni 独立的，转换中 server_name 与 sni 一样了，故修正回来
+  local REAL_CONFIG=$(sed "s/${FAKE_SNI[0]}/${FAKE_HOST[2]}/" <<< "$REAL_CONFIG")
+  for d in ${!FAKE_HOST[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_HOST[d]}/${REAL_HOST[d]}/" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_PORT[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_PORT[d]}/${REAL_PORT[d]}/g" <<<"$REAL_CONFIG")
+  done
+  for d in ${!FAKE_UUID[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_UUID[d]}/${REAL_UUID[d]}/g" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_PASSWORD[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_PASSWORD[d]}/${REAL_PASSWORD[d]}/g" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_PUBLIC[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_PUBLIC[d]}/${REAL_PUBLIC[d]}/g" <<< "$REAL_CONFIG")
+  done
+  for d in ${!FAKE_PATH[@]}; do
+    local REAL_CONFIG=$(sed "s/${FAKE_PATH[d]}/${REAL_PATH[d]}/g" <<< "$REAL_CONFIG")
+  done
+
+  # 8. 输出最终真实结果
+  echo "$REAL_CONFIG"
 }
 
 # 为了适配 alpine，定义 cmd_systemctl 的函数
@@ -1061,17 +1168,17 @@ export_list() {
   local CLASH_SUBSCRIBE="proxies:
   - {name: \"${NODE_NAME} reality-vision\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }
   - {name: \"${NODE_NAME} reality-grpc\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }
-  - {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl?ed=2048\", headers: { Host: ${ARGO_DOMAIN}}}, udp: true}
-  - {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: {path: \"/${WS_PATH}-vm?ed=2048\", headers: {Host: ${ARGO_DOMAIN}}}, udp: true}
-  - {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: \"/${WS_PATH}-tr?ed=2048\", headers: { Host: ${ARGO_DOMAIN} } } }
-  - {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh?ed=2048\", tls: true, skip-cert-verify: false, mux: false } }"
+  - {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}, udp: true}
+  - {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: true, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}, udp: true}
+  - {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }
+  - {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
 
   echo -n "${CLASH_SUBSCRIBE}" > $WORK_DIR/subscribe/proxies
 
   # 生成 clash 订阅配置文件
   wget --no-check-certificate -qO- --tries=3 --timeout=2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#http://${ARGO_DOMAIN}/${UUID}/proxies#" > $WORK_DIR/subscribe/clash
 
-  get_subscribe clash https://${ARGO_DOMAIN}/${UUID}/proxies > $WORK_DIR/subscribe/clash2
+  fetch_subscribe clash $WORK_DIR/subscribe/proxies https://${ARGO_DOMAIN}/${UUID}/proxies > $WORK_DIR/subscribe/clash2
 
   # 生成 Shadowrocket 订阅文件
   local SHADOWROCKET_SUBSCRIBE="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME}%20reality-vision&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}
@@ -1099,7 +1206,7 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
 
   echo $PC_TEMPLATE | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | jq > $WORK_DIR/subscribe/sing-box-pc
   echo $PHONE_TEMPLATE | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | jq > $WORK_DIR/subscribe/sing-box-phone
-  get_subscribe singbox https://${ARGO_DOMAIN}/${UUID}/proxies | jq > $WORK_DIR/subscribe/sing-box2
+  fetch_subscribe singbox $WORK_DIR/subscribe/proxies https://${ARGO_DOMAIN}/${UUID}/proxies | jq > $WORK_DIR/subscribe/sing-box2
 
   # 生成二维码 url 文件
   cat > $WORK_DIR/subscribe/qr << EOF

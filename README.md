@@ -15,14 +15,16 @@
 
 * * *
 ## 更新信息
-2024.3.2 v1.6 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\> ; 1. 增加 V2rayN / Nekobox / Clash / sing-box / Shadowrocket 订阅，https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>， 所有订阅的索引: https://\<argo tunnel url\>/\<uuid\>/，需要重新安装; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
+2024.3.10 v1.6.1 1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>; 1. 为保护节点数据安全，在 api 转订阅时，使用虚假信息; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
 
-2024.2.6 V1.5 Argo run protocol uses default instead of http2. The default value is auto, what will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol; Argo 运行的协议使用默认值，而不是 http2。默认值为 auto，将自动配置 quic 协议。如果 cloudflared 无法建立 UDP 连接，它将回落到使用 http2 协议。
+2024.3.2 v1.6 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\> ; 1. 增加 V2rayN / Nekobox / Clash / sing-box / Shadowrocket 订阅，https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>， 所有订阅的索引: https://\<argo tunnel url\>/\<uuid\>/，需要重新安装; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2024.2.6 V1.5 Argo run protocol uses default instead of http2. The default value is auto, what will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol; Argo 运行的协议使用默认值，而不是 http2。默认值为 auto，将自动配置 quic 协议。如果 cloudflared 无法建立 UDP 连接，它将回落到使用 http2 协议。
+>
 >2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names1; 3. After installing, add [argox] shortcut; 4. Output the configuration for Sing-box Client; 1. 支持 Reality-Vison and Reality-gRPC，两个均为直连方案; 2. 临时隧道通过 API 查动态域名; 3. 安装后，增加 [argox] 的快捷运行方式; 4. 输出 Sing-box Client 的配置
 >
 >2023.10.16 V1.3 1. Support Alpine; 2. Add Sing-box PID, runtime, and memory usage to the menu; 3. Remove the option of using warp on returning to China; 支持 Alpine; 2. 菜单中增加 sing-box 内存占用显示; 3. 去掉使用 warp 回国的选项
