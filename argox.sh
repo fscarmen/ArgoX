@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.6.1
+VERSION='1.6.2 (2024.03.13)'
 
 # 各变量默认值
 GH_PROXY='https://cdn2.cloudflare.now.cc/'
@@ -12,7 +12,7 @@ TLS_SERVER=addons.mozilla.org
 METRICS_PORT='3333'
 CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo.com")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-SUBSCRIBE_API=("back.889876.xyz" "api.v1.mk")
+SUBSCRIBE_API=("bav6.889876.xyz" "api.v1.mk")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -20,8 +20,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://<argo tunnel url>/<uuid>/<auto | auto2>"
-C[1]="1. 为保护节点数据安全，在 api 转订阅时，使用虚假信息; 2. 自适应以上的客户端，https://<argo tunnel url>/<uuid>/<auto | auto2>"
+E[1]="1. Subscription made optional, no nginx and qrcode installed if not needed; 2. Use native IP if it supports unlocking chatGPT, otherwise use warp chained proxy unlocking"
+C[1]="1. 在线订阅改为可选项，如不需要，不安装 nginx 和 qrcode; 2. 如自身支持解锁 chatGPT，则使用原生 IP，否则使用 warp 链式代理解锁"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -38,14 +38,14 @@ E[8]="All dependencies already exist and do not need to be installed additionall
 C[8]="所有依赖已存在，不需要额外安装"
 E[9]="To upgrade, press [y]. No upgrade by default:"
 C[9]="升级请按 [y]，默认不升级:"
-E[10]="Please enter Argo Domain (Default is temporary domain if left blank):"
-C[10]="请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
+E[10]="(3/8) Please enter Argo Domain (Default is temporary domain if left blank):"
+C[10]="(3/8) 请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
 E[11]="Please enter Argo Token or Json ( User can easily obtain the json at https://fscarmen.cloudflare.now.cc ):"
 C[11]="请输入 Argo Token 或者 Json ( 用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc ):"
-E[12]="Please enter Xray UUID \(Default is \$UUID_DEFAULT\):"
-C[12]="请输入 Xray UUID \(默认为 \$UUID_DEFAULT\):"
-E[13]="Please enter Xray WS Path \(Default is \$WS_PATH_DEFAULT\):"
-C[13]="请输入 Xray WS 路径 \(默认为 \$WS_PATH_DEFAULT\):"
+E[12]="\(6/8\) Please enter Xray UUID \(Default is \$UUID_DEFAULT\):"
+C[12]="\(6/8\) 请输入 Xray UUID \(默认为 \$UUID_DEFAULT\):"
+E[13]="\(7/8\) Please enter Xray WS Path \(Default is \$WS_PATH_DEFAULT\):"
+C[13]="\(7/8\) 请输入 Xray WS 路径 \(默认为 \$WS_PATH_DEFAULT\):"
 E[14]="Xray WS Path only allow uppercase and lowercase letters and numeric characters, please re-enter \(\${a} times remaining\):"
 C[14]="Xray WS 路径只允许英文大小写及数字字符，请重新输入 \(剩余\${a}次\):"
 E[15]="ArgoX script has not been installed yet."
@@ -102,8 +102,8 @@ E[40]="Argo tunnel is: \$ARGO_TYPE\\\n The domain is: \$ARGO_DOMAIN"
 C[40]="Argo 隧道类型为: \$ARGO_TYPE\\\n 域名是: \$ARGO_DOMAIN"
 E[41]="Argo tunnel type:\n 1. Try\n 2. Token or Json"
 C[41]="Argo 隧道类型:\n 1. Try\n 2. Token 或者 Json"
-E[42]="Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
-C[42]="请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
+E[42]="\(5/8\) Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
+C[42]="\(5/8\) 请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
 E[43]="\$APP local verion: \$LOCAL.\\\t The newest verion: \$ONLINE"
 C[43]="\$APP 本地版本: \$LOCAL.\\\t 最新版本: \$ONLINE"
 E[44]="No upgrade required."
@@ -116,8 +116,8 @@ E[47]="The script must be run as root, you can enter sudo -i and then download a
 C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运行，问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
-E[49]="Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
-C[49]="请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
+E[49]="\(8/8\) Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
+C[49]="\(8/8\) 请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
 E[50]="\${APP[@]} services are not enabled, node information cannot be output. Press [y] if you want to open."
 C[50]="\${APP[@]} 服务未开启，不能输出节点信息。如需打开请按 [y]: "
 E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
@@ -130,14 +130,14 @@ E[54]="Warp / warp-go was detected to be running. Please enter the correct serve
 C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器 IP:"
 E[55]="The script runs today: \$TODAY. Total: \$TOTAL"
 C[55]="脚本当天运行次数: \$TODAY，累计运行次数: \$TOTAL"
-E[56]="Please enter the Reality port \(Default is \${REALITY_PORT_DEFAULT}\):"
-C[56]="请输入 Reality 的端口号 \(默认为 \${REALITY_PORT_DEFAULT}\):"
+E[56]="\(4/8\) Please enter the Reality port \(Default is \${REALITY_PORT_DEFAULT}\):"
+C[56]="\(4/8\) 请输入 Reality 的端口号 \(默认为 \${REALITY_PORT_DEFAULT}\):"
 E[57]="Install sba scripts (argo + sing-box) [https://github.com/fscarmen/sba]"
 C[57]="安装 sba 脚本 (argo + sing-box) [https://github.com/fscarmen/sba]"
 E[58]="No server ip, script exits. Feedback:[https://github.com/fscarmen/sing-box/issues]"
 C[58]="没有 server ip，脚本退出，问题反馈:[https://github.com/fscarmen/sing-box/issues]"
-E[59]="Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
-C[59]="请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
+E[59]="\(2/8\) Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
+C[59]="\(2/8\) 请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
 E[60]="Quicktunnel domain can be obtained from: http://\${SERVER_IP_1}:\${METRICS_PORT}/quicktunnel"
 C[60]="临时隧道域名可以从以下网站获取: http://\${SERVER_IP_1}:\${METRICS_PORT}/quicktunnel"
 E[61]="Ports are in used: \$REALITY_PORT"
@@ -154,6 +154,8 @@ E[66]="Adaptive Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM Client
 C[66]="自适应 Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM 客户端"
 E[67]="template"
 C[67]="模版"
+E[68]="(1/8) Output subscription QR code and https service, need to install dependencies qrencode, nginx\n If not, please enter [n]. Default installation:"
+C[68]="(1/8) 输出订阅二维码和 https 服务，需要安装依赖 qrencode, nginx\n 如不需要，请输入 [n]，默认安装:"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -173,6 +175,13 @@ translate() {
 # 检测是否需要启用 Github CDN，如能直接连通，则不使用
 check_cdn() {
   wget --server-response --quiet --output-document=/dev/null --no-check-certificate --tries=2 --timeout=3 https://raw.githubusercontent.com/fscarmen/ArgoX/main/README.md >/dev/null 2>&1 && unset GH_PROXY
+}
+
+# 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out
+check_chatgpt() {
+  local CHECK_STACK=$1
+  local SUPPORT_COUNTRY=(AL DZ AD AO AG AR AM AU AT AZ BS BD BB BE BZ BJ BT BO BA BW BR BN BG BF CV CA CL CO KM CG CR CI HR CY CZ DK DJ DM DO EC SV EE FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT VA HN HU IS IN ID IQ IE IL IT JM JP JO KZ KE KI KW KG LV LB LS LR LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RW KN LC VC WS SM ST SN RS SC SL SG SK SI SB ZA KR ES LK SR SE CH TW TZ TH TL TG TO TT TN TR TV UG UA AE GB US UY VU ZM)
+  [[ "${SUPPORT_COUNTRY[@]}" =~ $(wget --no-check-certificate -$CHECK_STACK -qO- --tries=3 --timeout=2 https://chat.openai.com/cdn-cgi/trace | awk -F '=' '/loc/{print $2}') ]] && echo 'unlock' || echo 'ban'
 }
 
 # 脚本当天及累计运行次数统计
@@ -211,6 +220,7 @@ check_arch() {
 
 # 查安装及运行状态，下标0: argo，下标1: xray，下标2：docker；状态码: 26 未安装， 27 已安装未运行， 28 运行中
 check_install() {
+  [ -s $WORK_DIR/nginx.conf ] && IS_NGINX=1 || IS_NGINX=0
   STATUS[0]=$(text 26) && [ -s /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ "$(systemctl is-active argo)" = 'active' ] && STATUS[0]=$(text 28)
   STATUS[1]=$(text 26)
   # xray systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
@@ -423,6 +433,9 @@ check_system_ip() {
 
 # 定义 Argo 变量
 argo_variable() {
+  reading "\n $(text 68) " INSTALL_NGINX
+  [ "${INSTALL_NGINX,,}" != 'n' ] && check_dependencies_2nd >/dev/null 2>&1 &
+
   if grep -qi 'cloudflare' <<< "$ASNORG4$ASNORG6"; then
     local a=6
     until [ -n "$SERVER_IP" ]; do
@@ -442,6 +455,10 @@ argo_variable() {
     SERVER_IP_DEFAULT=$WAN6
     WARP_ENDPOINT=2606:4700:d0::a29f:c101
   fi
+
+  # 检测是否解锁 chatGPT
+  CHAT_GPT_OUT_V4=warp-IPv4; CHAT_GPT_OUT_V6=warp-IPv4;
+  [ "$(check_chatgpt ${DOMAIN_STRATEG: -1})" = 'unlock' ] && CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
   [ -z "$SERVER_IP" ] && reading "\n $(text 59) " SERVER_IP
@@ -535,13 +552,13 @@ xray_variable() {
 check_dependencies() {
   # 如果是 Alpine，先升级 wget ，安装 systemctl-py 版
   if [ "$SYSTEM" = 'Alpine' ]; then
-    CHECK_WGET=$(wget 2>&1 | head -n 1)
+    local CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
-    DEPS_CHECK=("bash" "rc-update" "virt-what" "qrencode")
-    DEPS_INSTALL=("bash" "openrc" "virt-what" "libqrencode")
+    DEPS_CHECK=("bash" "rc-update" "virt-what")
+    DEPS_INSTALL=("bash" "openrc" "virt-what")
 
-    for ((g=0; g<${#DEPS_CHECK[@]}; g++)); do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
+    for ${!DEPS_CHECK[@]}; do [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]}); done
     if [ "${#DEPS[@]}" -ge 1 ]; then
       info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS[@]}) \n"
       ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
@@ -553,8 +570,8 @@ check_dependencies() {
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
   unset DEPS_CHECK DEPS_INSTALL DEPS
-  DEPS_CHECK=("wget" "systemctl" "ss" "unzip" "bash" "nginx" "jq" "qrencode")
-  DEPS_INSTALL=("wget" "systemctl" "iproute2" "unzip" "bash" "nginx" "jq" "qrencode")
+  DEPS_CHECK=("wget" "systemctl" "ss" "unzip" "bash" "jq")
+  DEPS_INSTALL=("wget" "systemctl" "iproute2" "unzip" "bash" "jq")
   for g in "${!DEPS_CHECK[@]}"; do
     [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]})
   done
@@ -568,6 +585,18 @@ check_dependencies() {
 
   # 不需要 nginx 原来的服务
   [[ "${DEPS[@]}" =~ 'nginx' ]] && cmd_systemctl disable nginx >/dev/null 2>&1
+}
+
+# 根据用户选择安装依赖
+check_dependencies_2nd() {
+  local DEPS_CHECK=("qrencode" "nginx")
+  [ "$SYSTEM" = 'Alpine' ] && local DEPS_INSTALL=("libqrencode" "nginx") || local DEPS_INSTALL=("qrencode" "nginx")
+  for g in "${!DEPS_CHECK[@]}"; do
+    [ ! $(type -p ${DEPS_CHECK[g]}) ] && DEPS_2ND+=(${DEPS_INSTALL[g]})
+  done
+  if [ "${#DEPS_2ND[@]}" -ge 1 ]; then
+    ${PACKAGE_INSTALL[int]} ${DEPS_2ND[@]} >/dev/null 2>&1
+  fi
 }
 
 # Nginx 配置文件
@@ -695,23 +724,25 @@ install_argox() {
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080"
   fi
 
-  cat > /etc/systemd/system/argo.service << EOF
-[Unit]
+  local ARGO_SERVER="[Unit]
 Description=Cloudflare Tunnel
 After=network.target
 
 [Service]
 Type=simple
 NoNewPrivileges=yes
-TimeoutStartSec=0
-ExecStartPre=$(type -p nginx) -c $WORK_DIR/nginx.conf
+TimeoutStartSec=0"
+  [ "$IS_NGINX" != 'n' ] && ARGO_SERVER+="
+ExecStartPre=$(type -p nginx) -c $WORK_DIR/nginx.conf"
+  ARGO_SERVER+="
 ExecStart=$ARGO_RUNS
 Restart=on-failure
 RestartSec=5s
 
 [Install]
-WantedBy=multi-user.target
-EOF
+WantedBy=multi-user.target"
+
+  echo "$ARGO_SERVER" > /etc/systemd/system/argo.service
 
   # 生成配置文件及守护进程文件
   local i=1
@@ -1038,14 +1069,14 @@ EOF
                 "domain":[
                     "api.openai.com"
                 ],
-                "outboundTag":"warp-IPv4"
+                "outboundTag":"$CHAT_GPT_OUT_V4"
             },
             {
                 "type":"field",
                 "domain":[
                     "geosite:openai"
                 ],
-                "outboundTag":"warp-IPv6"
+                "outboundTag":"$CHAT_GPT_OUT_V6"
             }
         ]
     }
@@ -1071,7 +1102,7 @@ WantedBy=multi-user.target
 EOF
 
   # 生成 Nginx 配置文件
-  json_nginx
+  [ "$IS_NGINX" != 'n' ] && json_nginx
 
   # 再次检测状态，运行 Argo 和 Xray
   check_install
@@ -1168,10 +1199,10 @@ export_list() {
   local CLASH_SUBSCRIBE="proxies:
   - {name: \"${NODE_NAME} reality-vision\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }
   - {name: \"${NODE_NAME} reality-grpc\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }
-  - {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}, udp: true}
-  - {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: true, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}, udp: true}
+  - {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }
+  - {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: true, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}
   - {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }
-  - {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
+  - {name: \"${NODE_NAME}-Sh\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
 
   echo -n "${CLASH_SUBSCRIBE}" > $WORK_DIR/subscribe/proxies
 
@@ -1209,7 +1240,7 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
   fetch_subscribe singbox $WORK_DIR/subscribe/proxies https://${ARGO_DOMAIN}/${UUID}/proxies | jq > $WORK_DIR/subscribe/sing-box2
 
   # 生成二维码 url 文件
-  cat > $WORK_DIR/subscribe/qr << EOF
+  [ "$IS_NGINX" = '1' ] && cat > $WORK_DIR/subscribe/qr << EOF
 $(text 66):
 $(text 67) 1:
 https://${ARGO_DOMAIN}/${UUID}/auto
@@ -1233,8 +1264,7 @@ $(qrencode -s 10 -m 1 -t UTF8 <<< "https://${ARGO_DOMAIN}/${UUID}/auto2")
 EOF
 
   # 生成客户端配置文件
-  cat > $WORK_DIR/list << EOF
-*******************************************
+  EXPORT_LIST_FILE="*******************************************
 ┌────────────────┐  ┌────────────────┐
 │                │  │                │
 │     $(warning "V2rayN")     │  │    $(warning "NekoBox")     │
@@ -1277,6 +1307,8 @@ $(info "$(sed '1d;G' <<< "$CLASH_SUBSCRIBE")")
 $(hint "$(echo "{ \"outbounds\":[ ${INBOUND_REPLACE%,} ] }" | jq)
 
  $(text 63)")
+"
+[ "$IS_NGINX" = '1' ] && EXPORT_LIST_FILE+="
 
 *******************************************
 
@@ -1321,12 +1353,15 @@ $(hint "$(text 67) 1:")
 $(qrencode -s 10 -m 1 -t UTF8 <<< https://${ARGO_DOMAIN}/${UUID}/auto)
 
 $(hint "$(text 67) 2:")
-$(qrencode -s 10 -m 1 -t UTF8 <<< https://${ARGO_DOMAIN}/${UUID}/auto)
+$(qrencode -s 10 -m 1 -t UTF8 <<< https://${ARGO_DOMAIN}/${UUID}/auto2)
+"
+EXPORT_LIST_FILE+="
+$(info "\n*******************************************
 
-*******************************************
-
-$(info " ${QUICK_TUNNEL_URL} ")
-EOF
+ ${QUICK_TUNNEL_URL} ")
+"
+  # 生成并显示节点信息
+  echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
@@ -1373,7 +1408,7 @@ change_argo() {
         exit 0
     esac
 
-    json_nginx
+    [ "$IS_NGINX" = '1' ] && json_nginx
     cmd_systemctl enable argo
     export_list
 }
@@ -1382,9 +1417,9 @@ uninstall() {
   if [ -d $WORK_DIR ]; then
     cmd_systemctl disable argo
     cmd_systemctl disable xray
-    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service /usr/bin/argox
-    [ $(ps -ef | grep 'nginx' | wc -l) -le 1 ] && reading " $(text 65) " REMOVE_NGINX
+    [[ -s $WORK_DIR/nginx.conf && $(ps -ef | grep 'nginx' | wc -l) -le 1 ]] && reading " $(text 65) " REMOVE_NGINX
     [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx
+    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/argo.service /etc/systemd/system/xray.service /usr/bin/argox
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
@@ -1438,12 +1473,12 @@ menu_setting() {
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
     [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | awk '{ $1=""; sub(/^ */, ""); print $0 }')
-    [ $(type -p nginx) ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/#Version: #")
+    [ "$IS_NGINX" = '1' ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/#Version: #")
 
     OPTION[1]="1.  $(text 29)"
     if [ ${STATUS[0]} = "$(text 28)" ]; then
       AEGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB"
-      NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/nginx/{print $1}' <<< "$PS_LIST")/status) MB"
+      [ "$IS_NGINX" = '1' ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/nginx/{print $1}' <<< "$PS_LIST")/status) MB"
       OPTION[2]="2.  $(text 27) Argo (argox -a)"
     else
       OPTION[2]="2.  $(text 28) Argo (argox -a)"
@@ -1484,12 +1519,13 @@ menu_setting() {
 
 menu() {
   clear
-  hint " $(text 2) "
+  ### hint " $(text 2) "
   echo -e "======================================================================================================================\n"
   info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
-  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $AEGO_MEMORY\t $ARGO_CHECKHEALTH\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION\t\t $XRAY_MEMORY\n\t Nginx: ${STATUS[0]}\t $NGINX_VERSION\t $NGINX_MEMORY "
+  info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $AEGO_MEMORY\t $ARGO_CHECKHEALTH\n\t Xray: ${STATUS[1]}\t $XRAY_VERSION\t\t $XRAY_MEMORY "
+  [ "$IS_NGINX" = '1' ] && info "\t Nginx: ${STATUS[0]}\t $NGINX_VERSION\t $NGINX_MEMORY "
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "
