@@ -15,7 +15,9 @@
 
 * * *
 ## 更新信息
-2024.3.24 v1.6.3 1. Compatible with CentOS 7,8,9; 2. Remove default Github CDN; 3. Dependency jq changed from apt install to official download binary; 1. 适配 CentOS 7,8,9; 2. 去掉默认的 Github 加速网; 3. 依赖 jq 从 apt 安装改为官方下载二进制
+2024.3.26 v1.6.4 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary file, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies; 感谢 UUb 兄弟的官改编译，依赖 jq, qrencode 从 apt 安装改为下载二进制文件，缩减安装时间约15秒，贯彻项目轻量化的定位，尽最大可能安装最少的系统依赖
+
+2024.3.24 v1.6.3 1. Compatible with CentOS 7,8,9; 2. Remove default Github CDN; 1. 适配 CentOS 7,8,9; 2. 去掉默认的 Github 加速网
 
 2024.3.13 v1.6.2 1. Subscription made optional, no nginx and qrcode installed if not needed; 2. Use native IP if it supports unlocking chatGPT, otherwise use warp chained proxy unlocking; 1. 在线订阅改为可选项，如不需要，不安装 nginx 和 qrcode; 2. 如自身支持解锁 chatGPT，则使用原生 IP，否则使用 warp 链式代理解锁
 
@@ -146,8 +148,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── xray                      # xray 主程序
 ├── nginx.conf                # Nginx 配置文件
 ├── ax.sh                     # 快捷方式脚本文件
-└── jq                        # 命令行 JSON 处理器
-
+├── jq                        # 命令行 JSON 处理器
+└── qrencode                  # QR 码编码二进制文件
 ```
 
 
