@@ -3,6 +3,7 @@ L='C' # C for Chinese / E for English
 
 # VPS ip
 SERVER_IP=''
+# For example: IPv4: 123.123.123.123;    IPv6: 2a01:4f8:272:5aa1:dc88:ff6e:5305:1234
 
 # Argo
 ARGO_DOMAIN=''
@@ -12,8 +13,15 @@ ARGO_AUTH=''
 # Token: ARGO_AUTH='eyJhIjoiOWNjOWUzZTRkOGYyOWQyYTAyZTI5N2YxNagyFzUxM2EiLCJ0IjoiYTcyMmUwNjYtODlmYi00ZjJmLTgagDQtOGEwOTVhNTkzM2I2IiwicyI6Ik9XTTFaak0xWWprdE16QTRNQzAwTUdVMExUbGlaV0V0TmpFek9UZzFNRGczWkdRNCJ9'
 
 # Xray
+REALITY_PORT='55443'
+REALITY_PRIVATE='iFgLurn7LeLvfKLAjn41R7_OISJ0-fDOZvoBMGcnvVU'
+REALITY_PUBLIC='SpFP6OlOOTkBnwOyBwzJT5I7oCIrCtGxU7pHK_qMJwA'
 SERVER='icook.hk'
 UUID='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH='argox'
-REALITY_PRIVATE='iFgLurn7LeLvfKLAjn41R7_OISJ0-fDOZvoBMGcnvVU'
-REALITY_PUBLIC='SpFP6OlOOTkBnwOyBwzJT5I7oCIrCtGxU7pHK_qMJwA'
+NODE_NAME='node'
+# Refer to the use case for modifications.
+
+# Subscribe
+INSTALL_NGINX='y'
+# [y/n]: Install nginx for subscribe or not.
