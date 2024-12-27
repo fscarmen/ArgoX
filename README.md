@@ -15,6 +15,8 @@
 
 * * *
 ## 更新信息
+2024.12.24 v1.6.6 Refactored the chatGPT detection method based on lmc999's detection and unlocking script; 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
+
 2024.5.20 v1.6.5 1. Add Github CDN; 2. Remove subscription template 2; 1. 添加 Github 加速 CDN; 2. 去掉订阅模板2
 
 2024.3.26 v1.6.4 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary file, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies; 感谢 UUb 兄弟的官改编译，依赖 jq, qrencode 从 apt 安装改为下载二进制文件，缩减安装时间约15秒，贯彻项目轻量化的定位，尽最大可能安装最少的系统依赖

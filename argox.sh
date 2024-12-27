@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.5 (2024.05.20)'
+VERSION='1.6.6 (2024.12.24)'
 
 # 各变量默认值
 GH_PROXY='https://ghproxy.lvedong.eu.org/'
@@ -10,7 +10,7 @@ WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER=addons.mozilla.org
 METRICS_PORT='3333'
-CDN_DOMAIN=("8cc.free.hr" "cf.yutian.us.kg" "fan.yutian.us.kg" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
+CDN_DOMAIN=("8cc.free.hr" "cm.yutian.us.kg" "fan.yutian.us.kg" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 
 export DEBIAN_FRONTEND=noninteractive
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add Github CDN; 2. Remove subscription template 2."
-C[1]="1. 添加 Github 加速 CDN; 2. 去掉订阅模板2"
+E[1]="Refactored the chatGPT detection method based on lmc999's detection and unlocking script."
+C[1]="根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -173,11 +173,35 @@ check_cdn() {
   [ -n "$GH_PROXY" ] && wget --server-response --quiet --output-document=/dev/null --no-check-certificate --tries=2 --timeout=3 https://raw.githubusercontent.com/fscarmen/ArgoX/main/README.md >/dev/null 2>&1 && unset GH_PROXY
 }
 
-# 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out
+# 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out，此处判断改编自 https://github.com/lmc999/RegionRestrictionCheck
 check_chatgpt() {
-  local CHECK_STACK=$1
-  local SUPPORT_COUNTRY=(AD AE AF AG AL AM AO AR AT AU AZ BA BB BD BE BF BG BH BI BJ BN BO BR BS BT BW BZ CA CD CF CG CH CI CL CM CO CR CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FR GA GB GD GE GH GM GN GQ GR GT GW GY HN HR HT HU ID IE IL IN IQ IS IT JM JO JP KE KG KH KI KM KN KR KW KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MR MT MU MV MW MX MY MZ NA NE NG NI NL NO NP NR NZ OM PA PE PG PH PK PL PS PT PW PY QA RO RS RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SZ TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VN VU WS YE ZA ZM ZW)
-  [[ "${SUPPORT_COUNTRY[@]}" =~ $(wget --no-check-certificate -$CHECK_STACK -qO- --tries=3 --timeout=2 https://chat.openai.com/cdn-cgi/trace | awk -F '=' '/loc/{print $2}') ]] && echo 'unlock' || echo 'ban'
+  local CHECK_STACK=-$1
+  local UA_BROWSER="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  local UA_SEC_CH_UA='"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"'
+  wget --help | grep -q '\-\-ciphers' && local IS_CIPHERS=is_ciphers
+
+  # 首先检查API访问
+  local CHECK_RESULT1=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} -qO- --content-on-error --header='authority: api.openai.com' --header='accept: */*' --header='accept-language: en-US,en;q=0.9' --header='authorization: Bearer null' --header='content-type: application/json' --header='origin: https://platform.openai.com' --header='referer: https://platform.openai.com/' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: empty' --header='sec-fetch-mode: cors' --header='sec-fetch-site: same-site' --user-agent="${UA_BROWSER}" 'https://api.openai.com/compliance/cookie_requirements')
+
+  [ -z "$CHECK_RESULT1" ] && grep -qw is_ciphers <<< "$IS_CIPHERS" && local CHECK_RESULT1=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} --ciphers=DEFAULT@SECLEVEL=1 --no-check-certificate -qO- --content-on-error --header='authority: api.openai.com' --header='accept: */*' --header='accept-language: en-US,en;q=0.9' --header='authorization: Bearer null' --header='content-type: application/json' --header='origin: https://platform.openai.com' --header='referer: https://platform.openai.com/' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: empty' --header='sec-fetch-mode: cors' --header='sec-fetch-site: same-site' --user-agent="${UA_BROWSER}" 'https://api.openai.com/compliance/cookie_requirements')
+
+  # 如果API检测失败或者检测到unsupported_country,直接返回ban
+  if [ -z "$CHECK_RESULT1" ] || grep -qi 'unsupported_country' <<< "$CHECK_RESULT1"; then
+    echo "ban"
+    return
+  fi
+
+  # API检测通过后,继续检查网页访问
+  local CHECK_RESULT2=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} -qO- --content-on-error --header='authority: ios.chat.openai.com' --header='accept: */*;q=0.8,application/signed-exchange;v=b3;q=0.7' --header='accept-language: en-US,en;q=0.9' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: document' --header='sec-fetch-mode: navigate' --header='sec-fetch-site: none' --header='sec-fetch-user: ?1' --header='upgrade-insecure-requests: 1' --user-agent="${UA_BROWSER}" https://ios.chat.openai.com/)
+
+  [ -z "$CHECK_RESULT2" ] && grep -qw is_ciphers <<< "$IS_CIPHERS" && local CHECK_RESULT2=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} --ciphers=DEFAULT@SECLEVEL=1 --no-check-certificate -qO- --content-on-error --header='authority: ios.chat.openai.com' --header='accept: */*;q=0.8,application/signed-exchange;v=b3;q=0.7' --header='accept-language: en-US,en;q=0.9' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: document' --header='sec-fetch-mode: navigate' --header='sec-fetch-site: none' --header='sec-fetch-user: ?1' --header='upgrade-insecure-requests: 1' --user-agent="${UA_BROWSER}" https://ios.chat.openai.com/)
+
+  # 检查第二个结果
+  if [ -z "$CHECK_RESULT2" ] || grep -qi 'VPN' <<< "$CHECK_RESULT2"; then
+    echo "ban"
+  else
+    echo "unlock"
+  fi
 }
 
 # 脚本当天及累计运行次数统计
@@ -351,27 +375,25 @@ argo_variable() {
       [ "$a" = 0 ] && error "\n $(text 3) \n"
       reading "\n $(text 54) " SERVER_IP
     done
-    if [[ "$SERVER_IP" =~ : ]]; then
-      WARP_ENDPOINT=2606:4700:d0::a29f:c101
-    else
-      WARP_ENDPOINT=162.159.193.10
-    fi
   elif [ -n "$WAN4" ]; then
     SERVER_IP_DEFAULT=$WAN4
-    WARP_ENDPOINT=162.159.193.10
+    CHATGPT_STACK=4
   elif [ -n "$WAN6" ]; then
     SERVER_IP_DEFAULT=$WAN6
-    WARP_ENDPOINT=2606:4700:d0::a29f:c101
+    CHATGPT_STACK=6
   fi
-
-  # 检测是否解锁 chatGPT
-  CHAT_GPT_OUT_V4=warp-IPv4; CHAT_GPT_OUT_V6=warp-IPv4;
-  [ "$(check_chatgpt ${DOMAIN_STRATEG: -1})" = 'unlock' ] && CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
   [ -z "$SERVER_IP" ] && reading "\n $(text 59) " SERVER_IP
   SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
   [ -z "$SERVER_IP" ] && error " $(text 58) "
+
+  # 检测是否解锁 chatGPT
+  if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
+    CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
+  else
+    CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
+  fi
 
   # 处理可能输入的错误，去掉开头和结尾的空格，去掉最后的 :
   [ -z "$ARGO_DOMAIN" ] && reading "\n $(text 10) " ARGO_DOMAIN
@@ -504,7 +526,7 @@ check_nginx() {
     info "\n $(text 7) nginx \n"
     ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1
     # 如果新安装的 Nginx ，先停掉服务
-    systemctl disable --now nginx >/dev/null 2>&1
+    [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1
   fi
 }
 
@@ -935,7 +957,7 @@ EOF
                             "0.0.0.0/0",
                             "::/0"
                         ],
-                        "endpoint":"${WARP_ENDPOINT}:2408"
+                        "endpoint":"engage.cloudflareclient.com:2408"
                     }
                 ],
                 "reserved":[
@@ -976,14 +998,14 @@ EOF
                 "domain":[
                     "api.openai.com"
                 ],
-                "outboundTag":"$CHAT_GPT_OUT_V4"
+                "outboundTag":"${CHAT_GPT_OUT_V4}"
             },
             {
                 "type":"field",
                 "domain":[
                     "geosite:openai"
                 ],
-                "outboundTag":"$CHAT_GPT_OUT_V6"
+                "outboundTag":"${CHAT_GPT_OUT_V6}"
             }
         ]
     }
@@ -1024,7 +1046,7 @@ EOF
       info "\n Argo $(text 28) $(text 37) \n"
   esac
 
-  case "${STATUS[0]}" in
+  case "${STATUS[1]}" in
     "$(text 26)" )
       warning "\n Xray $(text 28) $(text 38) \n"
       ;;
@@ -1325,7 +1347,7 @@ uninstall() {
   if [ "$SYSTEM" = 'Alpine' ]; then
     rm -f /etc/local.d/argo.start /etc/local.d/xray.start
     rc-update add local >/dev/null 2>&1
-    [ ! $(ls /etc/systemd/system/*.service) ] && rm -f /bin/systemctl
+    [ ! -s /etc/systemd/system/*.service ] && rm -f /bin/systemctl
   fi
 }
 
