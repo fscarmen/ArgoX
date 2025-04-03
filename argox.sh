@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.6 (2024.12.24)'
+VERSION='1.6.6 (2025.03.04)'
 
 # 各变量默认值
 GH_PROXY='https://ghproxy.lvedong.eu.org/'
@@ -10,7 +10,7 @@ WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER=addons.mozilla.org
 METRICS_PORT='3333'
-CDN_DOMAIN=("8cc.free.hr" "cm.yutian.us.kg" "fan.yutian.us.kg" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
+CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 
 export DEBIAN_FRONTEND=noninteractive
@@ -206,9 +206,14 @@ check_chatgpt() {
 
 # 脚本当天及累计运行次数统计
 statistics_of_run-times() {
-  local COUNT=$(wget --no-check-certificate -qO- --tries=2 --timeout=2 "https://hit.forvps.gq/https://raw.githubusercontent.com/fscarmen/ArgoX/main/argox.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
-  TODAY=$(cut -d " " -f1 <<< "$COUNT") &&
-  TOTAL=$(cut -d " " -f3 <<< "$COUNT")
+  local UPDATE_OR_GET=$1
+  local SCRIPT=$2
+  if grep -q 'update' <<< "$UPDATE_OR_GET"; then
+    { wget -qO- --timeout=3 "https://stat-api.netlify.app/updateStats?script=${SCRIPT}" > $TEMP_DIR/statistics; }&
+  elif grep -q 'get' <<< "$UPDATE_OR_GET"; then
+    [ -s $TEMP_DIR/statistics ] && [[ $(cat $TEMP_DIR/statistics) =~ \"todayCount\":([0-9]+),\"totalCount\":([0-9]+) ]] && local TODAY="${BASH_REMATCH[1]}" && local TOTAL="${BASH_REMATCH[2]}" && rm -f $TEMP_DIR/statistics
+    hint "\n*******************************************\n\n $(text 55) \n"
+  fi
 }
 
 # 选择中英语言
@@ -1282,7 +1287,7 @@ $(info "\n*******************************************
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
-  hint "\n $(text 55) \n"
+  statistics_of_run-times get
 }
 
 # 更换 Argo 隧道类型
@@ -1462,7 +1467,7 @@ menu() {
 }
 
 check_cdn
-statistics_of_run-times
+statistics_of_run-times update argox.sh
 
 # 传参
 [[ "${*,,}" =~ -e ]] && L=E
