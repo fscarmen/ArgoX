@@ -15,6 +15,8 @@
 
 * * *
 ## 更新信息
+2025.04.21 v1.6.7 Use OpenRC on Alpine to replace systemctl (Python3-compatible version); 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现
+
 2024.12.24 v1.6.6 Refactored the chatGPT detection method based on lmc999's detection and unlocking script; 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
 
 2024.5.20 v1.6.5 1. Add Github CDN; 2. Remove subscription template 2; 1. 添加 Github 加速 CDN; 2. 去掉订阅模板2
@@ -86,7 +88,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -a         | Argo on-off Argo 开关 |
   | -x         | Xray on-off Xray 开关 |
   | -s         | Change the Argo tunnel 更换 Argo 隧道 |
-  | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config |
+  | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config.conf |
   | -u         | Uninstall 卸载 |
   | -n         | Export Nodes list 显示节点信息 |
   | -v         | Sync Argo Xray to the newest 同步 Argo Xray 到最新版本 |

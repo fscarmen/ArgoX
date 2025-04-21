@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.6 (2025.03.04)'
+VERSION='1.6.7 (2025.04.21)'
 
 # 各变量默认值
 GH_PROXY='https://ghproxy.lvedong.eu.org/'
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Refactored the chatGPT detection method based on lmc999's detection and unlocking script."
-C[1]="根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法"
+E[1]="Use OpenRC on Alpine to replace systemctl (Python3-compatible version)."
+C[1]="在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -175,7 +175,7 @@ check_cdn() {
 
 # 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out，此处判断改编自 https://github.com/lmc999/RegionRestrictionCheck
 check_chatgpt() {
-  local CHECK_STACK=-$1
+  local CHECK_STACK=$1
   local UA_BROWSER="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
   local UA_SEC_CH_UA='"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"'
   wget --help | grep -q '\-\-ciphers' && local IS_CIPHERS=is_ciphers
@@ -183,10 +183,10 @@ check_chatgpt() {
   # 首先检查API访问
   local CHECK_RESULT1=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} -qO- --content-on-error --header='authority: api.openai.com' --header='accept: */*' --header='accept-language: en-US,en;q=0.9' --header='authorization: Bearer null' --header='content-type: application/json' --header='origin: https://platform.openai.com' --header='referer: https://platform.openai.com/' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: empty' --header='sec-fetch-mode: cors' --header='sec-fetch-site: same-site' --user-agent="${UA_BROWSER}" 'https://api.openai.com/compliance/cookie_requirements')
 
-  [ -z "$CHECK_RESULT1" ] && grep -qw is_ciphers <<< "$IS_CIPHERS" && local CHECK_RESULT1=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} --ciphers=DEFAULT@SECLEVEL=1 --no-check-certificate -qO- --content-on-error --header='authority: api.openai.com' --header='accept: */*' --header='accept-language: en-US,en;q=0.9' --header='authorization: Bearer null' --header='content-type: application/json' --header='origin: https://platform.openai.com' --header='referer: https://platform.openai.com/' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: empty' --header='sec-fetch-mode: cors' --header='sec-fetch-site: same-site' --user-agent="${UA_BROWSER}" 'https://api.openai.com/compliance/cookie_requirements')
+  grep -q "^$" <<< "$CHECK_RESULT1" && grep -qw is_ciphers <<< "$IS_CIPHERS" && local CHECK_RESULT1=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} --ciphers=DEFAULT@SECLEVEL=1 --no-check-certificate -qO- --content-on-error --header='authority: api.openai.com' --header='accept: */*' --header='accept-language: en-US,en;q=0.9' --header='authorization: Bearer null' --header='content-type: application/json' --header='origin: https://platform.openai.com' --header='referer: https://platform.openai.com/' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: empty' --header='sec-fetch-mode: cors' --header='sec-fetch-site: same-site' --user-agent="${UA_BROWSER}" 'https://api.openai.com/compliance/cookie_requirements')
 
   # 如果API检测失败或者检测到unsupported_country,直接返回ban
-  if [ -z "$CHECK_RESULT1" ] || grep -qi 'unsupported_country' <<< "$CHECK_RESULT1"; then
+  if grep -q "^$" <<< "$CHECK_RESULT1" || grep -qi 'unsupported_country' <<< "$CHECK_RESULT1"; then
     echo "ban"
     return
   fi
@@ -222,7 +222,7 @@ select_language() {
     case $(cat $WORK_DIR/language 2>&1) in
       E ) L=E ;;
       C ) L=C ;;
-      * ) [ -z "$L" ] && L=E && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
+      * ) [ -z "$L" ] && L=E && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
       [ "$LANGUAGE" = 2 ] && L=C ;;
     esac
   fi
@@ -253,13 +253,26 @@ check_arch() {
 # 查安装及运行状态，下标0: argo，下标1: xray，下标2：docker；状态码: 26 未安装， 27 已安装未运行， 28 运行中
 check_install() {
   [ -s $WORK_DIR/nginx.conf ] && IS_NGINX=is_nginx || IS_NGINX=no_nginx
-  STATUS[0]=$(text 26) && [[ -s /etc/systemd/system/argo.service ]] && grep -q "^ExecStart=$WORK_DIR" /etc/systemd/system/argo.service && STATUS[0]=$(text 27) && [ "$(systemctl is-active argo)" = 'active' ] && STATUS[0]=$(text 28)
-  STATUS[1]=$(text 26)
-  # xray systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
-  if [ -s /etc/systemd/system/xray.service ]; then
-    ! grep -q "$WORK_DIR" /etc/systemd/system/xray.service && error " $(text 53)\n $(grep 'ExecStart=' /etc/systemd/system/xray.service) "
-    STATUS[1]=$(text 27) && [ "$(systemctl is-active xray)" = 'active' ] && STATUS[1]=$(text 28)
+  STATUS[0]=$(text 26)
+
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    # 检查 argo 服务
+    [[ -s /etc/init.d/argo ]] && STATUS[0]=$(text 27) && rc-service argo status >/dev/null 2>&1 && STATUS[0]=$(text 28)
+    # 检查 xray 服务
+    STATUS[1]=$(text 26)
+    [[ -s /etc/init.d/xray ]] && STATUS[1]=$(text 27) && rc-service xray status >/dev/null 2>&1 && STATUS[1]=$(text 28)
+  else
+    # 非 Alpine 系统使用 systemd
+    [[ -s /etc/systemd/system/argo.service ]] && grep -q "^ExecStart=$WORK_DIR" /etc/systemd/system/argo.service && STATUS[0]=$(text 27) && [ "$(systemctl is-active argo)" = 'active' ] && STATUS[0]=$(text 28)
+    STATUS[1]=$(text 26)
+    # xray systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
+    if [ -s /etc/systemd/system/xray.service ]; then
+      ! grep -q "$WORK_DIR" /etc/systemd/system/xray.service && error " $(text 53)\n $(grep 'ExecStart=' /etc/systemd/system/xray.service) "
+      STATUS[1]=$(text 27) && [ "$(systemctl is-active xray)" = 'active' ] && STATUS[1]=$(text 28)
+    fi
   fi
+
+  # 下载所需文件
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] && { wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1; }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/xray ] && { wget --no-check-certificate -qO $TEMP_DIR/Xray.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip >/dev/null 2>&1; unzip -qo $TEMP_DIR/Xray.zip xray *.dat -d $TEMP_DIR >/dev/null 2>&1; }&
   { wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1; }&
@@ -273,14 +286,10 @@ cmd_systemctl() {
   local APP=$2
   if [ "$ENABLE_DISABLE" = 'enable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
-      systemctl start $APP
-      cat > /etc/local.d/$APP.start << EOF
-#!/usr/bin/env bash
-
-systemctl start $APP
-EOF
-      chmod +x /etc/local.d/$APP.start
-      rc-update add local >/dev/null 2>&1
+      # 使用 openrc 启动服务
+      rc-service $APP start
+      # 添加到开机启动
+      rc-update add $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl enable --now $APP
       [[ "$APP" = 'argo' && "$IS_NGINX" = 'is_nginx' ]] && $(type -p nginx) -c $WORK_DIR/nginx.conf
@@ -290,9 +299,10 @@ EOF
 
   elif [ "$ENABLE_DISABLE" = 'disable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
-      systemctl stop $APP
-      [[ "$APP" = 'argo' && "$IS_NGINX" = 'is_nginx' ]] && ss -nltp | grep "$(cat /var/run/nginx.pid)" | tr ',' '\n' | awk -F '=' '/pid/{print $2}' | sort -u | xargs kill -15 >/dev/null 2>&1
-      rm -f /etc/local.d/$APP.start
+      # 使用 openrc 停止服务
+      rc-service $APP stop
+      # 从开机启动中移除
+      rc-update del $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl disable --now $APP
       [[ "$APP" = 'argo' && "$IS_NGINX" = 'is_nginx' ]] && ss -nltp | grep "$(cat /var/run/nginx.pid)" | tr ',' '\n' | awk -F '=' '/pid/{print $2}' | sort -u | xargs kill -15 >/dev/null 2>&1
@@ -370,55 +380,69 @@ check_system_ip() {
 
 # 定义 Argo 变量
 argo_variable() {
-  [ -z "$INSTALL_NGINX" ] && reading "\n $(text 68) " INSTALL_NGINX
+  ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [[ -z "$INSTALL_NGINX" && ! -d $WORK_DIR ]] && reading "\n $(text 68) " INSTALL_NGINX
+  INSTALL_NGINX=${INSTALL_NGINX:-"y"}
   [ "${INSTALL_NGINX,,}" != 'n' ] && check_nginx >/dev/null 2>&1 &
 
   if grep -qi 'cloudflare' <<< "$ASNORG4$ASNORG6"; then
-    local a=6
-    until [ -n "$SERVER_IP" ]; do
-      ((a--)) || true
-      [ "$a" = 0 ] && error "\n $(text 3) \n"
-      reading "\n $(text 54) " SERVER_IP
-    done
+    if grep -qi 'cloudflare' <<< "$ASNORG6" && [ -n "$WAN4" ] && ! grep -qi 'cloudflare' <<< "$ASNORG4"; then
+      SERVER_IP_DEFAULT=$WAN4
+    elif grep -qi 'cloudflare' <<< "$ASNORG4" && [ -n "$WAN6" ] && ! grep -qi 'cloudflare' <<< "$ASNORG6"; then
+      SERVER_IP_DEFAULT=$WAN6
+    else
+      local a=6
+      until [ -n "$SERVER_IP" ]; do
+        ((a--)) || true
+        [ "$a" = 0 ] && error "\n $(text 3) \n"
+        reading "\n $(text 54) " SERVER_IP
+      done
+    fi
   elif [ -n "$WAN4" ]; then
     SERVER_IP_DEFAULT=$WAN4
-    CHATGPT_STACK=4
   elif [ -n "$WAN6" ]; then
     SERVER_IP_DEFAULT=$WAN6
-    CHATGPT_STACK=6
   fi
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
-  [ -z "$SERVER_IP" ] && reading "\n $(text 59) " SERVER_IP
-  SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
-  [ -z "$SERVER_IP" ] && error " $(text 58) "
+  if [ ! -d $WORK_DIR ]; then
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$SERVER_IP" ] && reading "\n $(text 59) " SERVER_IP
+    SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
+    [ -z "$SERVER_IP" ] && error " $(text 58) "
 
-  # 检测是否解锁 chatGPT
-  if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
-    CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
-  else
-    CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
+    # 检测是否解锁 chatGPT
+    if [ ! -d $WORK_DIR ]; then
+      [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && CHATGPT_STACK='-4' || CHATGPT_STACK='-6'
+      if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
+        CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
+      else
+        CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
+      fi
+    fi
   fi
 
   # 处理可能输入的错误，去掉开头和结尾的空格，去掉最后的 :
-  [ -z "$ARGO_DOMAIN" ] && reading "\n $(text 10) " ARGO_DOMAIN
+  [[ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' && -z "$ARGO_DOMAIN" ]] && reading "\n $(text 10) " ARGO_DOMAIN
   ARGO_DOMAIN=$(sed 's/[ ]*//g; s/:[ ]*//' <<< "$ARGO_DOMAIN")
 
-  if [[ -n "$ARGO_DOMAIN" && -z "$ARGO_AUTH" ]]; then
+  # 输入 ARGO_AUTH
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [[ -n "$ARGO_DOMAIN" && -z "$ARGO_AUTH" ]]; then
     local a=5
     until [[ "$ARGO_AUTH" =~ TunnelSecret || "${ARGO_AUTH,,}" =~ ^[a-z0-9=]{120,250}$ || "${ARGO_AUTH,,}" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[a-z0-9=]{1,100} ]]; do
-      [ "$a" = 0 ] && error "\n $(text 3) \n" || reading "\n $(text 11) " ARGO_AUTH
-      if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
-        ARGO_JSON=${ARGO_AUTH//[ ]/}
-      elif [[ "${ARGO_AUTH,,}" =~ ^[a-z0-9=]{120,250}$ ]]; then
-        ARGO_TOKEN=$ARGO_AUTH
-      elif [[ "{$ARGO_AUTH,,}" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[a-z0-9=]{1,100} ]]; then
-        ARGO_TOKEN=$(awk -F ' ' '{print $NF}' <<< "$ARGO_AUTH")
+      if [ "$a" = 0 ]; then
+        error "\n $(text 3) \n"
       else
-        warning "\n $(text 45) \n"
+        [ "$a" != 5 ] && warning "\n $(text 45) \n"
+        reading "\n $(text 11) " ARGO_AUTH
       fi
       ((a--)) || true
     done
+  fi
+
+  # 根据输入的 ARGO_AUTH 变量，判断是 TunnelSecret 还是 Token
+  if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
+    ARGO_JSON=${ARGO_AUTH//[ ]/}
+  elif [[ "${ARGO_AUTH,,}" =~ .*[a-z0-9=]{120,250}$ ]]; then
+    ARGO_TOKEN=$(awk '{print $NF}' <<< "$ARGO_AUTH")
   fi
 }
 
@@ -429,7 +453,7 @@ xray_variable() {
     ((a--)) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     REALITY_PORT_DEFAULT=$(shuf -i 1000-65535 -n 1)
-    reading "\n $(text 56) " REALITY_PORT
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 56) " REALITY_PORT
     REALITY_PORT=${REALITY_PORT:-"$REALITY_PORT_DEFAULT"}
     ss -nltup | grep -q ":$REALITY_PORT" && warning "\n $(text 61) \n" && unset REALITY_PORT
   done
@@ -441,7 +465,7 @@ xray_variable() {
       hint " $[c+1]. ${CDN_DOMAIN[c]} "
     done
 
-    reading "\n $(text 42) " CUSTOM_CDN
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 42) " CUSTOM_CDN
     case "$CUSTOM_CDN" in
       [1-${#CDN_DOMAIN[@]}] )
         SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}"
@@ -459,12 +483,12 @@ xray_variable() {
     (( a-- )) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
-    reading "\n $(text 12) " UUID
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 12) " UUID
     UUID=${UUID:-"$UUID_DEFAULT"}
     [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning "\n $(text 4) "
   done
 
-  [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
+  ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
   local a=5
   until [[ -z "$WS_PATH" || "${WS_PATH,,}" =~ ^[a-z0-9]+$ ]]; do
     (( a-- )) || true
@@ -481,19 +505,20 @@ xray_variable() {
     else
       NODE_NAME_DEFAULT="ArgoX"
     fi
-    reading "\n $(text 49) " NODE_NAME
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 49) " NODE_NAME
     NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
   fi
 }
 
 check_dependencies() {
-  # 如果是 Alpine，先升级 wget ，安装 systemctl-py 版
+  # 如果是 Alpine，先升级 wget
   if [ "$SYSTEM" = 'Alpine' ]; then
     local CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
-    local DEPS_CHECK=("bash" "rc-update" "virt-what" "python3")
-    local DEPS_INSTALL=("bash" "openrc" "virt-what" "python3")
+    # Alpine 系统只检查必要的依赖，不需要 systemctl 和 python3
+    local DEPS_CHECK=("bash" "rc-update" "virt-what")
+    local DEPS_INSTALL=("bash" "openrc" "virt-what")
     for g in "${!DEPS_CHECK[@]}"; do
       [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS_ALPINE+=(${DEPS_INSTALL[g]})
     done
@@ -503,13 +528,16 @@ check_dependencies() {
       ${PACKAGE_INSTALL[int]} ${DEPS_ALPINE[@]} >/dev/null 2>&1
       [[ -z "$VIRT" && "${DEPS_ALPINE[@]}" =~ 'virt-what' ]] && VIRT=$(virt-what | tr '\n' ' ')
     fi
-
-    [ ! -x "$(type -p systemctl)" ] && wget --no-check-certificate --quiet ${GH_PROXY}https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py -O /bin/systemctl && chmod a+x /bin/systemctl
   fi
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
-  local DEPS_CHECK=("wget" "systemctl" "ss" "unzip" "bash")
-  local DEPS_INSTALL=("wget" "systemctl" "iproute2" "unzip" "bash")
+  # 所有系统都需要的基本依赖
+  local DEPS_CHECK=("wget" "ss" "unzip" "bash")
+  local DEPS_INSTALL=("wget" "iproute2" "unzip" "bash")
+
+  # 非 Alpine 系统额外需要 systemctl
+  [ "$SYSTEM" != 'Alpine' ] && DEPS_CHECK+=("systemctl") && DEPS_INSTALL+=("systemctl")
+
   for g in "${!DEPS_CHECK[@]}"; do
     [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS+=(${DEPS_INSTALL[g]})
   done
@@ -658,7 +686,72 @@ install_argox() {
   fi
 
   # Argo 生成守护进程文件
-  local ARGO_SERVER="[Unit]
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    # 分离命令和参数
+    local COMMAND=${ARGO_RUNS%% --*}  # 提取命令部分（包括 cloudflared tunnel）
+    local ARGS=${ARGO_RUNS#$COMMAND }  # 提取参数部分
+
+    # 为 Alpine 创建 OpenRC 服务文件
+    cat > /etc/init.d/argo << EOF
+#!/sbin/openrc-run
+
+name="argo"
+description="Cloudflare Tunnel"
+command="${COMMAND}"
+command_args="${ARGS}"
+pidfile="/var/run/\${RC_SVCNAME}.pid"
+command_background="yes"
+output_log="$WORK_DIR/argo.log"
+error_log="$WORK_DIR/argo.log"
+
+depend() {
+    need net
+    after net
+}
+
+start_pre() {
+    # 确保日志目录存在
+    mkdir -p $WORK_DIR
+
+    # 如果需要启动 nginx
+    if [ -s $WORK_DIR/nginx.conf ]; then
+        $(type -p nginx) -c $WORK_DIR/nginx.conf
+    fi
+}
+
+stop_post() {
+    # 停止服务时检查并关闭相关的 nginx 进程
+    if [ -s $WORK_DIR/nginx.conf ]; then
+        # 查找使用我们配置文件的 nginx 进程并停止它
+        local NGINX_PIDS=\$(ps -ef | awk -v work_dir="$WORK_DIR" '{if (\$0 ~ "nginx.*" work_dir "/nginx.conf") print \$1}')
+        [ -n "\$NGINX_PIDS" ] && echo " * Stopping nginx processes: \$NGINX_PIDS" && kill -15 \$NGINX_PIDS 2>/dev/null
+    fi
+}
+EOF
+    chmod +x /etc/init.d/argo
+
+    # 为 Xray 创建 OpenRC 服务文件
+    cat > /etc/init.d/xray << EOF
+#!/sbin/openrc-run
+
+name="xray"
+description="Xray Service"
+command="$WORK_DIR/xray"
+command_args="run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json"
+pidfile="/var/run/\${RC_SVCNAME}.pid"
+command_background="yes"
+output_log="$WORK_DIR/xray.log"
+error_log="$WORK_DIR/xray.log"
+
+depend() {
+    need net
+    after net
+}
+EOF
+    chmod +x /etc/init.d/xray
+  else
+    # 非 Alpine 系统使用 systemd
+    local ARGO_SERVER="[Unit]
 Description=Cloudflare Tunnel
 After=network.target
 
@@ -666,9 +759,9 @@ After=network.target
 Type=simple
 NoNewPrivileges=yes
 TimeoutStartSec=0"
-  [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && ARGO_SERVER+="
+    [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && ARGO_SERVER+="
 ExecStartPre=$(type -p nginx) -c $WORK_DIR/nginx.conf"
-  ARGO_SERVER+="
+    ARGO_SERVER+="
 ExecStart=$ARGO_RUNS
 Restart=on-failure
 RestartSec=5s
@@ -676,7 +769,25 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target"
 
-  echo "$ARGO_SERVER" > /etc/systemd/system/argo.service
+    echo "$ARGO_SERVER" > /etc/systemd/system/argo.service
+
+    # 创建 Xray systemd 服务文件
+    cat > /etc/systemd/system/xray.service << EOF
+[Unit]
+Description=Xray Service
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target
+
+[Service]
+User=root
+ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
+Restart=on-failure
+RestartPreventExitStatus=23
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  fi
 
   # 生成配置文件及守护进程文件
   local i=1
@@ -1045,7 +1156,10 @@ EOF
       warning "\n Argo $(text 28) $(text 38) \n"
       ;;
     "$(text 27)" )
-      cmd_systemctl enable argo && info "\n Argo $(text 28) $(text 37) \n"
+      cmd_systemctl enable argo
+      # 这里需要修改，区分 Alpine 和非 Alpine
+      [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
+      info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
       ;;
     "$(text 28)" )
       info "\n Argo $(text 28) $(text 37) \n"
@@ -1056,7 +1170,10 @@ EOF
       warning "\n Xray $(text 28) $(text 38) \n"
       ;;
     "$(text 27)" )
-      cmd_systemctl enable xray && info "\n Xray $(text 28) $(text 37) \n"
+      cmd_systemctl enable xray
+      # 这里需要修改，区分 Alpine 和非 Alpine
+      [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
+      info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
       ;;
     "$(text 28)" )
       info "\n Xray $(text 28) $(text 37) \n"
@@ -1078,15 +1195,6 @@ EOF
 export_list() {
   check_install
 
-  #### v1.6.3 处理的 jq 和 qrencode 二进制文件代替系统依赖的问题，此处预计6月30日删除
-  if [ "$IS_NGINX" = 'is_nginx' ]; then
-    [[ ! -s $WORK_DIR/jq && -s /usr/bin/jq ]] && cp /usr/bin/jq $WORK_DIR/
-    if [ ! -s $WORK_DIR/qrencode ]; then
-      check_arch
-      wget -qO $WORK_DIR/qrencode ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH && chmod +x $WORK_DIR/qrencode
-    fi
-  fi
-
   # 没有开启 Argo 和 Xray 服务，将不输出节点信息
   local APP
   [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(Argo)
@@ -1101,11 +1209,11 @@ export_list() {
     fi
   fi
 
-  if grep -q "^ExecStart=.*8080$" /etc/systemd/system/argo.service; then
+  if grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo; then
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
       sleep 2
-      ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | awk -F '"' '{print $4}')
+      ARGO_DOMAIN=$(wget -qO- http://localhost:${METRICS_PORT}/quicktunnel | awk -F '"' '{print $4}')
       ((a--)) || true
     done
   else
@@ -1133,7 +1241,11 @@ export_list() {
   fi
 
   # 若为临时隧道，处理查询方法
-  grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text 60)
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    grep -q 'metrics.*url' /etc/init.d/argo && QUICK_TUNNEL_URL=$(text 60)
+  else
+    grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text 60)
+  fi
 
   # # 生成 vmess 文件
   VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
@@ -1295,13 +1407,24 @@ change_argo() {
   check_install
   [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
 
-  case $(grep "ExecStart=" /etc/systemd/system/argo.service) in
+  # 根据系统类型确定服务文件路径和匹配模式
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    local SERVICE_FILE="/etc/init.d/argo"
+    local PATTERN="command_args"
+  else
+    local SERVICE_FILE="/etc/systemd/system/argo.service"
+    local PATTERN="ExecStart="
+  fi
+
+  # 统一处理 Argo 隧道类型检测
+  case $(grep "$PATTERN" $SERVICE_FILE) in
     *--config* )
-      ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+      ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless.*&host=' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* )
-      ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+      ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless.*&host=' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     * )
-      ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | awk -F '"' '{print $4}')
+      ARGO_TYPE='Try'
+      ARGO_DOMAIN=$(wget -qO- http://localhost:${METRICS_PORT}/quicktunnel | awk -F '"' '{print $4}')
   esac
 
   hint "\n $(text 40) \n"
@@ -1311,7 +1434,14 @@ change_argo() {
       1 )
         cmd_systemctl disable argo
         [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080@g" /etc/systemd/system/argo.service
+        if [ "$SYSTEM" = 'Alpine' ]; then
+          # 修改 Alpine 的 OpenRC 服务文件
+          local ARGS="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080"
+          sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" /etc/init.d/argo
+        else
+          # 修改 systemd 服务文件
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080@g" /etc/systemd/system/argo.service
+        fi
         ;;
       2 )
         SERVER_IP=$(awk -F '"' '/"SERVER_IP"/{print $4}' $WORK_DIR/*inbound*.json)
@@ -1319,11 +1449,25 @@ change_argo() {
         cmd_systemctl disable argo
         if [ -n "$ARGO_TOKEN" ]; then
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+          if [ "$SYSTEM" = 'Alpine' ]; then
+            # 修改 Alpine 的 OpenRC 服务文件
+            local ARGS="--edge-ip-version auto run --token ${ARGO_TOKEN}"
+            sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" /etc/init.d/argo
+          else
+            # 修改 systemd 服务文件
+            sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+          fi
         elif [ -n "$ARGO_JSON" ]; then
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
           json_argo
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
+          if [ "$SYSTEM" = 'Alpine' ]; then
+            # 修改 Alpine 的 OpenRC 服务文件
+            local ARGS="--edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+            sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" /etc/init.d/argo
+          else
+            # 修改 systemd 服务文件
+            sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
+          fi
         fi
         ;;
       * )
@@ -1342,17 +1486,13 @@ uninstall() {
     cmd_systemctl disable xray
     [[ -s $WORK_DIR/nginx.conf && $(ps -ef | grep 'nginx' | wc -l) -le 1 ]] && reading "\n $(text 65) " REMOVE_NGINX
     [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
-    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service /usr/bin/argox
+
+    # 根据系统类型删除不同的服务文件
+    [ "$SYSTEM" = 'Alpine' ] && rm -rf $WORK_DIR $TEMP_DIR /etc/init.d/{xray,argo} /usr/bin/argox || rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service /usr/bin/argox
+
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
-  fi
-
-  # 如果 Alpine 系统，删除开机自启动和python3版systemd
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    rm -f /etc/local.d/argo.start /etc/local.d/xray.start
-    rc-update add local >/dev/null 2>&1
-    [ ! -s /etc/systemd/system/*.service ] && rm -f /bin/systemctl
   fi
 }
 
@@ -1374,7 +1514,9 @@ version() {
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
-      cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      cmd_systemctl enable argo
+      [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
+      info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
     else
       local APP=ARGO && error "\n $(text 48) "
     fi
@@ -1384,7 +1526,9 @@ version() {
     if [ -s $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ]; then
       cmd_systemctl disable xray
       unzip -qo $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip xray *.dat -d $WORK_DIR; rm -f $TEMP_DIR/Xray*.zip
-      cmd_systemctl enable xray && [ "$(systemctl is-active xray)" = 'active' ] && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+      cmd_systemctl enable xray
+      [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
+      info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
     else
       local APP=Xray && error "\n $(text 48) "
     fi
@@ -1396,10 +1540,13 @@ menu_setting() {
   if [[ "${STATUS[*]}" =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      ss -nltp | grep -q '127\.0\.0\.1:.*"cloudflared"' && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:$(ss -nltp | grep "pid=$(ps -ef | awk '/cloudflared.*:8080/{print $2}' | awk 'NR==1 {print $1}')," | awk '{print $4}' | sed "s/.*://")/healthcheck | sed "s/OK/$(text 37)/")"
+      grep -q '^Alpine$' <<< "$SYSTEM" && local PID_COLUMN='1' || local PID_COLUMN='2'
+      local PID=$(ps -ef | awk -v work_dir="${WORK_DIR}" -v col="$PID_COLUMN" '$0 ~ work_dir".*cloudflared" && !/grep/ {print $col; exit}')
+      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=$PID '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
+      ss -nltp | grep -q "cloudflared.*pid=${PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
-    [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | awk '{ $1=""; sub(/^ */, ""); print $0 }')
+    grep -q '^Alpine$' <<< "$SYSTEM" && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | awk '{ $1=""; sub(/^ */, ""); print $0 }')
     [ "$IS_NGINX" = 'is_nginx' ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/#Version: #")
 
     OPTION[1]="1.  $(text 29)"
@@ -1419,8 +1566,25 @@ menu_setting() {
     OPTION[9]="9.  $(text 57)"
 
     ACTION[1]() { export_list; exit 0; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { cmd_systemctl disable argo; [[ "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || ACTION[2]() { cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; }
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { cmd_systemctl disable xray; [[ "$(systemctl is-active xray)" =~ 'inactive'|'unknown' ]] && info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || ACTION[3]() { cmd_systemctl enable xray && [ "$(systemctl is-active xray)" = 'active' ] && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; }
+    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() {
+      cmd_systemctl disable argo
+      [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] &&
+      info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
+    } || ACTION[2]() {
+      cmd_systemctl enable argo
+      [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
+      info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+    }
+
+    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() {
+      cmd_systemctl disable xray
+      [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" =~ 'inactive'|'unknown' ]] &&
+      info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "
+    } || ACTION[3]() {
+      cmd_systemctl enable xray
+      [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
+      info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+    }
     ACTION[4]() { change_argo; exit; }
     ACTION[5]() { version; exit; }
     ACTION[6]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
@@ -1475,14 +1639,34 @@ statistics_of_run-times update argox.sh
 
 while getopts ":AaXxTtUuNnVvBbF:f:" OPTNAME; do
   case "${OPTNAME,,}" in
-    a ) select_language; check_system_info; check_install; [ "${STATUS[0]}" = "$(text 28)" ] && { cmd_systemctl disable argo; [[ "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || { cmd_systemctl enable argo; [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; } ; exit 0 ;;
-    x ) select_language; check_system_info; check_install; [ "${STATUS[1]}" = "$(text 28)" ] && { cmd_systemctl disable xray; [[ "$(systemctl is-active xray)" =~ 'inactive'|'unknown' ]] && info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "; } || { cmd_systemctl enable xray; [ "$(systemctl is-active xray)" = 'active' ] && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "; } ; exit 0 ;;
-    t ) select_language; change_argo; exit 0 ;;
+    a ) select_language; check_system_info; check_install
+        [ "${STATUS[0]}" = "$(text 28)" ] && {
+          cmd_systemctl disable argo
+          [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] &&
+          info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
+        } || {
+          cmd_systemctl enable argo
+          [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
+          info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+          grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo && export_list
+        }; exit 0 ;;
+
+    x ) select_language; check_system_info; check_install
+        [ "${STATUS[1]}" = "$(text 28)" ] && {
+          cmd_systemctl disable xray
+          [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" =~ 'inactive'|'unknown' ]] &&
+          info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "
+        } || {
+          cmd_systemctl enable xray
+          [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
+          info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+        }; exit 0 ;;
+    t ) select_language; check_system_info; change_argo; exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0;;
     n ) select_language; check_system_info; export_list; exit 0 ;;
     v ) select_language; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
-    f ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
+    f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
   esac
 done
 
