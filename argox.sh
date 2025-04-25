@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.7 (2025.04.21)'
+VERSION='1.6.8 (2025.04.25)'
 
 # 各变量默认值
-GH_PROXY='https://ghproxy.lvedong.eu.org/'
+GH_PROXY='https://ghfast.top/'
 WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Use OpenRC on Alpine to replace systemctl (Python3-compatible version)."
-C[1]="在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现"
+E[1]="1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code."
+C[1]="1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -209,7 +209,7 @@ statistics_of_run-times() {
   local UPDATE_OR_GET=$1
   local SCRIPT=$2
   if grep -q 'update' <<< "$UPDATE_OR_GET"; then
-    { wget -qO- --timeout=3 "https://stat-api.netlify.app/updateStats?script=${SCRIPT}" > $TEMP_DIR/statistics; }&
+    { wget -qO- --timeout=3 "https://stat-api.netlify.app/updateStats?script=${SCRIPT}" > $TEMP_DIR/statistics 2>/dev/null || true; }&
   elif grep -q 'get' <<< "$UPDATE_OR_GET"; then
     [ -s $TEMP_DIR/statistics ] && [[ $(cat $TEMP_DIR/statistics) =~ \"todayCount\":([0-9]+),\"totalCount\":([0-9]+) ]] && local TODAY="${BASH_REMATCH[1]}" && local TOTAL="${BASH_REMATCH[2]}" && rm -f $TEMP_DIR/statistics
     hint "\n*******************************************\n\n $(text 55) \n"
@@ -281,6 +281,15 @@ check_install() {
 
 # 为了适配 alpine，定义 cmd_systemctl 的函数
 cmd_systemctl() {
+  nginx_run() {
+    $(type -p nginx) -c $WORK_DIR/nginx.conf
+  }
+
+  nginx_stop() {
+    local NGINX_PID=$(ps -ef | awk -v work_dir="$WORK_DIR" '$0 ~ "nginx -c " work_dir "/nginx.conf" {print $2; exit}')
+    ss -nltp | sed -n "/pid=$NGINX_PID,/ s/,/ /gp" | grep -oP 'pid=\K\S+' | sort -u | xargs kill -9 >/dev/null 2>&1
+  }
+
   [ -s $WORK_DIR/nginx.conf ] && local IS_NGINX=is_nginx || local IS_NGINX=no_nginx
   local ENABLE_DISABLE=$1
   local APP=$2
@@ -292,22 +301,26 @@ cmd_systemctl() {
       rc-update add $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl enable --now $APP
-      [[ "$APP" = 'argo' && "$IS_NGINX" = 'is_nginx' ]] && $(type -p nginx) -c $WORK_DIR/nginx.conf
+      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_run; firewall_configuration open; }
     else
       systemctl enable --now $APP
     fi
 
   elif [ "$ENABLE_DISABLE" = 'disable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
-      # 使用 openrc 停止服务
       rc-service $APP stop
-      # 从开机启动中移除
       rc-update del $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl disable --now $APP
-      [[ "$APP" = 'argo' && "$IS_NGINX" = 'is_nginx' ]] && ss -nltp | grep "$(cat /var/run/nginx.pid)" | tr ',' '\n' | awk -F '=' '/pid/{print $2}' | sort -u | xargs kill -15 >/dev/null 2>&1
+      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_stop; firewall_configuration close; }
     else
       systemctl disable --now $APP
+    fi
+  elif [ "$ENABLE_DISABLE" = 'status' ]; then
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      rc-service $APP status
+    else
+      systemctl is-active $APP
     fi
   fi
 }
@@ -564,11 +577,19 @@ check_nginx() {
 }
 
 # 处理防火墙规则
-check_firewall_configuration() {
+firewall_configuration() {
+  local LISTEN_PORT=$(awk -F [:,] '/"port"/{print $2; exit}' $WORK_DIR/inbound.json)
+  if grep -q "open" <<< "$1"; then
+    firewall-cmd --zone=public --add-port=${LISTEN_PORT}/tcp --permanent >/dev/null 2>&1
+  elif grep -q "close" <<< "$1"; then
+    firewall-cmd --zone=public --remove-port=${LISTEN_PORT}/tcp --permanent >/dev/null 2>&1
+  fi
+  firewall-cmd --reload >/dev/null 2>&1
+
   if [[ -s /etc/selinux/config && -x "$(type -p getenforce)" && $(getenforce) = 'Enforcing' ]]; then
-    hint "\n $(text 69) \n"
+    hint "\n $(text 69) "
     setenforce 0
-    sed -i 's/^SELINUX=.*/# &/; /SELINUX=/a\SELINUX=disabled' /etc/selinux/config
+    grep -qs '^SELINUX=disabled$' /etc/selinux/config || sed -i 's/^SELINUX=[epd].*/# &/; /SELINUX=[epd]/a\SELINUX=disabled' /etc/selinux/config
   fi
 }
 
@@ -625,7 +646,6 @@ http {
   server {
     listen 127.0.0.1:3006 proxy_protocol; # xray fallbacks
 
-
     # 来自 /auto 的分流
     location ~ ^/${UUID}/auto {
       default_type 'text/plain; charset=utf-8';
@@ -660,8 +680,6 @@ EOF
 install_argox() {
   argo_variable
   xray_variable
-  [ "$SYSTEM" = 'CentOS' ] && check_firewall_configuration
-  wait
 
   # 生成 reality 的公私钥
   [[ -z "$REALITY_PRIVATE" || -z "$REALITY_PUBLIC" ]] && REALITY_KEYPAIR=$($TEMP_DIR/xray x25519)
@@ -1157,9 +1175,7 @@ EOF
       ;;
     "$(text 27)" )
       cmd_systemctl enable argo
-      # 这里需要修改，区分 Alpine 和非 Alpine
-      [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
-      info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
+      cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
       ;;
     "$(text 28)" )
       info "\n Argo $(text 28) $(text 37) \n"
@@ -1171,9 +1187,7 @@ EOF
       ;;
     "$(text 27)" )
       cmd_systemctl enable xray
-      # 这里需要修改，区分 Alpine 和非 Alpine
-      [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
-      info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
+      cmd_systemctl status xray &>/dev/null && info "\n Xray $(text 28) $(text 37) \n" || warning "\n Xray $(text 28) $(text 38) \n"
       ;;
     "$(text 28)" )
       info "\n Xray $(text 28) $(text 37) \n"
@@ -1515,8 +1529,7 @@ version() {
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
       cmd_systemctl enable argo
-      [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
-      info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      cmd_systemctl status argo &>/dev/null && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
     else
       local APP=ARGO && error "\n $(text 48) "
     fi
@@ -1527,8 +1540,7 @@ version() {
       cmd_systemctl disable xray
       unzip -qo $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip xray *.dat -d $WORK_DIR; rm -f $TEMP_DIR/Xray*.zip
       cmd_systemctl enable xray
-      [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
-      info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+      cmd_systemctl status xray &>/dev/null && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
     else
       local APP=Xray && error "\n $(text 48) "
     fi
@@ -1566,24 +1578,27 @@ menu_setting() {
     OPTION[9]="9.  $(text 57)"
 
     ACTION[1]() { export_list; exit 0; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() {
+    [[ ${STATUS[0]} = "$(text 28)" ]] &&
+    ACTION[2]() {
       cmd_systemctl disable argo
-      [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] &&
-      info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
-    } || ACTION[2]() {
+      cmd_systemctl status argo &>/dev/null && error " Argo $(text 27) $(text 38) " || info "\n Argo $(text 27) $(text 37)"
+    } ||
+    ACTION[2]() {
       cmd_systemctl enable argo
-      [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
-      info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      sleep 2
+      cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo && export_list
     }
 
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() {
+    [[ ${STATUS[1]} = "$(text 28)" ]] &&
+    ACTION[3]() {
       cmd_systemctl disable xray
-      [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" =~ 'inactive'|'unknown' ]] &&
-      info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "
-    } || ACTION[3]() {
+      cmd_systemctl status xray &>/dev/null && error " Xray $(text 27) $(text 38) " || info "\n Xray $(text 27) $(text 37)"
+    } ||
+    ACTION[3]() {
       cmd_systemctl enable xray
-      [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
-      info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+      sleep 2
+      cmd_systemctl status xray &>/dev/null && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
     }
     ACTION[4]() { change_argo; exit; }
     ACTION[5]() { version; exit; }
@@ -1642,24 +1657,26 @@ while getopts ":AaXxTtUuNnVvBbF:f:" OPTNAME; do
     a ) select_language; check_system_info; check_install
         [ "${STATUS[0]}" = "$(text 28)" ] && {
           cmd_systemctl disable argo
-          [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] &&
-          info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
+          cmd_systemctl status argo &>/dev/null && error " Argo $(text 27) $(text 38) " || info "\n Argo $(text 27) $(text 37)"
         } || {
           cmd_systemctl enable argo
-          [[ "$SYSTEM" = 'Alpine' && "$(rc-service argo status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active argo)" = 'active' ]] &&
-          info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
-          grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo && export_list
+          sleep 2
+          if cmd_systemctl status argo &>/dev/null; then
+            info "\n Argo $(text 28) $(text 37)"
+            grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo && export_list
+          else
+            error " Argo $(text 28) $(text 38) "
+          fi
         }; exit 0 ;;
 
     x ) select_language; check_system_info; check_install
         [ "${STATUS[1]}" = "$(text 28)" ] && {
           cmd_systemctl disable xray
-          [[ "$SYSTEM" = 'Alpine' && -z "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" =~ 'inactive'|'unknown' ]] &&
-          info "\n Xray $(text 27) $(text 37)" || error " Xray $(text 27) $(text 38) "
+          cmd_systemctl status xray &>/dev/null && error " Xray $(text 27) $(text 38) " || info "\n Xray $(text 27) $(text 37)"
         } || {
           cmd_systemctl enable xray
-          [[ "$SYSTEM" = 'Alpine' && "$(rc-service xray status 2>/dev/null | grep started)" || "$SYSTEM" != 'Alpine' && "$(systemctl is-active xray)" = 'active' ]] &&
-          info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
+          sleep 2
+          cmd_systemctl status xray &>/dev/null && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
         }; exit 0 ;;
     t ) select_language; check_system_info; change_argo; exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0;;

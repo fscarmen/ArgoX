@@ -15,18 +15,20 @@
 
 * * *
 ## 更新信息
+2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code; 1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码
+
 2025.04.21 v1.6.7 Use OpenRC on Alpine to replace systemctl (Python3-compatible version); 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现
-
-2024.12.24 v1.6.6 Refactored the chatGPT detection method based on lmc999's detection and unlocking script; 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
-
-2024.5.20 v1.6.5 1. Add Github CDN; 2. Remove subscription template 2; 1. 添加 Github 加速 CDN; 2. 去掉订阅模板2
-
-2024.3.26 v1.6.4 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary file, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies; 感谢 UUb 兄弟的官改编译，依赖 jq, qrencode 从 apt 安装改为下载二进制文件，缩减安装时间约15秒，贯彻项目轻量化的定位，尽最大可能安装最少的系统依赖
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2024.12.24 v1.6.6 Refactored the chatGPT detection method based on lmc999's detection and unlocking script; 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
+>
+>2024.5.20 v1.6.5 1. Add Github CDN; 2. Remove subscription template 2; 1. 添加 Github 加速 CDN; 2. 去掉订阅模板2
+>
+>2024.3.26 v1.6.4 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary file, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies; 感谢 UUb 兄弟的官改编译，依赖 jq, qrencode 从 apt 安装改为下载二进制文件，缩减安装时间约15秒，贯彻项目轻量化的定位，尽最大可能安装最少的系统依赖
+>
 >2024.3.24 v1.6.3 1. Compatible with CentOS 7,8,9; 2. Remove default Github CDN; 1. 适配 CentOS 7,8,9; 2. 去掉默认的 Github 加速网
 >
 >2024.3.13 v1.6.2 1. Subscription made optional, no nginx and qrcode installed if not needed; 2. Use native IP if it supports unlocking chatGPT, otherwise use warp chained proxy unlocking; 1. 在线订阅改为可选项，如不需要，不安装 nginx 和 qrcode; 2. 如自身支持解锁 chatGPT，则使用原生 IP，否则使用 warp 链式代理解锁
