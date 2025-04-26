@@ -15,6 +15,8 @@
 
 * * *
 ## 更新信息
+2025.04.26 v1.6.9 Added the ability to change CDNs online using [argox -d]; 新增使用 [argox -d] 在线更换 CDN 功能
+
 2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code; 1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码
 
 2025.04.21 v1.6.7 Use OpenRC on Alpine to replace systemctl (Python3-compatible version); 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现
@@ -89,8 +91,9 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -e         | English 英文 |
   | -a         | Argo on-off Argo 开关 |
   | -x         | Xray on-off Xray 开关 |
-  | -s         | Change the Argo tunnel 更换 Argo 隧道 |
   | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config.conf |
+  | -t         | Change the Argo Tunnel 更换 Argo 隧道 |
+  | -d         | Change the CDN 更换优选域名 |
   | -u         | Uninstall 卸载 |
   | -n         | Export Nodes list 显示节点信息 |
   | -v         | Sync Argo Xray to the newest 同步 Argo Xray 到最新版本 |

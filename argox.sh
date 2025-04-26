@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.8 (2025.04.25)'
+VERSION='1.6.9 (2025.04.26)'
 
 # 各变量默认值
 GH_PROXY='https://ghfast.top/'
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code."
-C[1]="1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码"
+E[1]="Added the ability to change CDNs online using [argox -d]."
+C[1]="新增使用 [argox -d] 在线更换 CDN 功能"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -159,6 +159,14 @@ E[68]="(1/8) Output subscription QR code and https service, need to install ngin
 C[68]="(1/8) 输出订阅二维码和 https 服务，需要安装依赖 nginx\n 如不需要，请输入 [n]，默认安装:"
 E[69]="Set SElinux: enforcing --> disabled"
 C[69]="设置 SElinux: enforcing --> disabled"
+E[70]="ArgoX is not installed and cannot change the CDN."
+C[70]="ArgoX 未安装，不能更换 CDN"
+E[71]="Current CDN is: \${CDN_NOW}"
+C[71]="当前 CDN 为: \${CDN_NOW}"
+E[72]="Please select or enter a new CDN (press Enter to keep the current one):"
+C[72]="请选择或输入新的 CDN (回车保持当前值):"
+E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
+C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -300,9 +308,11 @@ cmd_systemctl() {
       # 添加到开机启动
       rc-update add $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
+      systemctl daemon-reload
       systemctl enable --now $APP
       [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_run; firewall_configuration open; }
     else
+      systemctl daemon-reload
       systemctl enable --now $APP
     fi
 
@@ -473,12 +483,14 @@ xray_variable() {
 
   # 提供网上热心网友的anycast域名
   if [ -z "$SERVER" ]; then
-    echo ""
-    for c in "${!CDN_DOMAIN[@]}"; do
-      hint " $[c+1]. ${CDN_DOMAIN[c]} "
-    done
+    if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+      echo ""
+      for c in "${!CDN_DOMAIN[@]}"; do
+        hint " $[c+1]. ${CDN_DOMAIN[c]} "
+      done
 
-    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 42) " CUSTOM_CDN
+      reading "\n $(text 42) " CUSTOM_CDN
+    fi
     case "$CUSTOM_CDN" in
       [1-${#CDN_DOMAIN[@]}] )
         SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}"
@@ -681,6 +693,7 @@ install_argox() {
   argo_variable
   xray_variable
 
+  wait
   # 生成 reality 的公私钥
   [[ -z "$REALITY_PRIVATE" || -z "$REALITY_PUBLIC" ]] && REALITY_KEYPAIR=$($TEMP_DIR/xray x25519)
   [ -z "$REALITY_PRIVATE" ] && REALITY_PRIVATE=$(awk '/Private/{print $NF}' <<< "$REALITY_KEYPAIR")
@@ -1203,6 +1216,13 @@ bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent
 EOF
   chmod +x $WORK_DIR/ax.sh
   ln -sf $WORK_DIR/ax.sh /usr/bin/argox
+
+  # 如果 /usr/bin 不在 PATH 中，添加到 ~/.bashrc
+  if [[ ! ":$PATH:" == *":/usr/bin:"* ]]; then
+    echo 'export PATH=$PATH:/usr/bin' >> ~/.bashrc
+    source ~/.bashrc
+  fi
+
   [ -s /usr/bin/argox ] && hint "\n $(text 62) "
 }
 
@@ -1493,6 +1513,33 @@ change_argo() {
     export_list
 }
 
+# 更换 cdn
+change_cdn() {
+  [ ! -d "${WORK_DIR}" ] && error " $(text 70) "
+
+  # 检测是否有使用 CDN，方法是查找是否有 ${WORK_DIR}/conf/
+  local CDN_NOW=$(awk -F '"' '/"SERVER"/{print $4; exit}' ${WORK_DIR}/inbound.json)
+
+  # 提示当前使用的 CDN 并让用户选择或输入新的 CDN
+  hint "\n $(text 71) \n"
+  for ((c=0; c<${#CDN_DOMAIN[@]}; c++)); do
+    hint " $[c+1]. ${CDN_DOMAIN[c]} "
+  done
+  reading "\n $(text 72) " CDN_CHOOSE
+
+  # 如果用户直接回车，保持当前 CDN
+  [ -z "$CDN_CHOOSE" ] && exit 0
+
+  # 如果用户输入数字，选择对应的 CDN
+  [[ "$CDN_CHOOSE" =~ ^[1-9][0-9]*$ && "$CDN_CHOOSE" -le "${#CDN_DOMAIN[@]}" ]] && CDN_NEW=${CDN_DOMAIN[$((CDN_CHOOSE-1))]} || CDN_NEW=$CDN_CHOOSE
+
+  # 使用 sed 更新所有文件中的 CDN 值
+  find ${WORK_DIR} -type f | xargs -P 50 sed -i "s/${CDN_NOW}/${CDN_NEW}/g"
+
+  # 更新完成后提示并导出订阅列表
+  export_list; info "\n $(text 73) \n"
+}
+
 # 卸载 ArgoX
 uninstall() {
   if [ -d $WORK_DIR ]; then
@@ -1652,7 +1699,7 @@ statistics_of_run-times update argox.sh
 [[ "${*,,}" =~ -e ]] && L=E
 [[ "${*,,}" =~ -c ]] && L=C
 
-while getopts ":AaXxTtUuNnVvBbF:f:" OPTNAME; do
+while getopts ":AaXxTtDdUuNnVvBbF:f:" OPTNAME; do
   case "${OPTNAME,,}" in
     a ) select_language; check_system_info; check_install
         [ "${STATUS[0]}" = "$(text 28)" ] && {
@@ -1679,6 +1726,7 @@ while getopts ":AaXxTtUuNnVvBbF:f:" OPTNAME; do
           cmd_systemctl status xray &>/dev/null && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
         }; exit 0 ;;
     t ) select_language; check_system_info; change_argo; exit 0 ;;
+    d ) select_language; check_system_info; change_cdn; exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0;;
     n ) select_language; check_system_info; export_list; exit 0 ;;
     v ) select_language; check_arch; version; exit 0;;
