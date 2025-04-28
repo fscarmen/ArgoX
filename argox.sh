@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.9 (2025.04.26)'
+VERSION='1.6.9 (2025.04.28)'
 
 # 各变量默认值
 GH_PROXY='https://ghfast.top/'
@@ -263,21 +263,13 @@ check_install() {
   [ -s $WORK_DIR/nginx.conf ] && IS_NGINX=is_nginx || IS_NGINX=no_nginx
   STATUS[0]=$(text 26)
 
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    # 检查 argo 服务
-    [[ -s /etc/init.d/argo ]] && STATUS[0]=$(text 27) && rc-service argo status >/dev/null 2>&1 && STATUS[0]=$(text 28)
-    # 检查 xray 服务
-    STATUS[1]=$(text 26)
-    [[ -s /etc/init.d/xray ]] && STATUS[1]=$(text 27) && rc-service xray status >/dev/null 2>&1 && STATUS[1]=$(text 28)
-  else
-    # 非 Alpine 系统使用 systemd
-    [[ -s /etc/systemd/system/argo.service ]] && grep -q "^ExecStart=$WORK_DIR" /etc/systemd/system/argo.service && STATUS[0]=$(text 27) && [ "$(systemctl is-active argo)" = 'active' ] && STATUS[0]=$(text 28)
-    STATUS[1]=$(text 26)
-    # xray systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
-    if [ -s /etc/systemd/system/xray.service ]; then
-      ! grep -q "$WORK_DIR" /etc/systemd/system/xray.service && error " $(text 53)\n $(grep 'ExecStart=' /etc/systemd/system/xray.service) "
-      STATUS[1]=$(text 27) && [ "$(systemctl is-active xray)" = 'active' ] && STATUS[1]=$(text 28)
-    fi
+  # 检查 argo 服务
+  [ -s ${ARGO_DAEMON_FILE} ] && STATUS[0]=$(text 27) && cmd_systemctl status argo &>/dev/null && STATUS[0]=$(text 28)
+  STATUS[1]=$(text 26)
+  # xray systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
+  if [ -s ${XRAY_DAEMON_FILE} ]; then
+    ! grep -q "$WORK_DIR" ${XRAY_DAEMON_FILE} && error " $(text 53)\n $(grep "${DAEMON_RUN_PATTERN}" ${XRAY_DAEMON_FILE}) "
+    STATUS[1]=$(text 27) && cmd_systemctl status xray &>/dev/null && STATUS[1]=$(text 28)
   fi
 
   # 下载所需文件
@@ -375,7 +367,12 @@ check_system_info() {
   [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text 6) "
 
   # 针对部分系统作特殊处理
-  [ "$SYSTEM" = 'CentOS' ] && IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
+  ARGO_DAEMON_FILE='/etc/systemd/system/argo.service'; XRAY_DAEMON_FILE='/etc/systemd/system/xray.service'; DAEMON_RUN_PATTERN="ExecStart="
+  if [ "$SYSTEM" = 'CentOS' ]; then
+    IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
+  elif [ "$SYSTEM" = 'Alpine' ]; then
+    ARGO_DAEMON_FILE='/etc/init.d/argo'; XRAY_DAEMON_FILE='/etc/init.d/xray'; DAEMON_RUN_PATTERN="command_args="
+  fi
 }
 
 # 检测 IPv4 IPv6 信息
@@ -723,7 +720,7 @@ install_argox() {
     local ARGS=${ARGO_RUNS#$COMMAND }  # 提取参数部分
 
     # 为 Alpine 创建 OpenRC 服务文件
-    cat > /etc/init.d/argo << EOF
+    cat > ${ARGO_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
 
 name="argo"
@@ -759,10 +756,10 @@ stop_post() {
     fi
 }
 EOF
-    chmod +x /etc/init.d/argo
+    chmod +x ${ARGO_DAEMON_FILE}
 
     # 为 Xray 创建 OpenRC 服务文件
-    cat > /etc/init.d/xray << EOF
+    cat > ${XRAY_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
 
 name="xray"
@@ -779,7 +776,7 @@ depend() {
     after net
 }
 EOF
-    chmod +x /etc/init.d/xray
+    chmod +x ${XRAY_DAEMON_FILE}
   else
     # 非 Alpine 系统使用 systemd
     local ARGO_SERVER="[Unit]
@@ -800,10 +797,10 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target"
 
-    echo "$ARGO_SERVER" > /etc/systemd/system/argo.service
+    echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
 
     # 创建 Xray systemd 服务文件
-    cat > /etc/systemd/system/xray.service << EOF
+    cat > ${XRAY_DAEMON_FILE} << EOF
 [Unit]
 Description=Xray Service
 Documentation=https://github.com/XTLS/Xray-core
@@ -1159,24 +1156,6 @@ EOF
 }
 EOF
 
-  cat > /etc/systemd/system/xray.service << EOF
-[Unit]
-Description=Xray Service
-Documentation=https://github.com/XTLS/Xray-core
-After=network.target nss-lookup.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-NoNewPrivileges=yes
-ExecStart=$WORK_DIR/xray run -confdir $WORK_DIR/
-Restart=on-failure
-RestartPreventExitStatus=23
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
   # 生成 Nginx 配置文件
   [ "$INSTALL_NGINX" != 'n' ] && json_nginx
 
@@ -1243,7 +1222,7 @@ export_list() {
     fi
   fi
 
-  if grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo; then
+  if grep -qs "^${DAEMON_RUN_PATTERN}.*:8080" ${ARGO_DAEMON_FILE}; then
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
       sleep 2
@@ -1275,11 +1254,7 @@ export_list() {
   fi
 
   # 若为临时隧道，处理查询方法
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    grep -q 'metrics.*url' /etc/init.d/argo && QUICK_TUNNEL_URL=$(text 60)
-  else
-    grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text 60)
-  fi
+  grep -q 'metrics.*url' ${ARGO_DAEMON_FILE} && QUICK_TUNNEL_URL=$(text 60)
 
   # # 生成 vmess 文件
   VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
@@ -1441,17 +1416,8 @@ change_argo() {
   check_install
   [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
 
-  # 根据系统类型确定服务文件路径和匹配模式
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    local SERVICE_FILE="/etc/init.d/argo"
-    local PATTERN="command_args"
-  else
-    local SERVICE_FILE="/etc/systemd/system/argo.service"
-    local PATTERN="ExecStart="
-  fi
-
   # 统一处理 Argo 隧道类型检测
-  case $(grep "$PATTERN" $SERVICE_FILE) in
+  case $(grep "${DAEMON_RUN_PATTERN}" ${ARGO_DAEMON_FILE}) in
     *--config* )
       ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless.*&host=' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* )
@@ -1471,10 +1437,10 @@ change_argo() {
         if [ "$SYSTEM" = 'Alpine' ]; then
           # 修改 Alpine 的 OpenRC 服务文件
           local ARGS="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080"
-          sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" /etc/init.d/argo
+          sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
         else
           # 修改 systemd 服务文件
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:8080@g" ${ARGO_DAEMON_FILE}
         fi
         ;;
       2 )
@@ -1486,10 +1452,10 @@ change_argo() {
           if [ "$SYSTEM" = 'Alpine' ]; then
             # 修改 Alpine 的 OpenRC 服务文件
             local ARGS="--edge-ip-version auto run --token ${ARGO_TOKEN}"
-            sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" /etc/init.d/argo
+            sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
           else
             # 修改 systemd 服务文件
-            sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+            sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" ${ARGO_DAEMON_FILE}
           fi
         elif [ -n "$ARGO_JSON" ]; then
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
@@ -1497,10 +1463,10 @@ change_argo() {
           if [ "$SYSTEM" = 'Alpine' ]; then
             # 修改 Alpine 的 OpenRC 服务文件
             local ARGS="--edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
-            sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" /etc/init.d/argo
+            sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
           else
             # 修改 systemd 服务文件
-            sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
+            sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" ${ARGO_DAEMON_FILE}
           fi
         fi
         ;;
@@ -1634,7 +1600,7 @@ menu_setting() {
       cmd_systemctl enable argo
       sleep 2
       cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
-      grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo && export_list
+      grep -qs "^${DAEMON_RUN_PATTERN}.*8080$" ${ARGO_DAEMON_FILE} && export_list
     }
 
     [[ ${STATUS[1]} = "$(text 28)" ]] &&
@@ -1710,7 +1676,7 @@ while getopts ":AaXxTtDdUuNnVvBbF:f:" OPTNAME; do
           sleep 2
           if cmd_systemctl status argo &>/dev/null; then
             info "\n Argo $(text 28) $(text 37)"
-            grep -qs "^ExecStart=.*8080$" /etc/systemd/system/argo.service || grep -qs '^command_args.*8080"$' /etc/init.d/argo && export_list
+            grep -qs "^${DAEMON_RUN_PATTERN}.*8080$" ${ARGO_DAEMON_FILE} && export_list
           else
             error " Argo $(text 28) $(text 38) "
           fi
