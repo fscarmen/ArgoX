@@ -18,19 +18,20 @@
 * * *
 
 ## Update Information
+2025.11.08 v1.6.11 feat: Refine Shadowsocks + v2ray-plugin configurations and URIs for mainstream clients with AI assistance
 
-2015.09.01 v1.6.10 1. Adapted to the new reality key pair generation method in xray 25.8.31; 2. Updated GitHub proxy
-
-2025.04.26 v1.6.9 Added the ability to change CDNs online using [argox -d]
-
-2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code
-
-2025.04.21 v1.6.7 Use OpenRC on Alpine to replace systemctl (Python3-compatible version)
+2025.09.01 v1.6.10 1. Adapted to the new reality key pair generation method in xray 25.8.31; 2. Updated GitHub proxy
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2025.04.26 v1.6.9 Added the ability to change CDNs online using [argox -d]
+>
+>2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code
+>
+>2025.04.21 v1.6.7 Use OpenRC on Alpine to replace systemctl (Python3-compatible version)
+>
 >2024.12.24 v1.6.6 Refactored the chatGPT detection method based on lmc999's detection and unlocking script
 
 >2024.5.20 v1.6.5 1. Add Github CDN; 2. Remove subscription template 2

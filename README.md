@@ -17,19 +17,21 @@
 
 * * *
 ## 更新信息
+2025.11.08 v1.6.11 在 AI 帮助下，完善主流客户端 shadowsocks + v2ray-plugin 的设置与 URI
 
-2015.09.01 v1.6.10 1. 适配 xray 25.8.31 reality 公私钥生成方式; 2. 更换 Github 代理
-
-2025.04.26 v1.6.9 新增使用 [argox -d] 在线更换 CDN 功能
-
-2025.04.25 v1.6.8 1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码
-
-2025.04.21 v1.6.7 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现
+2025.09.01 v1.6.10 1. 适配 xray 25.8.31 reality 公私钥生成方式; 2. 更换 Github 代理
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>
+>2025.04.26 v1.6.9 新增使用 [argox -d] 在线更换 CDN 功能
+>
+>2025.04.25 v1.6.8 1. 更改 GitHub 代理; 2. 处理 CentOS 防火墙端口管理; 3. 优化代码
+>
+>2025.04.21 v1.6.7 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现
+>
 >2024.12.24 v1.6.6 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
 >
 >2024.5.20 v1.6.5 1. 添加 Github 加速 CDN; 2. 去掉订阅模板2
