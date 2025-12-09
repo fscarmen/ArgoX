@@ -8,7 +8,8 @@
 
 - [Update Information](README_EN.md#update-information)
 - [Project Features](README_EN.md#project-features)
-- [ArgoX for VPS Running Script](README_EN.md#argox-for-vps-running-script)
+- [Interactive Running Script](README.md#interactive-running-script)
+- [Non-interactive Ultra-fast Installation](README_EN.md#non-interactive-ultra-fast-installation)
 - [Obtaining Argo Json](README_EN.md#obtaining-argo-json)
 - [Obtaining Argo Token](README_EN.md#obtaining-argo-token)
 - [Description of Xray outbound and routing templates in various scenarios](README_EN.md#description-of-xray-outbound-and-routing-templates-in-various-scenarios)
@@ -18,6 +19,8 @@
 * * *
 
 ## Update Information
+2025.12.09 v1.6.12 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use `-l` or `-L`; English users can use `-k` or `-K`. Case-insensitive support makes operations more flexible.
+
 2025.11.08 v1.6.11 feat: Refine Shadowsocks + v2ray-plugin configurations and URIs for mainstream clients with AI assistance
 
 2025.09.01 v1.6.10 1. Adapted to the new reality key pair generation method in xray 25.8.31; 2. Updated GitHub proxy
@@ -83,7 +86,7 @@
 * Node information output to V2rayN / Clash Meta / Shadowrocket / Nekobox / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription url for everything;
 * Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
 
-## ArgoX for VPS Running Script:
+## Interactive Running Script
 
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
@@ -93,6 +96,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | ------ | ------ |
   | -c     | Chinese |
   | -e     | English |
+  | -l     | Quick deploy (Chinese version) |
+  | -k     | Quick deploy (English version) |
   | -a     | Argo on-off |
   | -x     | Xray on-off |
   | -f     | Variable file, refer to REPO file "config" |
@@ -102,6 +107,18 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -n     | Export Nodes list |
   | -v     | Sync Argo Xray to the newest |
   | -b     | Upgrade kernel, turn on BBR, change Linux system |
+
+## Non-interactive Ultra-fast Installation
+
+### Chinese
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -l
+```
+
+### English
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
+```
 
 ## Obtaining Argo Json
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.6.11 (2025.11.08)'
+VERSION='1.6.12 (2025.12.09)'
 
 # 各变量默认值
 GH_PROXY='https://hub.glowp.xyz/'
@@ -10,9 +10,9 @@ WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 TLS_SERVER='addons.mozilla.org'
 METRICS_PORT='3333'
-CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org")
+CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='25.10.15'
+DEFAULT_XRAY_VERSION='25.12.8'
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -22,8 +22,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="feat: Refine Shadowsocks + v2ray-plugin configurations and URIs for mainstream clients with AI assistance"
-C[1]="feat: 在 AI 帮助下，完善主流客户端 shadowsocks + v2ray-plugin 的设置与 URI"
+E[1]="Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use -l or -L; English users can use -k or -K. Case-insensitive support makes operations more flexible."
+C[1]="极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 -l 或 -L，英文用户使用 -k 或 -K，大小写均支持，操作更灵活"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -174,6 +174,8 @@ E[75]="Special Note: Due to incomplete links exported by v2rayN and Nekobox, ple
 C[75]="特别说明: 由于 v2rayN 与 Nekobox 导出的链接不全，请自行处理如下:\n\nNekobox: 把 UoT 设置为2，以开启 UDP over TCP\n\nv2rayN:"
 E[76]="Transport Protocol: WS , Host: \${ARGO_DOMAIN} , Path: /\${WS_PATH}-sh , TLS: tls , SNI: \${ARGO_DOMAIN}"
 C[76]="传输协议: WS , 伪装域名: \${ARGO_DOMAIN} , 路径: /\${WS_PATH}-sh , 传输层安全: tls , SNI: \${ARGO_DOMAIN}"
+E[77]="Quick install mode (argox -k)"
+C[77]="极速安装模式 (argox -l)"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -454,7 +456,7 @@ argo_variable() {
   # 输入 ARGO_AUTH
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [[ -n "$ARGO_DOMAIN" && -z "$ARGO_AUTH" ]]; then
     local a=5
-    until [[ "$ARGO_AUTH" =~ TunnelSecret || "${ARGO_AUTH,,}" =~ ^[a-z0-9=]{120,250}$ || "${ARGO_AUTH,,}" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[a-z0-9=]{1,100} ]]; do
+    until [[ "$ARGO_AUTH" =~ TunnelSecret || "$ARGO_AUTH" =~ [A-Z0-9a-z=]{120,250}$ ]]; do
       if [ "$a" = 0 ]; then
         error "\n $(text 3) \n"
       else
@@ -468,7 +470,7 @@ argo_variable() {
   # 根据输入的 ARGO_AUTH 变量，判断是 TunnelSecret 还是 Token
   if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
     ARGO_JSON=${ARGO_AUTH//[ ]/}
-  elif [[ "${ARGO_AUTH,,}" =~ .*[a-z0-9=]{120,250}$ ]]; then
+  elif [[ "$ARGO_AUTH" =~ [A-Z0-9a-z=]{120,250}$ ]]; then
     ARGO_TOKEN=$(awk '{print $NF}' <<< "$ARGO_AUTH")
   fi
 }
@@ -537,6 +539,35 @@ xray_variable() {
     ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 49) " NODE_NAME
     NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
   fi
+}
+
+# 快速安装的所有预设值
+fast_install_variables() {
+  # 设置为非交互式安装
+  NONINTERACTIVE_INSTALL='noninteractive_install'
+
+  # 快速安装模式下使用自动配置
+  REALITY_PORT=${REALITY_PORT:-$(shuf -i 1000-65535 -n 1)}
+  local PORT_USED_COUNT=0
+  while ss -nltup | grep ":$REALITY_PORT" >/dev/null 2>&1; do
+    REALITY_PORT=$(shuf -i 1000-65535 -n 1)
+    ((PORT_USED_COUNT++))
+    [ $PORT_USED_COUNT -gt 5 ] && error "\n $(text 3) \n"
+  done
+
+  SERVER=${SERVER:-"${CDN_DOMAIN[0]}"}
+  UUID=${UUID:-$(cat /proc/sys/kernel/random/uuid)}
+  WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
+
+  # 输入节点名，以系统的 hostname 作为默认
+  if [ -x "$(type -p hostname)" ]; then
+    NODE_NAME_DEFAULT="$(hostname)"
+  elif [ -s /etc/hostname ]; then
+    NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+  else
+    NODE_NAME_DEFAULT="ArgoX"
+  fi
+  NODE_NAME=${NODE_NAME:-"$NODE_NAME_DEFAULT"}
 }
 
 check_dependencies() {
@@ -633,7 +664,7 @@ events {
 http {
   map \$http_user_agent \$path {
     default                    /;                # 默认路径
-    ~*v2rayN|Neko              /base64;          # 匹配 V2rayN / NekoBox 客户端
+    ~*v2rayN|Neko|Throne       /base64;          # 匹配 V2rayN / NekoBox / Throne 客户端
     ~*clash                    /clash;           # 匹配 Clash 客户端
     ~*ShadowRocket             /shadowrocket;    # 匹配 ShadowRocket  客户端
     ~*SFM                      /sing-box-pc;     # 匹配 Sing-box pc 客户端
@@ -829,251 +860,251 @@ EOF
   [ ! -s $WORK_DIR/xray ] && wait && while [ "$i" -le 20 ]; do [[ -s $TEMP_DIR/xray && -s $TEMP_DIR/geoip.dat && -s $TEMP_DIR/geosite.dat ]] && mv $TEMP_DIR/xray $TEMP_DIR/geo*.dat $WORK_DIR && break; ((i++)); sleep 2; done
   [ "$i" -ge 20 ] && local APP=Xray && error "\n $(text 48) "
   cat > $WORK_DIR/inbound.json << EOF
-//  "SERVER_IP":"${SERVER_IP}"
-//  "REALITY_PUBLIC":"${REALITY_PUBLIC}"
-//  "SERVER":"${SERVER}"
+//  "SERVER_IP": "${SERVER_IP}"
+//  "REALITY_PUBLIC": "${REALITY_PUBLIC}"
+//  "SERVER": "${SERVER}"
 {
-    "log":{
-        "access":"/dev/null",
-        "error":"/dev/null",
-        "loglevel":"none"
+    "log": {
+        "access": "/dev/null",
+        "error": "/dev/null",
+        "loglevel": "none"
     },
-    "inbounds":[
+    "inbounds": [
       {
-            "tag":"${NODE_NAME} reality-vision",
-            "protocol":"vless",
-            "port":${REALITY_PORT},
-            "settings":{
-                "clients":[
+            "tag": "${NODE_NAME} reality-vision",
+            "protocol": "vless",
+            "port": ${REALITY_PORT},
+            "settings": {
+                "clients": [
                     {
-                        "id":"${UUID}",
-                        "flow":"xtls-rprx-vision"
+                        "id": "${UUID}",
+                        "flow": "xtls-rprx-vision"
                     }
                 ],
-                "decryption":"none",
-                "fallbacks":[
+                "decryption": "none",
+                "fallbacks": [
                     {
-                        "dest":"3001",
-                        "xver":1
+                        "dest": "3001",
+                        "xver": 1
                     }
                 ]
             },
-            "streamSettings":{
-                "network":"tcp",
-                "security":"reality",
-                "realitySettings":{
-                    "show":true,
-                    "dest":"${TLS_SERVER}:443",
-                    "xver":0,
-                    "serverNames":[
+            "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "show": true,
+                    "dest": "${TLS_SERVER}:443",
+                    "xver": 0,
+                    "serverNames": [
                         "${TLS_SERVER}"
                     ],
-                    "privateKey":"${REALITY_PRIVATE}",
-                    "publicKey":"${REALITY_PUBLIC}",
-                    "maxTimeDiff":70000,
-                    "shortIds":[
+                    "privateKey": "${REALITY_PRIVATE}",
+                    "publicKey": "${REALITY_PUBLIC}",
+                    "maxTimeDiff": 70000,
+                    "shortIds": [
                         ""
                     ]
                 }
             },
-            "sniffing":{
-                "enabled":true,
-                "destOverride":[
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
                     "http",
                     "tls"
                 ]
             }
         },
         {
-            "port":3001,
-            "listen":"127.0.0.1",
-            "protocol":"vless",
-            "tag":"${NODE_NAME} reality-grpc",
-            "settings":{
-                "clients":[
+            "port": 3001,
+            "listen": "127.0.0.1",
+            "protocol": "vless",
+            "tag": "${NODE_NAME} reality-grpc",
+            "settings": {
+                "clients": [
                     {
-                        "id":"${UUID}",
-                        "flow":""
+                        "id": "${UUID}",
+                        "flow": ""
                     }
                 ],
-                "decryption":"none"
+                "decryption": "none"
             },
-            "streamSettings":{
-                "network":"grpc",
-                "grpcSettings":{
-                    "serviceName":"grpc",
-                    "multiMode":true
+            "streamSettings": {
+                "network": "grpc",
+                "grpcSettings": {
+                    "serviceName": "grpc",
+                    "multiMode": true
                 },
-                "sockopt":{
-                    "acceptProxyProtocol":true
+                "sockopt": {
+                    "acceptProxyProtocol": true
                 }
             },
-            "sniffing":{
-                "enabled":true,
-                "destOverride":[
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
                     "http",
                     "tls"
                 ]
             }
         },
         {
-            "listen":"127.0.0.1",
-            "port":8080,
-            "protocol":"vless",
-            "settings":{
-                "clients":[
+            "listen": "127.0.0.1",
+            "port": 8080,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
                     {
-                        "id":"${UUID}",
-                        "flow":"xtls-rprx-vision"
+                        "id": "${UUID}",
+                        "flow": "xtls-rprx-vision"
                     }
                 ],
-                "decryption":"none",
-                "fallbacks":[
+                "decryption": "none",
+                "fallbacks": [
                     {
-                        "path":"/${WS_PATH}-vl",
-                        "dest":3002
+                        "path": "/${WS_PATH}-vl",
+                        "dest": 3002
                     },
                     {
-                        "path":"/${WS_PATH}-vm",
-                        "dest":3003
+                        "path": "/${WS_PATH}-vm",
+                        "dest": 3003
                     },
                     {
-                        "path":"/${WS_PATH}-tr",
-                        "dest":3004
+                        "path": "/${WS_PATH}-tr",
+                        "dest": 3004
                     },
                     {
-                        "path":"/${WS_PATH}-sh",
-                        "dest":3005
+                        "path": "/${WS_PATH}-sh",
+                        "dest": 3005
                     },
                     {
-                        "dest":3006,
+                        "dest": 3006,
                         "alpn": "",
                         "xver": 1
                     }
                 ]
             },
-            "streamSettings":{
-                "network":"tcp"
+            "streamSettings": {
+                "network": "tcp"
             }
         },
         {
-            "port":3002,
-            "listen":"127.0.0.1",
-            "protocol":"vless",
-            "settings":{
-                "clients":[
+            "port": 3002,
+            "listen": "127.0.0.1",
+            "protocol": "vless",
+            "settings": {
+                "clients": [
                     {
-                        "id":"${UUID}",
-                        "level":0
+                        "id": "${UUID}",
+                        "level": 0
                     }
                 ],
-                "decryption":"none"
+                "decryption": "none"
             },
-            "streamSettings":{
-                "network":"ws",
-                "security":"none",
-                "wsSettings":{
-                    "path":"/${WS_PATH}-vl"
+            "streamSettings": {
+                "network": "ws",
+                "security": "none",
+                "wsSettings": {
+                    "path": "/${WS_PATH}-vl"
                 }
             },
-            "sniffing":{
-                "enabled":true,
-                "destOverride":[
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
                     "http",
                     "tls",
                     "quic"
                 ],
-                "metadataOnly":false
+                "metadataOnly": false
             }
         },
         {
-            "port":3003,
-            "listen":"127.0.0.1",
-            "protocol":"vmess",
-            "settings":{
-                "clients":[
+            "port": 3003,
+            "listen": "127.0.0.1",
+            "protocol": "vmess",
+            "settings": {
+                "clients": [
                     {
-                        "id":"${UUID}",
-                        "alterId":0
-                    }
-                ]
-            },
-            "streamSettings":{
-                "network":"ws",
-                "wsSettings":{
-                    "path":"/${WS_PATH}-vm"
-                }
-            },
-            "sniffing":{
-                "enabled":true,
-                "destOverride":[
-                    "http",
-                    "tls",
-                    "quic"
-                ],
-                "metadataOnly":false
-            }
-        },
-        {
-            "port":3004,
-            "listen":"127.0.0.1",
-            "protocol":"trojan",
-            "settings":{
-                "clients":[
-                    {
-                        "password":"${UUID}"
+                        "id": "${UUID}",
+                        "alterId": 0
                     }
                 ]
             },
-            "streamSettings":{
-                "network":"ws",
-                "security":"none",
-                "wsSettings":{
-                    "path":"/${WS_PATH}-tr"
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {
+                    "path": "/${WS_PATH}-vm"
                 }
             },
-            "sniffing":{
-                "enabled":true,
-                "destOverride":[
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
                     "http",
                     "tls",
                     "quic"
                 ],
-                "metadataOnly":false
+                "metadataOnly": false
             }
         },
         {
-            "port":3005,
-            "listen":"127.0.0.1",
-            "protocol":"shadowsocks",
-            "settings":{
-                "clients":[
+            "port": 3004,
+            "listen": "127.0.0.1",
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
                     {
-                        "method":"chacha20-ietf-poly1305",
-                        "password":"${UUID}"
+                        "password": "${UUID}"
                     }
-                ],
-                "decryption":"none"
+                ]
             },
-            "streamSettings":{
-                "network":"ws",
-                "wsSettings":{
-                    "path":"/${WS_PATH}-sh"
+            "streamSettings": {
+                "network": "ws",
+                "security": "none",
+                "wsSettings": {
+                    "path": "/${WS_PATH}-tr"
                 }
             },
-            "sniffing":{
-                "enabled":true,
-                "destOverride":[
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
                     "http",
                     "tls",
                     "quic"
                 ],
-                "metadataOnly":false
+                "metadataOnly": false
+            }
+        },
+        {
+            "port": 3005,
+            "listen": "127.0.0.1",
+            "protocol": "shadowsocks",
+            "settings": {
+                "clients": [
+                    {
+                        "method": "chacha20-ietf-poly1305",
+                        "password": "${UUID}"
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {
+                    "path": "/${WS_PATH}-sh"
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "metadataOnly": false
             }
         }
     ],
-    "dns":{
-        "servers":[
+    "dns": {
+        "servers": [
             "https+local://8.8.8.8/dns-query"
         ]
     }
@@ -1081,82 +1112,82 @@ EOF
 EOF
   cat > $WORK_DIR/outbound.json << EOF
 {
-    "outbounds":[
+    "outbounds": [
         {
-            "protocol":"freedom",
-            "tag":"direct"
+            "protocol": "freedom",
+            "tag": "direct"
         },
         {
-            "protocol":"blackhole",
-            "settings":{
+            "protocol": "blackhole",
+            "settings": {
 
             },
-            "tag":"block"
+            "tag": "block"
         },
         {
-            "protocol":"wireguard",
-            "settings":{
-                "secretKey":"YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
-                "address":[
+            "protocol": "wireguard",
+            "settings": {
+                "secretKey": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+                "address": [
                     "172.16.0.2/32",
                     "2606:4700:110:8a36:df92:102a:9602:fa18/128"
                 ],
-                "peers":[
+                "peers": [
                     {
-                        "publicKey":"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
-                        "allowedIPs":[
+                        "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                        "allowedIPs": [
                             "0.0.0.0/0",
                             "::/0"
                         ],
-                        "endpoint":"engage.cloudflareclient.com:2408"
+                        "endpoint": "engage.cloudflareclient.com:2408"
                     }
                 ],
-                "reserved":[
+                "reserved": [
                     78,
                     135,
                     76
                 ],
-                "mtu":1280
+                "mtu": 1280
             },
-            "tag":"wireguard"
+            "tag": "wireguard"
         },
         {
-            "protocol":"freedom",
-            "settings":{
-                "domainStrategy":"UseIPv4"
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv4"
             },
-            "proxySettings":{
-                "tag":"wireguard"
+            "proxySettings": {
+                "tag": "wireguard"
             },
-            "tag":"warp-IPv4"
+            "tag": "warp-IPv4"
         },
         {
-            "protocol":"freedom",
-            "settings":{
-                "domainStrategy":"UseIPv6"
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
             },
-            "proxySettings":{
-                "tag":"wireguard"
+            "proxySettings": {
+                "tag": "wireguard"
             },
-            "tag":"warp-IPv6"
+            "tag": "warp-IPv6"
         }
     ],
-    "routing":{
-        "domainStrategy":"AsIs",
-        "rules":[
+    "routing": {
+        "domainStrategy": "AsIs",
+        "rules": [
             {
-                "type":"field",
-                "domain":[
+                "type": "field",
+                "domain": [
                     "api.openai.com"
                 ],
-                "outboundTag":"${CHAT_GPT_OUT_V4}"
+                "outboundTag": "${CHAT_GPT_OUT_V4}"
             },
             {
-                "type":"field",
-                "domain":[
+                "type": "field",
+                "domain": [
                     "geosite:openai"
                 ],
-                "outboundTag":"${CHAT_GPT_OUT_V6}"
+                "outboundTag": "${CHAT_GPT_OUT_V6}"
             }
         ]
     }
@@ -1247,7 +1278,7 @@ export_list() {
   TLS_SERVER=${TLS_SERVER:-"$(awk -F '"' '/"server_name"/{print $4}' <<< "$JSON")"}
   SERVER=${SERVER:-"$(awk -F '"' '/"SERVER"/{print $4; exit}' <<< "$JSON")"}
   UUID=${UUID:-"$(awk -F '"' '/"password"/{print $4; exit}' <<< "$JSON")"}
-  WS_PATH=${WS_PATH:-"$(expr "$JSON" : '.*path":"/\(.*\)-vl.*')"}
+  WS_PATH=${WS_PATH:-"$(expr "$JSON" : '.*path":[ ]*"/\(.*\)-vl.*')"}
   NODE_NAME=${NODE_NAME:-"$(sed -n 's/.*tag":"\(.*\) reality-vision.*/\1/gp' <<< "$JSON")"}
   SS_METHOD=${SS_METHOD:-"$(awk -F '"' '/"method"/{print $4; exit}' <<< "$JSON")"}
 
@@ -1351,7 +1382,7 @@ $(hint "$(sed "G" <<< "${SHADOWROCKET_SUBSCRIBE}")")
 *******************************************
 ┌────────────────┐
 │                │
-│   $(warning "Clash Meta")   │
+│  $(warning "Clash Verge")   │
 │                │
 └────────────────┘
 ----------------------------
@@ -1634,15 +1665,17 @@ menu_setting() {
     ACTION[9]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
 
   else
-    OPTION[1]="1.  $(text 34)"
-    OPTION[2]="2.  $(text 32)"
-    OPTION[3]="3.  $(text 51)"
-    OPTION[4]="4.  $(text 57)"
+    OPTION[1]="1.  $(text 77)"
+    OPTION[2]="2.  $(text 34)"
+    OPTION[3]="3.  $(text 32)"
+    OPTION[4]="4.  $(text 51)"
+    OPTION[5]="5.  $(text 57)"
 
-    ACTION[1]() { install_argox; export_list; create_shortcut; exit; }
-    ACTION[2]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
-    ACTION[3]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
-    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
+    ACTION[1]() { fast_install_variables; install_argox; export_list; create_shortcut; exit;}
+    ACTION[2]() { install_argox; export_list; create_shortcut; exit; }
+    ACTION[3]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
+    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
+    ACTION[5]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
   fi
 
   [ "${#OPTION[@]}" -ge '10' ] && OPTION[0]="0 .  $(text 35)" || OPTION[0]="0.  $(text 35)"
@@ -1675,10 +1708,10 @@ check_cdn
 # statistics_of_run-times update argox.sh 2>/dev/null
 
 # 传参
-[[ "${*,,}" =~ -e ]] && L=E
-[[ "${*,,}" =~ -c ]] && L=C
+[[ "${*,,}" =~ '-e'|'-k' ]] && L=E
+[[ "${*,,}" =~ '-c'|'-b'|'-l' ]] && L=C
 
-while getopts ":AaXxTtDdUuNnVvBbF:f:" OPTNAME; do
+while getopts ":AaXxTtDdUuNnVvBbF:f:KkLl" OPTNAME; do
   case "${OPTNAME,,}" in
     a ) select_language; check_system_info; check_install
         [ "${STATUS[0]}" = "$(text 28)" ] && {
@@ -1711,6 +1744,7 @@ while getopts ":AaXxTtDdUuNnVvBbF:f:" OPTNAME; do
     v ) select_language; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
+    k|l ) fast_install_variables ;;
   esac
 done
 
@@ -1722,4 +1756,4 @@ check_dependencies
 check_system_ip
 check_install
 menu_setting
-[ -z "$VARIABLE_FILE" ] && menu || ACTION[1]
+[ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || menu

@@ -8,7 +8,8 @@
 
 - [更新信息](README.md#更新信息)
 - [项目特点](README.md#项目特点)
-- [ArgoX for VPS 运行脚本](README.md#argox-for-vps-运行脚本)
+- [交互式运行脚本](README.md#交互式运行脚本)
+- [无交互极速安装](README.md#无交互极速安装)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
 - [各种场景下 xray outbound 和 routing 模板的说明](README.md#各种场景下-xray-outbound-和-routing-模板的说明)
@@ -17,6 +18,8 @@
 
 * * *
 ## 更新信息
+2025.12.09 v1.6.12 极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 `-l` 或 `-L`，英文用户使用 `-k` 或 `-K`，大小写均支持，操作更灵活
+
 2025.11.08 v1.6.11 在 AI 帮助下，完善主流客户端 shadowsocks + v2ray-plugin 的设置与 URI
 
 2025.09.01 v1.6.10 1. 适配 xray 25.8.31 reality 公私钥生成方式; 2. 更换 Github 代理
@@ -85,7 +88,7 @@
 * 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到5秒。
 
 
-## ArgoX for VPS 运行脚本:
+## 交互式运行脚本
 
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
@@ -95,6 +98,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -----------| ------ |
   | -c         | Chinese 中文 |
   | -e         | English 英文 |
+  | -l         | 使用中文快速安装 |
+  | -k         | 使用英文快速安装 |
   | -a         | Argo 开关 |
   | -x         | Xray 开关 |
   | -f         | 参数文件，可参数项目的文件 config.conf |
@@ -105,6 +110,18 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -v         | 同步 Argo Xray 到最新版本 |
   | -b         | 升级内核、安装BBR、DD脚本 |
 
+
+## 无交互极速安装
+
+### 中文
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -l
+```
+
+### 英文
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
+```
 
 
 ## Argo Json 的获取
