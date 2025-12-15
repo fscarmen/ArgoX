@@ -12,12 +12,15 @@
 - [无交互极速安装](README.md#无交互极速安装)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
+- [使用 Cloudflare API 自动创建 Argo](README.md#使用-cloudflare-api-自动创建-argo)
 - [各种场景下 xray outbound 和 routing 模板的说明](README.md#各种场景下-xray-outbound-和-routing-模板的说明)
 - [主体目录文件及说明](README.md#主体目录文件及说明)
 - [免责声明](README.md#免责声明)
 
 * * *
 ## 更新信息
+2025.12.15 v1.6.13 Argo 隧道新增通过 API 创建 --- 自动完成：创建隧道 > DNS 配置 > 回源设置。感谢热心网友 [zmlu] 提供的方法: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
+
 2025.12.09 v1.6.12 极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 `-l` 或 `-L`，英文用户使用 `-k` 或 `-K`，大小写均支持，操作更灵活
 
 2025.11.08 v1.6.11 在 AI 帮助下，完善主流客户端 shadowsocks + v2ray-plugin 的设置与 URI
@@ -142,6 +145,19 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 <img width="1619" alt="image" src="https://user-images.githubusercontent.com/92626977/218253838-aa73b63d-1e8a-430e-b601-0b88730d03b0.png">
 
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
+
+
+## 使用 Cloudflare API 自动创建 Argo
+
+1. 访问 https://dash.cloudflare.com/profile/api-tokens
+2. API 令牌 > 创建令牌 > 创建自定义令牌
+3. 添加以下权限:
+   - 帐户 > Cloudflare One连接器: Cloudflared > 编辑
+   - 区域 > DNS > 编辑
+4. 帐户资源 > 包括 > 所需账户
+5. 区域资源 > 包括 > 特定区域 > 所需域名
+
+<img width="1366" height="646" alt="image" src="https://github.com/user-attachments/assets/207bfee1-583d-4a28-acfc-1041555ecf35" />
 
 
 ## 各种场景下 xray outbound 和 routing 模板的说明

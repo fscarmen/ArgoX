@@ -12,6 +12,7 @@
 - [Non-interactive Ultra-fast Installation](README_EN.md#non-interactive-ultra-fast-installation)
 - [Obtaining Argo Json](README_EN.md#obtaining-argo-json)
 - [Obtaining Argo Token](README_EN.md#obtaining-argo-token)
+- [Use Cloudflare API to automatically create Argo](README_EN.md#use-cloudflare-api-to-automatically-create-argo)
 - [Description of Xray outbound and routing templates in various scenarios](README_EN.md#description-of-xray-outbound-and-routing-templates-in-various-scenarios)
 - [Main directory files and descriptions](README_EN.md#main-directory-files-and-descriptions)
 - [Disclaimer](README_EN.md#disclaimer)
@@ -19,6 +20,8 @@
 * * *
 
 ## Update Information
+2025.12.15 v1.6.13 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
+
 2025.12.09 v1.6.12 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use `-l` or `-L`; English users can use `-k` or `-K`. Case-insensitive support makes operations more flexible.
 
 2025.11.08 v1.6.11 feat: Refine Shadowsocks + v2ray-plugin configurations and URIs for mainstream clients with AI assistance
@@ -137,6 +140,18 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 <img width="1619" alt="image" src="https://user-images.githubusercontent.com/92626977/218253838-aa73b63d-1e8a-430e-b601-0b88730d03b0.png">
 
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
+
+## Use Cloudflare API to automatically create Argo
+
+1. Visit https://dash.cloudflare.com/profile/api-tokens
+2. API Tokens > Create Token > Create Custom Token
+3. Add the following permissions:
+   - Account > Cloudflare One Connectors: cloudflared > Edit
+   - Zone > DNS > Edit
+4. Account Resources: Include > Required Account
+5. Zone Resources: Include > Specific zone > Argo Root Domain
+
+<img width="1336" height="691" alt="image" src="https://github.com/user-attachments/assets/e9c6d946-02ed-48fc-81c4-0fe374461eca" />
 
 ## Description of Xray outbound and routing templates in various scenarios
 
