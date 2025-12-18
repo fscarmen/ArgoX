@@ -3,8 +3,8 @@
 # 当前脚本版本号
 VERSION='1.6.13 (2025.12.15)'
 
-# Github 反代加速代理
-GITHUB_PROXY=('https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
+# Github 反代加速代理，第一个为空相当于直连
+GITHUB_PROXY=('' 'https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/' 'https://ghproxy.lvedong.eu.org/')
 
 # 各变量默认值
 WS_PATH_DEFAULT='argox'
@@ -210,19 +210,11 @@ text() { grep -q '\$' <<< "${E[$*]}" && eval echo "\$(eval echo "\${${L}[$*]}")"
 
 # 检测是否需要启用 Github CDN，如能直接连通，则不使用
 check_cdn() {
-  # 首先测试默认连接（不使用代理）
-  local DIRECT_STATUS_CODE=$(wget --server-response --spider --quiet --timeout=3 --tries=1 https://api.github.com/repos/XTLS/Xray-core/releases/latest 2>&1 | grep "HTTP/" | awk '{print $2}')
-
-  if [ "$DIRECT_STATUS_CODE" != "200" ]; then
-    # 如果直连失败，则逐一测试各github proxy
-    for PROXY_URL in "${GITHUB_PROXY[@]}"; do
-      local PROXY_STATUS_CODE=$(wget --server-response --spider --quiet --timeout=3 --tries=1 ${PROXY_URL}https://api.github.com/repos/XTLS/Xray-core/releases/latest 2>&1 | grep "HTTP/" | awk '{print $2}')
-      [ "$PROXY_STATUS_CODE" = "200" ] && GH_PROXY="$PROXY_URL" && break
-    done
-  else
-    # 直连成功，不使用代理
-    unset GH_PROXY    
-  fi
+  # GITHUB_PROXY 数组第一个元素为空，相当于直连
+  for PROXY_URL in "${GITHUB_PROXY[@]}"; do
+    local PROXY_STATUS_CODE=$(wget --server-response --spider --quiet --timeout=3 --tries=1 ${PROXY_URL}https://api.github.com/repos/XTLS/Xray-core/releases/latest 2>&1 | awk '/HTTP\//{last_field = $2} END {print last_field}')
+    [ "$PROXY_STATUS_CODE" = "200" ] && GH_PROXY="$PROXY_URL" && break
+  done
 }
 
 # 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out，此处判断改编自 https://github.com/lmc999/RegionRestrictionCheck
@@ -330,7 +322,7 @@ cmd_systemctl() {
   }
 
   nginx_stop() {
-    local NGINX_PID=$(ps -ef | awk -v work_dir="$WORK_DIR" '$0 ~ "nginx -c " work_dir "/nginx.conf" {print $2; exit}')
+    local NGINX_PID=$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '$0~(work_dir"/nginx.conf"){print $1;exit}')
     ss -nltp | sed -n "/pid=$NGINX_PID,/ s/,/ /gp" | grep -oP 'pid=\K\S+' | sort -u | xargs kill -9 >/dev/null 2>&1
   }
 
@@ -995,35 +987,67 @@ install_argox() {
 
 name="argo"
 description="Cloudflare Tunnel"
-command="${COMMAND}"
-command_args="${ARGS}"
-pidfile="/var/run/\${RC_SVCNAME}.pid"
+
+command="${WORK_DIR}/cloudflared"
+command_args="tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:3333 --url http://localhost:8080"
+
+pidfile="/run/\${RC_SVCNAME}.pid"
 command_background="yes"
-output_log="$WORK_DIR/argo.log"
-error_log="$WORK_DIR/argo.log"
+
+output_log="${WORK_DIR}/argo.log"
+error_log="${WORK_DIR}/argo.log"
 
 depend() {
     need net
-    after net
+    after firewall
 }
 
 start_pre() {
-    # 确保日志目录存在
-    mkdir -p $WORK_DIR
+    # 确保目录存在
+    mkdir -p ${WORK_DIR} /run
 
-    # 如果需要启动 nginx
-    if [ -s $WORK_DIR/nginx.conf ]; then
-        $(type -p nginx) -c $WORK_DIR/nginx.conf
+    # 清理残留 PID，防止 OpenRC 误判
+    rm -f "\$pidfile"
+
+    # 如存在 nginx 配置，先启动 nginx
+    if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
+        /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
     fi
 }
 
-stop_post() {
-    # 停止服务时检查并关闭相关的 nginx 进程
-    if [ -s $WORK_DIR/nginx.conf ]; then
-        # 查找使用我们配置文件的 nginx 进程并停止它
-        local NGINX_PIDS=\$(ps -ef | awk -v work_dir="$WORK_DIR" '{if (\$0 ~ "nginx.*" work_dir "/nginx.conf") print \$1}')
-        [ -n "\$NGINX_PIDS" ] && echo " * Stopping nginx processes: \$NGINX_PIDS" && kill -15 \$NGINX_PIDS 2>/dev/null
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+
+    # 1. 优雅停止 cloudflared（优先 PID）
+    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
+
+    # 2. PID 失效兜底
+    local CF_PIDS
+    CF_PIDS="\$(ps -eo pid,args | awk '\$0~/\/etc\/argox\/cloudflared/{print \$1}')"
+
+    if [ -n "\$CF_PIDS" ]; then
+        einfo "Force killing cloudflared: \$CF_PIDS"
+        kill -9 \$CF_PIDS 2>/dev/null
     fi
+
+    # 3. 停止 nginx（仅限本配置）
+    if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
+        local NGINX_MASTER
+        NGINX_MASTER="\$(ps -eo pid,args | awk '\$0~/nginx: master process .*\/etc\/argox\/nginx.conf/{print \$1}')"
+
+        if [ -n "\$NGINX_MASTER" ]; then
+            einfo "Stopping nginx master: \$NGINX_MASTER"
+            kill -15 "\$NGINX_MASTER" 2>/dev/null
+            sleep 1
+            kill -9 "\$NGINX_MASTER" 2>/dev/null
+        fi
+    fi
+
+    # 4. 清理 PID 文件
+    rm -f "\$pidfile"
+
+    eend 0
+    return 0
 }
 EOF
     chmod +x ${ARGO_DAEMON_FILE}
@@ -1034,16 +1058,56 @@ EOF
 
 name="xray"
 description="Xray Service"
-command="$WORK_DIR/xray"
-command_args="run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json"
-pidfile="/var/run/\${RC_SVCNAME}.pid"
+
+command="${WORK_DIR}/xray"
+command_args="run -c ${WORK_DIR}/inbound.json -c ${WORK_DIR}/outbound.json"
+
+pidfile="/run/\${RC_SVCNAME}.pid"
 command_background="yes"
-output_log="$WORK_DIR/xray.log"
-error_log="$WORK_DIR/xray.log"
+
+output_log="${WORK_DIR}/xray.log"
+error_log="${WORK_DIR}/xray.log"
 
 depend() {
     need net
-    after net
+    after firewall
+}
+
+start_pre() {
+    # 确保运行目录存在
+    mkdir -p ${WORK_DIR} /run
+    chmod 755 ${WORK_DIR}
+
+    # 清理残留 PID，避免 OpenRC 误判
+    rm -f "\$pidfile"
+}
+
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+
+    # 1. 优雅停止（优先）
+    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
+    local RETVAL=\$?
+
+    # 2. 兜底：PID 文件失效 / daemon 异常
+    if [ \$RETVAL -ne 0 ]; then
+        einfo "Graceful stop failed, force killing xray processes"
+
+        # BusyBox / Alpine 兼容写法
+        local XRAY_PIDS
+        XRAY_PIDS="\$(ps -eo pid,args | awk -v work_dir="\$WORK_DIR" '\$0~(work_dir"/xray run"){print \$1;exit}')"
+
+        if [ -n "\$XRAY_PIDS" ]; then
+            for pid in \$XRAY_PIDS; do
+                kill -9 "\$pid" 2>/dev/null
+            done
+        fi
+    fi
+
+    # 3. 清理 PID 文件
+    rm -f "\$pidfile"
+
+    eend 0
 }
 EOF
     chmod +x ${XRAY_DAEMON_FILE}
@@ -1787,7 +1851,7 @@ uninstall() {
   if [ -d $WORK_DIR ]; then
     cmd_systemctl disable argo
     cmd_systemctl disable xray
-    [[ -s $WORK_DIR/nginx.conf && $(ps -ef | grep 'nginx' | wc -l) -le 1 ]] && reading "\n $(text 65) " REMOVE_NGINX
+    [[ -s $WORK_DIR/nginx.conf && "$(ps -ef | grep -c '[n]ginx')" = 0 ]] && reading "\n $(text 65) " REMOVE_NGINX
     [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
 
     # 根据系统类型删除不同的服务文件
@@ -1841,16 +1905,15 @@ version() {
 
 # 判断当前 Argo-X 的运行状态，并对应的给菜单和动作赋值
 menu_setting() {
+  local PS_LIST=$(ps -eo pid,args | grep -E "$WORK_DIR.*([x]ray|[c]loudflared|[n]ginx)" | sed 's/^[ ]\+//g')
   if [[ "${STATUS[*]}" =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      grep -q '^Alpine$' <<< "$SYSTEM" && local PID_COLUMN='1' || local PID_COLUMN='2'
-      local PID=$(ps -ef | awk -v work_dir="${WORK_DIR}" -v col="$PID_COLUMN" '$0 ~ work_dir".*cloudflared" && !/grep/ {print $col; exit}')
-      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=$PID '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
-      ss -nltp | grep -q "cloudflared.*pid=${PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
+      local ARGO_PID=$(awk '/xray run/{print $1}' <<< "$PS_LIST")
+      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=${ARGO_PID} '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
+      ss -nltp | grep -q "cloudflared.*pid=${ARGO_PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
-    grep -q '^Alpine$' <<< "$SYSTEM" && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | awk '{ $1=""; sub(/^ */, ""); print $0 }')
     [ "$IS_NGINX" = 'is_nginx' ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/#Version: #")
 
     OPTION[1]="1 .  $(text 29)"
@@ -1978,7 +2041,7 @@ while getopts ":AaXxTtDdUuNnVvBbF:f:KkLl" OPTNAME; do
     d ) select_language; check_system_info; change_cdn; exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0;;
     n ) select_language; check_system_info; export_list; exit 0 ;;
-    v ) select_language; check_arch; version; exit 0;;
+    v ) select_language; check_system_info; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
     k|l ) fast_install_variables ;;
