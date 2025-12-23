@@ -173,10 +173,10 @@ E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
 C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
 E[74]="Unable to access api.github.com. This may be due to IP restrictions (HTTP/1.1 403 Rate Limit Exceeded). Please try again later"
 C[74]="无法访问 api.github.com，可能是由于 IP 限制导致的（HTTP/1.1 403 Rate Limit Exceeded），请稍后重试"
-E[75]="Special Note: Due to incomplete links exported by v2rayN and Nekobox, please handle as follows:\n\nNekobox: Set UoT to 2 to enable UDP over TCP\n\nv2rayN:"
-C[75]="特别说明: 由于 v2rayN 与 Nekobox 导出的链接不全，请自行处理如下:\n\nNekobox: 把 UoT 设置为2，以开启 UDP over TCP\n\nv2rayN:"
-E[76]="Transport Protocol: WS , Host: \${ARGO_DOMAIN} , Path: /\${WS_PATH}-sh , TLS: tls , SNI: \${ARGO_DOMAIN}"
-C[76]="传输协议: WS , 伪装域名: \${ARGO_DOMAIN} , 路径: /\${WS_PATH}-sh , 传输层安全: tls , SNI: \${ARGO_DOMAIN}"
+E[75]="Nekobox: Set UoT to 2 to enable UDP over TCP"
+C[75]="Nekobox: 把 UoT 设置为2，以开启 UDP over TCP"
+E[76]="Change preferred domain or IP (argox -d)"
+C[76]="更换优选域名或 IP (argox -d)"
 E[77]="Quick install mode (argox -k)"
 C[77]="极速安装模式 (argox -l)"
 E[78]="Using Cloudflare API to create Tunnel and handle DNS config..."
@@ -197,8 +197,6 @@ E[85]="API does not have enough permissions. Please check at https://dash.cloudf
 C[85]="API 没有足够权限，请在 https://dash.cloudflare.com/profile/api-tokens 检查 Token 权限配置\n\n [*] Token: 访问 https://dash.cloudflare.com/ ，Zero Trust > 网络 > 连接器 > 创建隧道 > 选择 Cloudflared\n\n [*] Json: 用户通过以下网站轻松获取: https://fscarmen.cloudflare.now.cc\n\n [*] Cloudflare API: 访问 https://dash.cloudflare.com/profile/api-tokens > 创建令牌 > 创建自定义令牌 > 添加以下权限:\n - 帐户 > Cloudflare One连接器: Cloudflared > 编辑\n - 区域 > DNS > 编辑\n\n - 帐户资源: 包括 > 所需账户\n - 区域资源: 包括 > 特定区域 > 所需域名"
 E[86]="Please enter [Token, Json, API] value:"
 C[86]="请输入 [Token, Json, API] 的值:"
-E[87]="Change preferred domain or IP (argox -d)"
-C[87]="更换优选域名或 IP (argox -d)"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -364,15 +362,6 @@ cmd_systemctl() {
 }
 
 check_system_info() {
-  # 判断虚拟化
-  if [ -x "$(type -p systemd-detect-virt)" ]; then
-    VIRT=$(systemd-detect-virt)
-  elif [ -x "$(type -p hostnamectl)" ]; then
-    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
-  elif [ -x "$(type -p virt-what)" ]; then
-    VIRT=$(virt-what)
-  fi
-
   [ -s /etc/os-release ] && SYS="$(awk -F '"' 'tolower($0) ~ /pretty_name/{print $2}' /etc/os-release)"
   [[ -z "$SYS" && -x "$(type -p hostnamectl)" ]] && SYS="$(hostnamectl | awk -F ': ' 'tolower($0) ~ /operating system/{print $2}')"
   [[ -z "$SYS" && -x "$(type -p lsb_release)" ]] && SYS="$(lsb_release -sd)"
@@ -408,6 +397,20 @@ check_system_info() {
     IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
   elif [ "$SYSTEM" = 'Alpine' ]; then
     ARGO_DAEMON_FILE='/etc/init.d/argo'; XRAY_DAEMON_FILE='/etc/init.d/xray'; DAEMON_RUN_PATTERN="command_args="
+  fi
+
+  # 判断虚拟化
+  if [ -x "$(type -p systemd-detect-virt)" ]; then
+    VIRT=$(systemd-detect-virt)
+  elif grep -qa container= /proc/1/environ 2>/dev/null; then
+    VIRT=$(tr '\0' '\n' </proc/1/environ | awk -F= '/container=/{print $2; exit}')
+  elif grep -Eq '(lxc|docker|kubepods|containerd)' /proc/1/cgroup 2>/dev/null; then
+    VIRT=$(grep -Eo '(lxc|docker|kubepods|containerd)' /proc/1/cgroup | sed -n 1p)
+  elif [ -x "$(type -p hostnamectl)" ]; then
+    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
+  else
+    [ -x "$(type -p virt-what)" ] && ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
+    [ -x "$(type -p virt-what)" ] && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
   fi
 }
 
@@ -607,12 +610,12 @@ fast_install_variables() {
 check_dependencies() {
   # 如果是 Alpine，先升级 wget
   if [ "$SYSTEM" = 'Alpine' ]; then
-    local CHECK_WGET=$(wget 2>&1 | head -n 1)
+    local CHECK_WGET=$(wget 2>&1 | sed -n 1p)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
     # Alpine 系统只检查必要的依赖，不需要 systemctl 和 python3
-    local DEPS_CHECK=("bash" "rc-update" "virt-what")
-    local DEPS_INSTALL=("bash" "openrc" "virt-what")
+    local DEPS_CHECK=("bash" "rc-update")
+    local DEPS_INSTALL=("bash" "openrc")
     for g in "${!DEPS_CHECK[@]}"; do
       [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS_ALPINE+=(${DEPS_INSTALL[g]})
     done
@@ -620,7 +623,6 @@ check_dependencies() {
       info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS_ALPINE[@]}) \n"
       ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
       ${PACKAGE_INSTALL[int]} ${DEPS_ALPINE[@]} >/dev/null 2>&1
-      [[ -z "$VIRT" && "${DEPS_ALPINE[@]}" =~ 'virt-what' ]] && VIRT=$(virt-what | tr '\n' ' ')
     fi
   fi
 
@@ -988,8 +990,8 @@ install_argox() {
 name="argo"
 description="Cloudflare Tunnel"
 
-command="${WORK_DIR}/cloudflared"
-command_args="tunnel --edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:3333 --url http://localhost:8080"
+command="${COMMAND}"
+command_args="${ARGS}"
 
 pidfile="/run/\${RC_SVCNAME}.pid"
 command_background="yes"
@@ -1624,7 +1626,8 @@ vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER
 vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME}-Vl
 vmess://$(echo -n "$VMESS" | base64 -w0)
 trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME}-Tr
-ss://$(echo -n "chacha20-ietf-poly1305:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${ARGO_DOMAIN};path%3D/${WS_PATH}-sh;tls%3Dtrue;servername%3D${ARGO_DOMAIN};skip-cert-verify%3Dfalse;mux%3D0#${NODE_NAME}-Sh"
+ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls#${NODE_NAME}-Sh
+ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${ARGO_DOMAIN};path%3D/${WS_PATH}-sh;tls%3Dtrue;servername%3D${ARGO_DOMAIN};skip-cert-verify%3Dfalse;mux%3D0#${NODE_NAME}-Sh"
 
   echo -n "${V2RAYN_SUBSCRIBE}" | base64 -w0 > $WORK_DIR/subscribe/base64
 
@@ -1661,9 +1664,7 @@ EOF
 ----------------------------
 $(info "$(sed "G" <<< "${V2RAYN_SUBSCRIBE}")
 
-$(echo -e $(eval echo "\${$L[75]}"))
-ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443#${NODE_NAME}-Sh
-$(eval echo "$(eval echo "\${$L[76]}")")")
+$(echo -e $(eval echo "\${$L[75]}"))")
 
 *******************************************
 ┌────────────────┐
@@ -1745,7 +1746,7 @@ $(info "\n*******************************************
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
-  # statistics_of_run-times get
+  statistics_of_run-times get
 }
 
 # 更换 Argo 隧道类型
@@ -1926,7 +1927,7 @@ menu_setting() {
     fi
     [ ${STATUS[1]} = "$(text 28)" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/argox\/xray.*\/etc\/argox/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3 .  $(text 27) Xray (argox -x)" || OPTION[3]="3 .  $(text 28) Xray (argox -x)"
     OPTION[4]="4 .  $(text 30)"
-    OPTION[5]="5 .  $(text 87)"
+    OPTION[5]="5 .  $(text 76)"
     OPTION[6]="6 .  $(text 31)"
     OPTION[7]="7 .  $(text 32)"
     OPTION[8]="8 .  $(text 33)"
@@ -2005,7 +2006,7 @@ menu() {
 }
 
 check_cdn
-# statistics_of_run-times update argox.sh 2>/dev/null
+statistics_of_run-times update argox.sh 2>/dev/null
 
 # 传参
 [[ "${*,,}" =~ '-e'|'-k' ]] && L=E
