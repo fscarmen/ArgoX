@@ -426,15 +426,17 @@ check_system_ip() {
     [ -n "$DEFAULT_LOCAL_IP6" ] && local BIND_ADDRESS6="--bind-address=$DEFAULT_LOCAL_IP6"
   fi
 
-  WAN4=$(wget $BIND_ADDRESS4 -qO- --no-check-certificate --tries=2 --timeout=2 http://api-ipv4.ip.sb)
-  [ -n "$WAN4" ] && local IP4_JSON=$(wget -qO- --no-check-certificate --tries=2 --timeout=10 https://ip.forvps.gq/${WAN4}${IS_CHINESE}) &&
-  COUNTRY4=$(sed -En 's/.*"country":[ ]*"([^"]+)".*/\1/p' <<< "$IP4_JSON") &&
-  ASNORG4=$(sed -En 's/.*"(isp|asn_org)":[ ]*"([^"]+)".*/\2/p' <<< "$IP4_JSON")
+  local IP4_JSON=$(wget $BIND_ADDRESS4 -4 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.nyc.mn${IS_CHINESE}) &&
+  WAN4=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP4_JSON") &&
+  COUNTRY4=$(awk -F '"' '/"country"/{print $4}' <<< "$IP4_JSON") &&
+  EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_JSON") &&
+  ASNORG4=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP4_JSON")
 
-  WAN6=$(wget $BIND_ADDRESS6 -qO- --no-check-certificate --tries=2 --timeout=2 http://api-ipv6.ip.sb)
-  [ -n "$WAN6" ] && local IP6_JSON=$(wget -qO- --no-check-certificate --tries=2 --timeout=10 https://ip.forvps.gq/${WAN6}${IS_CHINESE}) &&
-  COUNTRY6=$(sed -En 's/.*"country":[ ]*"([^"]+)".*/\1/p' <<< "$IP6_JSON") &&
-  ASNORG6=$(sed -En 's/.*"(isp|asn_org)":[ ]*"([^"]+)".*/\2/p' <<< "$IP6_JSON")
+  local IP6_JSON=$(wget $BIND_ADDRESS6 -6 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.nyc.mn${IS_CHINESE}) &&
+  WAN6=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP6_JSON") &&
+  COUNTRY6=$(awk -F '"' '/"country"/{print $4}' <<< "$IP6_JSON") &&
+  EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_JSON") &&
+  ASNORG6=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP6_JSON")
 }
 
 # 定义 Argo 变量
@@ -565,16 +567,18 @@ xray_variable() {
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
 
   # 输入节点名，以系统的 hostname 作为默认
+  local EMOJI="${EMOJI4:-$EMOJI6}"
+  local EMOJI="${EMOJI}${EMOJI:+ }"
   if [ -z "$NODE_NAME" ]; then
     if [ -x "$(type -p hostname)" ]; then
-      NODE_NAME_DEFAULT="$(hostname)"
+      local NODE_NAME_DEFAULT="${EMOJI}$(hostname)"
     elif [ -s /etc/hostname ]; then
-      NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+      local NODE_NAME_DEFAULT="${EMOJI}$(cat /etc/hostname)"
     else
-      NODE_NAME_DEFAULT="ArgoX"
+      local NODE_NAME_DEFAULT="ArgoX"
     fi
     ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 49) " NODE_NAME
-    NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
+    grep -q '^$' <<< "$NODE_NAME" && NODE_NAME="$NODE_NAME_DEFAULT" || NODE_NAME="${EMOJI}${NODE_NAME}"
   fi
 }
 
@@ -597,14 +601,17 @@ fast_install_variables() {
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
 
   # 输入节点名，以系统的 hostname 作为默认
+  check_system_ip
+  local EMOJI="${EMOJI4:-$EMOJI6}"
+  local EMOJI="${EMOJI}${EMOJI:+ }"
   if [ -x "$(type -p hostname)" ]; then
-    NODE_NAME_DEFAULT="$(hostname)"
+    local NODE_NAME_DEFAULT="${EMOJI}$(hostname)"
   elif [ -s /etc/hostname ]; then
-    NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+    local NODE_NAME_DEFAULT="${EMOJI}$(cat /etc/hostname)"
   else
-    NODE_NAME_DEFAULT="ArgoX"
+    local NODE_NAME_DEFAULT="${EMOJI}ArgoX"
   fi
-  NODE_NAME=${NODE_NAME:-"$NODE_NAME_DEFAULT"}
+  grep -q '^$' <<< "$NODE_NAME" && NODE_NAME="$NODE_NAME_DEFAULT" || NODE_NAME="${EMOJI}${NODE_NAME}"
 }
 
 check_dependencies() {
@@ -1621,13 +1628,13 @@ ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?uot=
   echo -n "${SHADOWROCKET_SUBSCRIBE}" | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
 
   # 生成 V2rayN / NekoBox 订阅文件
-  local V2RAYN_SUBSCRIBE="vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME} reality-vision
-vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME} reality-grpc
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME}-Vl
+  local V2RAYN_SUBSCRIBE="vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME}%20reality-vision
+vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20reality-grpc
+vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}-Vl
 vmess://$(echo -n "$VMESS" | base64 -w0)
-trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME}-Tr
-ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls#${NODE_NAME}-Sh
-ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${ARGO_DOMAIN};path%3D/${WS_PATH}-sh;tls%3Dtrue;servername%3D${ARGO_DOMAIN};skip-cert-verify%3Dfalse;mux%3D0#${NODE_NAME}-Sh"
+trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}-Tr
+ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls#${NODE_NAME// /%20}-Sh
+ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${ARGO_DOMAIN};path%3D/${WS_PATH}-sh;tls%3Dtrue;servername%3D${ARGO_DOMAIN};skip-cert-verify%3Dfalse;mux%3D0#${NODE_NAME// /%20}-Sh"
 
   echo -n "${V2RAYN_SUBSCRIBE}" | base64 -w0 > $WORK_DIR/subscribe/base64
 
@@ -2054,7 +2061,7 @@ check_root
 check_arch
 check_system_info
 check_dependencies
-check_system_ip
+[ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' ] && check_system_ip
 check_install
 menu_setting
 [ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || menu
