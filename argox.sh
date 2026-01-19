@@ -15,7 +15,7 @@ NGINX_PORT='8080'
 METRICS_PORT='3333'
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='25.12.8'
+DEFAULT_XRAY_VERSION='26.1.18'
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -710,8 +710,7 @@ http {
     ~*v2rayN|Neko|Throne       /base64;          # 匹配 V2rayN / NekoBox / Throne 客户端
     ~*clash                    /clash;           # 匹配 Clash 客户端
     ~*ShadowRocket             /shadowrocket;    # 匹配 ShadowRocket  客户端
-    ~*SFM                      /sing-box-pc;     # 匹配 Sing-box pc 客户端
-    ~*SFI|SFA                  /sing-box-phone;  # 匹配 Sing-box phone 客户端
+    ~*SFM|SFI|SFA              /sing-box;        # 匹配 Sing-box 官方客户端
  #   ~*Chrome|Firefox|Mozilla  /;                # 添加更多的分流规则
   }
 
@@ -1639,13 +1638,12 @@ ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-p
   echo -n "${V2RAYN_SUBSCRIBE}" | base64 -w0 > $WORK_DIR/subscribe/base64
 
   # 生成 Sing-box 订阅文件
-  local INBOUND_REPLACE="{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} reality-vision\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }, { \"type\": \"vless\", \"tag\":\"${NODE_NAME} reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }, { \"type\":\"vless\", \"tag\":\"${NODE_NAME}-Vl\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\":\"vmess\", \"tag\":\"${NODE_NAME}-Vm\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\":\"trojan\", \"tag\":\"${NODE_NAME}-Tr\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME}-Sh\", \"server\": \"${SERVER}\", \"server_port\": 443, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}"
+  local OUTBOUND_REPLACE="{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} reality-vision\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }, { \"type\": \"vless\", \"tag\":\"${NODE_NAME} reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }, { \"type\":\"vless\", \"tag\":\"${NODE_NAME}-Vl\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\":\"vmess\", \"tag\":\"${NODE_NAME}-Vm\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\":\"trojan\", \"tag\":\"${NODE_NAME}-Tr\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }, { \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME}-Sh\", \"server\": \"${SERVER}\", \"server_port\": 443, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}"
   local NODE_REPLACE="\"${NODE_NAME} reality-vision\", \"${NODE_NAME} reality-grpc\", \"${NODE_NAME}-Vl\", \"${NODE_NAME}-Vm\", \"${NODE_NAME}-Tr\", \"${NODE_NAME}-Sh\""
 
   # 模板
-  local SING_BOX_JSON1=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box1)
-  echo $SING_BOX_JSON1 | sed 's#, {[^}]\+"tun-in"[^}]\+}##' | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box-pc
-  echo $SING_BOX_JSON1 | sed 's# {[^}]\+"mixed"[^}]\+},##; s#, "auto_detect_interface": true##' | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box-phone
+  local SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
+  echo $SING_BOX_JSON | sed "s#\"<OUTBOUND_REPLACE>\"#$OUTBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box
 
   # 生成二维码 url 文件
   [ "$IS_NGINX" = 'is_nginx' ] && cat > $WORK_DIR/subscribe/qr << EOF
@@ -1701,7 +1699,7 @@ $(info "$(sed '1d;G' <<< "$CLASH_SUBSCRIBE")")
 └────────────────┘
 ----------------------------
 
-$(hint "$(echo "{ \"outbounds\":[ ${INBOUND_REPLACE%,} ] }" | $WORK_DIR/jq)
+$(hint "$(echo "{ \"outbounds\":[ ${OUTBOUND_REPLACE%,} ] }" | $WORK_DIR/jq)
 
  $(text 63)")
 "
@@ -1721,11 +1719,8 @@ https://${ARGO_DOMAIN}/${UUID}/base64")
 $(info "Clash $(text 66):
 https://${ARGO_DOMAIN}/${UUID}/clash
 
-sing-box for pc $(text 66):
-https://${ARGO_DOMAIN}/${UUID}/sing-box-pc
-
-sing-box for cellphone $(text 66):
-https://${ARGO_DOMAIN}/${UUID}/sing-box-phone
+sing-box $(text 66):
+https://${ARGO_DOMAIN}/${UUID}/sing-box
 
 Shadowrocket $(text 66):
 https://${ARGO_DOMAIN}/${UUID}/shadowrocket")
