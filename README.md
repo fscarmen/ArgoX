@@ -15,6 +15,7 @@
 - [使用 Cloudflare API 自动创建 Argo](README.md#使用-cloudflare-api-自动创建-argo)
 - [各种场景下 xray outbound 和 routing 模板的说明](README.md#各种场景下-xray-outbound-和-routing-模板的说明)
 - [主体目录文件及说明](README.md#主体目录文件及说明)
+- [感谢赞助商](README.md#感谢赞助商)
 - [免责声明](README.md#免责声明)
 
 * * *
@@ -201,6 +202,23 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── jq                        # 命令行 JSON 处理器
 └── qrencode                  # QR 码编码二进制文件
 ```
+
+
+## 感谢赞助商
+
+### 感谢 vps.town 对本项目的支持和赞助
+
+<a href="https://vps.town" align="left">
+  <img src="https://vps.town/static/images/sponsor.png" alt="Sponsor" width="30%">
+</a>
+
+体验 VPS.Town 的速度、稳定性和安全性一体化云计算解决方案 - 专为推动您的业务创新而设计。
+
+#### ✨ 服务优势
+
+* 安全的记忆。您值得信赖的伙伴
+
+* 坚如磐石的数据中心。高枕无忧
 
 
 ## 免责声明:
