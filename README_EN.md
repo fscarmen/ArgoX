@@ -8,7 +8,7 @@
 
 - [Update Information](README_EN.md#update-information)
 - [Project Features](README_EN.md#project-features)
-- [Interactive Running Script](README.md#interactive-running-script)
+- [Interactive Running Script](README_EN.md#interactive-running-script)
 - [Non-interactive Ultra-fast Installation](README_EN.md#non-interactive-ultra-fast-installation)
 - [Obtaining Argo Json](README_EN.md#obtaining-argo-json)
 - [Obtaining Argo Token](README_EN.md#obtaining-argo-token)
@@ -21,74 +21,80 @@
 * * *
 
 ## Update Information
-2025.12.15 v1.6.13 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
-
-2025.12.09 v1.6.12 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use `-l` or `-L`; English users can use `-k` or `-K`. Case-insensitive support makes operations more flexible.
-
-2025.11.08 v1.6.11 feat: Refine Shadowsocks + v2ray-plugin configurations and URIs for mainstream clients with AI assistance
-
-2025.09.01 v1.6.10 1. Adapted to the new reality key pair generation method in xray 25.8.31; 2. Updated GitHub proxy
+2026.03.30 v2.0.0 Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation and management.
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2025.12.15 v1.6.13 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
+>
+>2025.12.09 v1.6.12 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use `-l` or `-L`; English users can use `-k` or `-K`. Case-insensitive support makes operations more flexible.
+>
+>2025.11.08 v1.6.11 feat: Refine Shadowsocks + v2ray-plugin configurations and URIs for mainstream clients with AI assistance
+>
+>2025.09.01 v1.6.10 1. Adapted to the new reality key pair generation method in xray 25.8.31; 2. Updated GitHub proxy
+>
 >2025.04.26 v1.6.9 Added the ability to change CDNs online using [argox -d]
 >
->2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management 3. Optimize code
+>2025.04.25 v1.6.8 1. Change GitHub proxy; 2. Handle CentOS firewall port management; 3. Optimize code
 >
 >2025.04.21 v1.6.7 Use OpenRC on Alpine to replace systemctl (Python3-compatible version)
 >
 >2024.12.24 v1.6.6 Refactored the chatGPT detection method based on lmc999's detection and unlocking script
-
+>
 >2024.5.20 v1.6.5 1. Add Github CDN; 2. Remove subscription template 2
-
->2024.3.26 v1.6.4 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary file, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies
-
+>
+>2024.3.26 v1.6.4 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary file, reduce the installation time of about 15 seconds, implementing the project's lightweight positioning
+>
 >2024.3.24 v1.6.3 1. Compatible with CentOS 7,8,9; 2. Remove default Github CDN
-
+>
 >2024.3.13 v1.6.2 1. Subscription made optional, no nginx and qrcode installed if not needed; 2. Use native IP if it supports unlocking chatGPT, otherwise use warp chained proxy unlocking
-
+>
 >2024.3.10 v1.6.1 1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
-
+>
 >2024.3.2 v1.6 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
-
->2024.2.6 V1.5 Argo run protocol uses default instead of http2. The default value is auto, what will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol
-
->2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, Both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names1; 3. After installing, add [argox] shortcut; 4. Output the configuration for Sing-box Client
-
+>
+>2024.2.6 V1.5 Argo run protocol uses default instead of http2. The default value is auto, which will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol.
+>
+>2023.10.25 V1.4 1. Support Reality-Vison and Reality-gRPC, both are direct connect solutions; 2. Quick-tunnel through the API to check dynamic domain names; 3. After installing, add [argox] shortcut; 4. Output the configuration for Sing-box Client
+>
 >2023.10.16 V1.3 1. Support Alpine; 2. Add Sing-box PID, runtime, and memory usage to the menu; 3. Remove the option of using warp on returning to China
-
->2023.10.11 V1.2 1. Add the option of blocking on returning to China; 2. Add a number of quality cdn's that are collected online; 3. Use Warp IPv6 to visit chatGPT
-
+>
+>2023.10.11 V1.2 1. Add the option of blocking on returning to China; 2. Add a number of quality CDNs collected online; 3. Use Warp IPv6 to visit chatGPT
+>
 >2023.6.23 V1.1 For better network traffic diversion in various scenarios, split `config.json` into `inbound.json` and `outbound.json`
-
+>
 >2023.4.13 1.0
-
->2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc ; 2. Change the sensitive path names; 3. Add CDN for download
-
+>
+>2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc; 2. Change the sensitive path names; 3. Add CDN for download
+>
 >2023.3.4 beta5 1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack
-
+>
 >2023.3.2 beta4 Change listening to all network addresses to only Argo tunnel directed listening for added security
-
->2023.2.24 beta3 1. Simplify the operation of changing argo tunnel; 2. Use wget global instead of cURL
-
->2023.2.17 beta2 1. extremely fast installation mode, [-f] followed by a parameter file path; 2. Support for switching between the three argo tunnels; 3. Synchronise Argo and Xray to the newest version at any time; 4. Optimize the code to achieve speedup.
-
+>
+>2023.2.24 beta3 1. Simplify the operation of changing argo tunnel; 2. Use wget globally instead of cURL
+>
+>2023.2.17 beta2 1. Extremely fast installation mode, [-f] followed by a parameter file path; 2. Support for switching between the three argo tunnels; 3. Synchronise Argo and Xray to the newest version at any time; 4. Optimize the code to achieve speedup.
+>
 >2023.2.16 beta1 Argo + Xray for vps
+
 </details>
+
 
 ## Project Features:
 
-* Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Argo + Xray + WebSocket + TLS;
+* Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP;
 * Normally CF backhauls from data centers, Argo creates two reverse links to two nearby data centers, and backhauls from the source server through the nearby data centers. The line between the user's data center and the source server's nearby data center is CF's proprietary black box line;
 * Using CloudFlare's Argo Tunnel with TLS encrypted communication, application traffic can be securely transmitted to the Cloudflare network, improving application security and reliability. In addition, Argo Tunnel can also prevent network threats such as IP leaks and DDoS attacks;
-* Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports, not just port 443 which can be blocked. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
+* Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
 * Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
-* Supports Xray's direct connection protocols: reality vision and reality gRPC; as well as ws fallback traffic splitting for 4 mainstream protocols: vless / vmess / trojan / shadowsocks + WSS (ws + tls);
+* **Select protocols on demand during installation**, supporting 8 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS  + XHTTP; add or remove protocols at any time after installation (`argox -r`);
+* Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality and Hysteria2 connect directly — clean and simple architecture;
 * Built-in warp chained proxy to unlock chatGPT;
-* Node information output to V2rayN / Clash Meta / Shadowrocket / Nekobox / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription url for everything;
+* Node information output to V2rayN / Clash Meta / Shadowrocket / Nekobox / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
 * Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
+
 
 ## Interactive Running Script
 
@@ -98,19 +104,22 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
   | Option | Remark |
   | ------ | ------ |
-  | -c     | Chinese |
-  | -e     | English |
-  | -l     | Quick deploy (Chinese version) |
-  | -k     | Quick deploy (English version) |
-  | -a     | Argo on-off |
-  | -x     | Xray on-off |
-  | -f     | Variable file, refer to REPO file "config" |
-  | -t     | Change the Argo Tunnel |
-  | -d     | Change the CDN |
-  | -u     | Uninstall |
-  | -n     | Export Nodes list |
-  | -v     | Sync Argo Xray to the newest |
-  | -b     | Upgrade kernel, turn on BBR, change Linux system |
+  | No argument | Interactive menu |
+  | -c / -C | Force Chinese |
+  | -e / -E | Force English |
+  | -k / -K | Quick install (English) |
+  | -l / -L | Quick install (Chinese) |
+  | -n / -N | View node information |
+  | -t / -T | Change Argo tunnel |
+  | -d / -D | Change preferred CDN / SNI / node info |
+  | -r / -R | Add / Remove protocols |
+  | -u / -U | Uninstall |
+  | -v / -V | Sync to latest version |
+  | -b / -B | Upgrade kernel / BBR / DD |
+  | -a / -A | Enable / Disable Argo |
+  | -x / -X | Enable / Disable Xray |
+  | -f / -F | Non-interactive install, followed by parameter file path |
+
 
 ## Non-interactive Ultra-fast Installation
 
@@ -172,24 +181,23 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 ```
 /etc/argox                    # Project main directory
 ├── subscribe                 # Subscription files directory
-│   ├── qr                    # Nekoray / V2rayN subscription QR codes
-│   ├── base64                # Nekoray / V2rayN subscription files
+│   ├── base64                # V2rayN / Nekobox subscription files
 │   ├── clash                 # Clash subscription files
-│   ├── clash2                # Clash subscription files2
 │   ├── proxies               # Clash proxy provider subscription files
 │   ├── shadowrocket          # Shadowrocket subscription files
-│   ├── sing-box-pc           # SFM subscription files
-│   ├── sing-box-phone        # SFI / SFA subscription files
-│   └── sing-box2             # SFI / SFA / SFM subscription files2
+│   └── sing-box              # SFI / SFA / SFM subscription files
+├── cert                      # Self-signed certificate directory
+│   ├── cert.pem              # Certificate file
+│   └── private.key           # Private key file
 ├── cloudflared               # argo tunnel program
+├── custom                    # User-defined persistent config (serverIp / cdn / language etc.)
 ├── geoip.dat                 # Used for geographical location policies or access control based on IP addresses
-├── geosite.dat               # Used for access control, content filtering or security policies based on domain names or website classifications
-├── inbound.json              # vless / vmess / ss / trojan + WSS inbound configuration file
-├── language                  # Store script language files, E for English, C for Chinese
+├── geosite.dat               # Used for access control, content filtering or security policies based on domain names
+├── inbound.json              # Dynamically generated inbound config based on selected protocols
 ├── list                      # Node information list
-├── outbound.json             # Outbound and routing configuration file, chatGPT uses warp ipv6 chained proxy outbound
+├── nginx.conf                # Nginx configuration file (generated when WS/XHTTP protocols are installed or subscription is enabled)
+├── outbound.json             # Outbound and routing config, chatGPT uses warp ipv6 chained proxy outbound
 ├── xray                      # xray main program
-├── nginx.conf                # Nginx configuration file
 ├── ax.sh                     # Shortcut script file
 ├── jq                        # Command-line JSON processor
 └── qrencode                  # QR code encoding binary file
