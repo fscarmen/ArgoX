@@ -21,6 +21,8 @@
 * * *
 
 ## Update Information
+2026.04.01 v2.0.1 Added VLESS/XHTTP HTTP/3 direct connection support
+
 2026.03.30 v2.0.0 Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation and management.
 
 <details>

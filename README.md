@@ -20,6 +20,8 @@
 
 * * *
 ## 更新信息
+2026.04.01 v2.0.1 新增 VLESS/XHTTP HTTP/3 直连支持
+
 2026.03.30 v2.0.0 将 ArgoX 重构为模块化协议架构，新增 Hysteria2 和 VLESS/XHTTP 支持，实现协议的自定义安装与管理
 
 <details>

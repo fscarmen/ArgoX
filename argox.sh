@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.0 (2026.03.30)'
+VERSION='2.0.1 (2026.04.01)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/' 'https://ghproxy.lvedong.eu.org/')
 
 # 协议清单（b~i 对应选项字母，a=全部）；Hysteria2 插在 reality-vision 与 reality-grpc 之间
-PROTOCOL_LIST=("VLESS + Reality Vision" "Hysteria2" "VLESS + Reality gRPC" "VLESS + WS" "VMess + WS" "Trojan + WS" "Shadowsocks + WS" "VLESS + XHTTP")
-NODE_TAG=("reality-vision" "hysteria2" "reality-grpc" "vless-ws" "vmess-ws" "trojan-ws" "ss-ws" "vless-xhttp")
+PROTOCOL_LIST=("VLESS + Reality Vision" "Hysteria2" "VLESS + Reality gRPC" "VLESS + WS" "VMess + WS" "Trojan + WS" "Shadowsocks + WS" "VLESS + XHTTP" "VLESS + XHTTP Direct")
+NODE_TAG=("reality-vision" "hysteria2" "reality-grpc" "vless-ws" "vmess-ws" "trojan-ws" "ss-ws" "vless-xhttp" "xhttp-h3-direct")
 
 # 端口范围限制
 MIN_PORT=100
@@ -36,8 +36,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation."
-C[1]="将 ArgoX 重构为模块化协议架构，新增 Hysteria2 和 VLESS/XHTTP 支持，并实现协议的自定义安装与管理"
+E[1]="Refactor ArgoX into a modular protocol system, add support for Hysteria2, VLESS/XHTTP over CDN, and VLESS/XHTTP Direct, and enable fully customizable protocol installation."
+C[1]="将 ArgoX 重构为模块化协议架构，新增 Hysteria2、使用 CDN 的 VLESS/XHTTP 以及 VLESS/XHTTP Direct 支持，并实现协议的自定义安装与管理"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -46,8 +46,8 @@ E[4]="UUID should be 36 characters, please re-enter (\${a} times remaining)"
 C[4]="UUID 应为36位字符,请重新输入 (剩余\${a}次)"
 E[5]="The script supports Debian, Ubuntu, CentOS, Alpine or Arch systems only. Feedback: [https://github.com/fscarmen/argox/issues]"
 C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine 或 Arch 系统，问题反馈:[https://github.com/fscarmen/argox/issues]"
-E[6]="Port Hopping range  (current: \${_val})  [leave blank to disable]"
-C[6]="端口跳跃范围  (当前：\${_val})  [留空则禁用]"
+E[6]="Port Hopping range (current: \${_val}) [leave blank to disable]"
+C[6]="端口跳跃范围 (当前：\${_val}) [留空则禁用]"
 E[7]="Install dependence-list:"
 C[7]="安装依赖列表:"
 E[8]="All dependencies already exist and do not need to be installed additionally."
@@ -236,8 +236,8 @@ E[99]="Invalid Reality privateKey, generating randomly..."
 C[99]="Reality 私钥无效，随机生成中..."
 E[100]=" a. all (default)"
 C[100]=" a. 全部（默认）"
-E[101]="VLESS + XHTTP (Temporary tunnel NOT supported)"
-C[101]="VLESS + XHTTP（临时隧道不支持）"
+E[101]="VLESS + XHTTP over CDN (Temporary tunnel NOT supported)"
+C[101]="VLESS + XHTTP 使用 CDN（临时隧道不支持）"
 E[102]="Cannot get quicktunnel domain."
 C[102]="获取临时隧道域名失败"
 E[103]="No change was made."
@@ -248,16 +248,16 @@ E[105]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Enter port range for Hys
 C[105]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Hysteria2 端口跳跃范围（如 50000:51000），留空禁用:"
 E[106]="Please select what to modify:"
 C[106]="请选择修改项目:"
-E[107]="Preferred CDN  (current: \${_val})"
-C[107]="优选域名/IP  (当前：\${_val})"
-E[108]="SNI / TLS domain  (current: \${_val})  [Reality & Hysteria2]"
-C[108]="SNI / TLS 域名  (当前：\${_val})  [Reality 和 Hysteria2 共用]"
-E[109]="Node name  (current: \${_val})"
-C[109]="节点名称  (当前：\${_val})"
-E[110]="UUID / Password  (current: \${_val})"
-C[110]="UUID / 密码  (当前：\${_val})"
-E[111]="Server IP  (current: \${_val})"
-C[111]="服务器 IP  (当前：\${_val})"
+E[107]="Preferred CDN (current: \${_val})"
+C[107]="优选域名/IP (当前：\${_val})"
+E[108]="SNI / TLS domain (current: \${_val}) [Reality & Hysteria2]"
+C[108]="SNI / TLS 域名 (当前：\${_val}) [Reality 和 Hysteria2 共用]"
+E[109]="Node name (current: \${_val})"
+C[109]="节点名称 (当前：\${_val})"
+E[110]="UUID / Password (current: \${_val})"
+C[110]="UUID / 密码 (当前：\${_val})"
+E[111]="Server IP (current: \${_val})"
+C[111]="服务器 IP (当前：\${_val})"
 E[112]="Invalid IP address format"
 C[112]="IP 地址格式错误"
 E[113]="(VLESS + XHTTP not supported)"
@@ -266,10 +266,10 @@ E[114]="Port range out of bounds. Start must be \${MIN_HOPPING_PORT}–\${MAX_HO
 C[114]="端口范围超界。起始端口必须在 \${MIN_HOPPING_PORT}–\${MAX_HOPPING_PORT} 之间，结束端口同理，且起始 < 结束。"
 
 # 自定义字体彩色，read 函数
-warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
+warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
 error() { echo -e "\033[31m\033[01m$*\033[0m" && exit 1; } # 红色
-info() { echo -e "\033[32m\033[01m$*\033[0m"; }   # 绿色
-hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
+info() { echo -e "\033[32m\033[01m$*\033[0m"; }            # 绿色
+hint() { echo -e "\033[33m\033[01m$*\033[0m"; }            # 黄色
 reading() { read -rp "$(info "$1")" "$2"; }
 
 # 标记哪些文本需要 eval
@@ -425,8 +425,8 @@ check_install() {
   fi
 
   {
-    wget --no-check-certificate --continue -qO $TEMP_DIR/clash     ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash     2>/dev/null &
-    wget --no-check-certificate --continue -qO $TEMP_DIR/sing-box  ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box  2>/dev/null &
+    wget --no-check-certificate --continue -qO $TEMP_DIR/clash ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash 2>/dev/null &
+    wget --no-check-certificate --continue -qO $TEMP_DIR/sing-box ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box 2>/dev/null &
     wait
   } &
 
@@ -636,9 +636,10 @@ calc_install_steps() {
     [[ "$_p" =~ ^[efghi]$ ]] && _has_ws_xhttp=true
     [[ "$_p" == 'c' ]] && _has_hy2=true
   done
-  $_has_reality  && (( _total++ ))     # Reality 密钥
+  grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && (( _total-- ))  # 非交互安装时不单独询问 VPS IP
+  $_has_reality && (( _total++ ))      # Reality 密钥
   $_has_ws_xhttp && (( _total += 2 ))  # CDN 域名 + WS 路径
-  $_has_hy2      && (( _total++ ))     # 端口跳跃
+  $_has_hy2 && (( _total++ ))          # 端口跳跃
   TOTAL_STEPS=$_total
 }
 
@@ -666,14 +667,14 @@ xray_variable() {
   local TOTAL_STEPS=''
   # 预先用全选协议计算最大总步骤数，用于协议选择提示时显示
   local _saved_protocols=("${INSTALL_PROTOCOLS[@]}")
-  INSTALL_PROTOCOLS=(b c d e f g h i)
+  INSTALL_PROTOCOLS=(b c d e f g h i j)
   calc_install_steps
   INSTALL_PROTOCOLS=("${_saved_protocols[@]}")
   # 兼容 config.conf 字符串写法：INSTALL_PROTOCOLS='bcef' → 拆成 (b c e f)
   if [[ "${#INSTALL_PROTOCOLS[@]}" -eq 1 && ! "${INSTALL_PROTOCOLS[0]}" =~ ^[[:space:]]*$ ]]; then
     local _proto_str="${INSTALL_PROTOCOLS[0]}"
     if [[ "$_proto_str" =~ ^[aA]$ ]]; then
-      INSTALL_PROTOCOLS=(b c d e f g h i)
+      INSTALL_PROTOCOLS=(b c d e f g h i j)
     elif [[ "${#_proto_str}" -gt 1 ]]; then
       INSTALL_PROTOCOLS=()
       while IFS= read -r -n1 _ch; do
@@ -690,6 +691,8 @@ xray_variable() {
       local p_name="${PROTOCOL_LIST[p]}"
       if [ "$letter" = "i" ]; then
         p_name=$(text 101)
+      elif [ "$letter" = "j" ]; then
+        p_name="VLESS + XHTTP Direct (h3)"
       fi
       hint " ${letter}. ${p_name}"
     done
@@ -699,11 +702,11 @@ xray_variable() {
   if [ -z "${INSTALL_PROTOCOLS[*]}" ]; then
     local MAX_LETTER=$(printf "\\$(printf '%03o' $((${#PROTOCOL_LIST[@]}+97)))")
     if [[ -z "$CHOOSE_PROTOCOLS" || "${CHOOSE_PROTOCOLS,,}" =~ ^a$ ]]; then
-      INSTALL_PROTOCOLS=(b c d e f g h i)
+      INSTALL_PROTOCOLS=(b c d e f g h i j)
     else
       local filtered
       filtered=$(grep -o . <<< "${CHOOSE_PROTOCOLS,,}" | grep -E "^[b-${MAX_LETTER}]$" | awk '!seen[$0]++' | tr -d '\n')
-      [ -z "$filtered" ] && INSTALL_PROTOCOLS=(b c d e f g h i) || {
+      [ -z "$filtered" ] && INSTALL_PROTOCOLS=(b c d e f g h i j) || {
         INSTALL_PROTOCOLS=()
         while IFS= read -r -n1 ch; do
           [ -n "$ch" ] && INSTALL_PROTOCOLS+=("$ch")
@@ -721,8 +724,7 @@ xray_variable() {
     input_start_port "$NUM"
   fi
   START_PORT=${START_PORT:-"$START_PORT_DEFAULT"}
-  # 非交互模式下确保关键变量的默认值覆盖
-  SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
+  grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
   TLS_SERVER=${TLS_SERVER:-"addons.mozilla.org"}
 
   for i in "${!INSTALL_PROTOCOLS[@]}"; do
@@ -736,6 +738,7 @@ xray_variable() {
       g) WS_PORT_g=$(( START_PORT + i )) ;;
       h) WS_PORT_h=$(( START_PORT + i )) ;;
       i) WS_PORT_i=$(( START_PORT + i )) ;;
+      j) XHTTP_PORT_j=$(( START_PORT + i )) ;;
     esac
   done
 
@@ -746,7 +749,7 @@ xray_variable() {
   fi
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
 
-  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$SERVER_IP" ]; then
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     (( STEP_NUM++ )) || true
     reading "\n $(text 59) " SERVER_IP
   fi
@@ -773,7 +776,7 @@ xray_variable() {
       [[ -n "$REALITY_PRIVATE" && "$REALITY_PRIVATE" != '__KEY_UNSET__' ]] && REALITY_PUBLIC=$(awk -F= '/^publicKey=/{print $2}' "$CUSTOM_FILE")
     fi
     [[ "$REALITY_PRIVATE" == '__KEY_UNSET__' ]] && REALITY_PRIVATE=''
-    [[ "$REALITY_PUBLIC"  == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
+    [[ "$REALITY_PUBLIC" == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
     if [ -z "$REALITY_PRIVATE" ]; then
       if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
         (( STEP_NUM++ )) || true
@@ -791,8 +794,13 @@ xray_variable() {
     fi
   fi
 
-  local _HAS_WS_XHTTP=false
-  for p in "${INSTALL_PROTOCOLS[@]}"; do [[ "$p" =~ ^[efghi]$ ]] && _HAS_WS_XHTTP=true && break; done
+  local _HAS_WS_XHTTP=false _HAS_XHTTP_DIRECT=false
+  for p in "${INSTALL_PROTOCOLS[@]}"; do
+    [[ "$p" =~ ^[efghi]$ ]] && _HAS_WS_XHTTP=true && break
+  done
+  for p in "${INSTALL_PROTOCOLS[@]}"; do
+    [[ "$p" == 'j' ]] && _HAS_XHTTP_DIRECT=true && break
+  done
 
   if [ -z "$SERVER" ]; then
     if $_HAS_WS_XHTTP; then
@@ -847,6 +855,11 @@ xray_variable() {
     WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
   fi
 
+  if $_HAS_XHTTP_DIRECT && [[ ! " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
+    info "\n XHTTP Direct TLS certificate: ${WORK_DIR}/cert/cert.pem \n"
+    ssl_certificate "${TLS_SERVER}"
+  fi
+
   local _uuid_step_done=false
   local a=6
   until [[ "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; do
@@ -882,7 +895,7 @@ xray_variable() {
 
 # 快速安装预设所有变量
 fast_install_variables() {
-  INSTALL_PROTOCOLS=(b c d e f g h i)
+  INSTALL_PROTOCOLS=(b c d e f g h i j)
 
   START_PORT=${START_PORT:-"$START_PORT_DEFAULT"}
   for i in "${!INSTALL_PROTOCOLS[@]}"; do
@@ -896,6 +909,7 @@ fast_install_variables() {
       g) WS_PORT_g=$(( START_PORT + i )) ;;
       h) WS_PORT_h=$(( START_PORT + i )) ;;
       i) WS_PORT_i=$(( START_PORT + i )) ;;
+      j) XHTTP_PORT_j=$(( START_PORT + i )) ;;
     esac
   done
 
@@ -913,6 +927,7 @@ fast_install_variables() {
   UUID=${UUID:-$(cat /proc/sys/kernel/random/uuid)}
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
+  ssl_certificate "${TLS_SERVER}"
 
   check_system_ip
   SERVER_IP=${SERVER_IP:-$SERVER_IP_DEFAULT}
@@ -950,7 +965,7 @@ check_dependencies() {
   [ "$SYSTEM" != 'Alpine' ] && DEPS_CHECK+=("systemctl") && DEPS_INSTALL+=("systemctl")
 
   if [ "$SYSTEM" != 'Alpine' ]; then
-    [ ! -x "$(type -p iptables)"  ] && DEPS_CHECK+=("iptables")  && DEPS_INSTALL+=("iptables")
+    [ ! -x "$(type -p iptables)" ] && DEPS_CHECK+=("iptables") && DEPS_INSTALL+=("iptables")
     [ ! -x "$(type -p ip6tables)" ] && DEPS_CHECK+=("ip6tables") && DEPS_INSTALL+=("ip6tables")
   fi
 
@@ -1037,7 +1052,7 @@ fetch_nodes_value() {
   HY2_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' 2>/dev/null)
   [ -z "$TLS_SERVER" ] && TLS_SERVER=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.streamSettings.network=="hysteria") | .streamSettings.tlsSettings.serverNames[0]] | .[0] // empty' 2>/dev/null)
 
-  [ -z "$WS_PATH" ]  && WS_PATH="$WS_PATH_DEFAULT"
+  [ -z "$WS_PATH" ] && WS_PATH="$WS_PATH_DEFAULT"
   [ -z "$NODE_NAME" ] && NODE_NAME="ArgoX"
   [[ -z "$SERVER" || "$SERVER" == '__CDN_UNSET__' ]] && SERVER='__CDN_UNSET__'
 
@@ -1138,11 +1153,11 @@ add_port_hopping_nat() {
   [[ -z "$HOP_START" || -z "$HOP_END" || -z "$HOP_TARGET" ]] && return 1
   local COMMENT="NAT ${HOP_START}:${HOP_END} to ${HOP_TARGET} (ArgoX)"
   if [ "$SYSTEM" = 'Alpine' ]; then
-    iptables  --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
+    iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
     ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-    rc-update show default | grep -q 'iptables'  || rc-update add iptables  >/dev/null 2>&1
+    rc-update show default | grep -q 'iptables' || rc-update add iptables >/dev/null 2>&1
     rc-update show default | grep -q 'ip6tables' || rc-update add ip6tables >/dev/null 2>&1
-    rc-service iptables  save >/dev/null 2>&1
+    rc-service iptables save >/dev/null 2>&1
     rc-service ip6tables save >/dev/null 2>&1
   elif [ -x "$(type -p firewalld)" ] && [ "$(systemctl is-active firewalld 2>/dev/null)" = 'active' ]; then
     [ "$(firewall-cmd --query-masquerade --permanent 2>/dev/null)" != 'yes' ] && \
@@ -1151,7 +1166,7 @@ add_port_hopping_nat() {
     firewall-cmd --reload >/dev/null 2>&1
   else
     [ ! -x "$(type -p netfilter-persistent)" ] && ${PACKAGE_INSTALL[int]} iptables-persistent >/dev/null 2>&1
-    iptables  --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
+    iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
     ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
     [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save 2>/dev/null
   fi
@@ -1163,13 +1178,13 @@ del_port_hopping_nat() {
   [ -z "$PORT_HOPPING_START" ] && return
   local COMMENT="NAT ${PORT_HOPPING_START}:${PORT_HOPPING_END} to ${PORT_HOPPING_TARGET} (ArgoX)"
   if [ "$SYSTEM" = 'Alpine' ]; then
-    iptables  --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+    iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
     ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
   elif [ -x "$(type -p firewalld)" ] && [ "$(systemctl is-active firewalld 2>/dev/null)" = 'active' ]; then
     firewall-cmd --permanent --remove-forward-port=port=${PORT_HOPPING_START}-${PORT_HOPPING_END}:proto=udp:toport=${PORT_HOPPING_TARGET} >/dev/null 2>&1
     firewall-cmd --reload >/dev/null 2>&1
   else
-    iptables  --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+    iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
     ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
     [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save 2>/dev/null
   fi
@@ -1219,7 +1234,7 @@ input_hopping_port() {
       PORT_HOPPING_END=${_R#*:}
       if [[ "$PORT_HOPPING_START" -lt "$PORT_HOPPING_END" && \
             "$PORT_HOPPING_START" -ge "$MIN_HOPPING_PORT" && \
-            "$PORT_HOPPING_END"   -le "$MAX_HOPPING_PORT" ]]; then
+            "$PORT_HOPPING_END" -le "$MAX_HOPPING_PORT" ]]; then
         IS_HOPPING=is_hopping
       else
         warning "\n $(text 114) " && unset PORT_HOPPING_RANGE
@@ -1324,10 +1339,10 @@ json_nginx() {
   _PORT_XH=${_PORT_XH:-${WS_PORT_i:-30007}}
 
   _add_location() { SERVER_BLOCK+="$1"; SERVER_BLOCK+=$'\n\n'; }
-  grep -q 'vless-ws'    <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location    "/${WS_PATH}-vl" "$_PORT_VL")"
-  grep -q 'vmess-ws'    <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location    "/${WS_PATH}-vm" "$_PORT_VM")"
-  grep -q 'trojan-ws'   <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location    "/${WS_PATH}-tr" "$_PORT_TR")"
-  grep -qw 'ss-ws'      <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location    "/${WS_PATH}-sh" "$_PORT_SH")"
+  grep -q 'vless-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-vl" "$_PORT_VL")"
+  grep -q 'vmess-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-vm" "$_PORT_VM")"
+  grep -q 'trojan-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-tr" "$_PORT_TR")"
+  grep -qw 'ss-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-sh" "$_PORT_SH")"
   grep -q 'vless-xhttp' <<< "$PROTOCOLS_NOW" && _add_location "$(_xhttp_location "/${WS_PATH}-xh" "${_PORT_XH}")"
   local SUB_BLOCK
   SUB_BLOCK=$(printf '    location ~ ^/%s/auto {
@@ -1749,8 +1764,10 @@ WantedBy=multi-user.target"
   [ ! -s $WORK_DIR/xray ] && wait && while [ "$i" -le 20 ]; do [[ -s $TEMP_DIR/xray && -s $TEMP_DIR/geoip.dat && -s $TEMP_DIR/geosite.dat ]] && mv $TEMP_DIR/xray $TEMP_DIR/geo*.dat $WORK_DIR && break; ((i++)); sleep 2; done
   [ "$i" -ge 20 ] && local APP=Xray && error "\n $(text 48) "
 
-  if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
+  if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]] || [[ " ${INSTALL_PROTOCOLS[*]} " =~ " j " ]]; then
     ssl_certificate "${TLS_SERVER}"
+  fi
+  if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
     [ "$IS_HOPPING" = 'is_hopping' ] && add_port_hopping_nat "$PORT_HOPPING_START" "$PORT_HOPPING_END" "$HY2_PORT"
   fi
 
@@ -1781,7 +1798,6 @@ WantedBy=multi-user.target"
         "realitySettings": {
           "show": false,
           "dest": "${TLS_SERVER}:443",
-          "xver": 0,
           "serverNames": [ "${TLS_SERVER}" ],
           "privateKey": "${REALITY_PRIVATE}",
           "publicKey": "${REALITY_PUBLIC}",
@@ -2010,6 +2026,56 @@ JSONEOF
 JSONEOF
 )
         ;;
+      j)
+        BLOCK=$(cat << JSONEOF
+    {
+      "tag": "${NODE_NAME} xhttp-h3-direct",
+      "port": ${XHTTP_PORT_j:-30008},
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "${UUID}"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "xhttpSettings": {
+          "mode": "stream-up",
+          "extra": {
+            "alpn": [
+              "h3"
+            ]
+          },
+          "path": "/${WS_PATH}-xh3"
+        },
+        "tlsSettings": {
+          "alpn": [
+            "h3"
+          ],
+          "certificates": [
+            {
+              "certificateFile": "${WORK_DIR}/cert/cert.pem",
+              "keyFile": "${WORK_DIR}/cert/private.key"
+            }
+          ]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    }
+JSONEOF
+)
+        ;;
     esac
     if [ -n "$BLOCK" ]; then
       $FIRST || INBOUNDS_JSON+=$',\n'
@@ -2214,7 +2280,7 @@ export_list() {
   PROTOS_NOW=$(get_installed_protocols | tr '\n' ' ')
 
   local HY2_FP_SHA256='' HY2_FP_BASE64='' CERT_SNI="${TLS_SERVER:-addons.mozilla.org}"
-  if grep -q 'hysteria2' <<< "$PROTOS_NOW" && [ -s ${WORK_DIR}/cert/cert.pem ]; then
+  if grep -Eq 'hysteria2|xhttp-h3-direct' <<< "$PROTOS_NOW" && [ -s ${WORK_DIR}/cert/cert.pem ]; then
     HY2_FP_SHA256=$(openssl x509 -fingerprint -noout -sha256 -in ${WORK_DIR}/cert/cert.pem 2>/dev/null | awk -F= '{print $NF}')
     HY2_FP_BASE64=$(openssl x509 -in ${WORK_DIR}/cert/cert.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64 2>/dev/null)
     local _csni=$(openssl x509 -noout -ext subjectAltName -in ${WORK_DIR}/cert/cert.pem 2>/dev/null | awk -F 'DNS:' '/DNS:/{gsub(/,.*/,"",$2);print $2}')
@@ -2229,11 +2295,11 @@ export_list() {
     local _chop=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _chop=" ports: ${PORT_HOPPING_START}-${PORT_HOPPING_END}, HopInterval: 60,"
     CLASH_LINES+="\n  - {name: \"${NODE_NAME} hysteria2\", type: hysteria2, server: ${SERVER_IP}, port: ${HY2_PORT},${_chop} up: \"200 Mbps\", down: \"1000 Mbps\", password: ${UUID}, sni: ${CERT_SNI}, skip-cert-verify: false, fingerprint: ${HY2_FP_SHA256}}"
   fi
-  grep -q 'reality-grpc'  <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} reality-grpc\", type: vless, server: ${SERVER_IP}, port: ${GRPC_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }"
-  grep -q 'vless-ws'      <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} vless-ws\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }"
-  grep -q 'vmess-ws'      <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} vmess-ws\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}"
-  grep -q 'trojan-ws'     <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} trojan-ws\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
-  grep -qw 'ss-ws'        <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} ss-ws\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
+  grep -q 'reality-grpc' <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} reality-grpc\", type: vless, server: ${SERVER_IP}, port: ${GRPC_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }"
+  grep -q 'vless-ws' <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} vless-ws\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }"
+  grep -q 'vmess-ws' <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} vmess-ws\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}"
+  grep -q 'trojan-ws' <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} trojan-ws\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }"
+  grep -qw 'ss-ws' <<< "$PROTOS_NOW" && CLASH_LINES+="\n  - {name: \"${NODE_NAME} ss-ws\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }"
   local CLASH_SUBSCRIBE="$CLASH_LINES"
   echo -e "${CLASH_SUBSCRIBE}" > $WORK_DIR/subscribe/proxies
 
@@ -2246,12 +2312,14 @@ export_list() {
     local _srh=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _srh="&mport=${HY2_PORT},${PORT_HOPPING_START}-${PORT_HOPPING_END}"
     SR_LINES+="hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?peer=${CERT_SNI}&hpkp=${HY2_FP_SHA256}&obfs=none${_srh}#${NODE_NAME// /%20}%20hysteria2\n"
   fi
-  grep -q 'reality-grpc'  <<< "$PROTOS_NOW" && SR_LINES+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20reality-grpc&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}\n"
-  grep -q 'vless-ws'      <<< "$PROTOS_NOW" && SR_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-ws\n"
-  grep -q 'vmess-ws'      <<< "$PROTOS_NOW" && SR_LINES+="vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${NODE_NAME// /%20}%20vmess-ws&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0\n"
-  grep -q 'trojan-ws'     <<< "$PROTOS_NOW" && SR_LINES+="trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20trojan-ws\n"
-  grep -qw 'ss-ws'        <<< "$PROTOS_NOW" && SR_LINES+="ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20ss-ws\n"
-  grep -q 'vless-xhttp'   <<< "$PROTOS_NOW" && SR_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-xhttp\n"
+  grep -q 'reality-grpc' <<< "$PROTOS_NOW" && SR_LINES+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20reality-grpc&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}\n"
+  grep -q 'vless-ws' <<< "$PROTOS_NOW" && SR_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-ws\n"
+  grep -q 'vmess-ws' <<< "$PROTOS_NOW" && SR_LINES+="vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${NODE_NAME// /%20}%20vmess-ws&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0\n"
+  grep -q 'trojan-ws' <<< "$PROTOS_NOW" && SR_LINES+="trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20trojan-ws\n"
+  grep -qw 'ss-ws' <<< "$PROTOS_NOW" && SR_LINES+="ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20ss-ws\n"
+  grep -q 'vless-xhttp' <<< "$PROTOS_NOW" && SR_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-xhttp\n"
+  grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && SR_LINES+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_1}:${XHTTP_PORT_j:-30008}" | base64 -w0)?path=/${WS_PATH}-xh3&remarks=${NODE_NAME// /%20}%20xhttp-h3-direct&obfs=xhttp&tls=1&peer=${CERT_SNI}&alpn=h3&mode=stream-up&hpkp=${HY2_FP_SHA256}
+"
   echo -en "${SR_LINES}" | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
 
   local V2N_LINES=''
@@ -2260,12 +2328,13 @@ export_list() {
     local _v2nh=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _v2nh="&mport=${PORT_HOPPING_START}-${PORT_HOPPING_END}"
     V2N_LINES+="hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?sni=${CERT_SNI}&alpn=h3&insecure=1&pinSHA256=${HY2_FP_SHA256//:/}${_v2nh}#${NODE_NAME// /%20}%20hysteria2\n"
   fi
-  grep -q 'reality-grpc'  <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20reality-grpc\n"
-  grep -q 'vless-ws'      <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20vless-ws\n"
-  grep -q 'vmess-ws'      <<< "$PROTOS_NOW" && V2N_LINES+="vmess://$(echo -n "$VMESS" | base64 -w0)\n"
-  grep -q 'trojan-ws'     <<< "$PROTOS_NOW" && V2N_LINES+="trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20trojan-ws\n"
-  grep -qw 'ss-ws'        <<< "$PROTOS_NOW" && V2N_LINES+="ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws\n"
-  grep -q 'vless-xhttp'   <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh#${NODE_NAME// /%20}%20vless-xhttp\n"
+  grep -q 'reality-grpc' <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20reality-grpc\n"
+  grep -q 'vless-ws' <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20vless-ws\n"
+  grep -q 'vmess-ws' <<< "$PROTOS_NOW" && V2N_LINES+="vmess://$(echo -n "$VMESS" | base64 -w0)\n"
+  grep -q 'trojan-ws' <<< "$PROTOS_NOW" && V2N_LINES+="trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20trojan-ws\n"
+  grep -qw 'ss-ws' <<< "$PROTOS_NOW" && V2N_LINES+="ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws\n"
+  grep -q 'vless-xhttp' <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh#${NODE_NAME// /%20}%20vless-xhttp\n"
+  grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && V2N_LINES+="vless://${UUID}@${SERVER_IP_1}:${XHTTP_PORT_j:-30008}?encryption=none&security=tls&sni=${CERT_SNI}&fp=chrome&alpn=h3&insecure=1&allowInsecure=1&pcs=${HY2_FP_SHA256//:/}&type=xhttp&path=%2F${WS_PATH}-xh3&mode=stream-up#${NODE_NAME// /%20}%20xhttp-h3-direct\n"
   echo -en "${V2N_LINES}" | base64 -w0 > $WORK_DIR/subscribe/base64
 
   local SB_OUTBOUNDS=''
@@ -2281,11 +2350,11 @@ export_list() {
     local _sbhp=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _sbhp=",\"server_ports\":[\"${PORT_HOPPING_START}:${PORT_HOPPING_END}\"]"
     _sb_add "{ \"type\": \"hysteria2\", \"tag\": \"${NODE_NAME} hysteria2\", \"server\": \"${SERVER_IP}\", \"server_port\": ${HY2_PORT}${_sbhp}, \"up_mbps\": 200, \"down_mbps\": 1000, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${HY2_FP_BASE64}\"], \"alpn\": [ \"h3\" ] } }" "\"${NODE_NAME} hysteria2\""
   fi
-  grep -q 'reality-grpc'  <<< "$PROTOS_NOW" && _sb_add "{ \"type\": \"vless\", \"tag\":\"${NODE_NAME} reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${GRPC_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }" "\"${NODE_NAME} reality-grpc\""
-  grep -q 'vless-ws'      <<< "$PROTOS_NOW" && _sb_add "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} vless-ws\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" "\"${NODE_NAME} vless-ws\""
-  grep -q 'vmess-ws'      <<< "$PROTOS_NOW" && _sb_add "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} vmess-ws\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" "\"${NODE_NAME} vmess-ws\""
-  grep -q 'trojan-ws'     <<< "$PROTOS_NOW" && _sb_add "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} trojan-ws\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" "\"${NODE_NAME} trojan-ws\""
-  grep -qw 'ss-ws'        <<< "$PROTOS_NOW" && _sb_add "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ss-ws\", \"server\": \"${SERVER}\", \"server_port\": 443, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" "\"${NODE_NAME} ss-ws\""
+  grep -q 'reality-grpc' <<< "$PROTOS_NOW" && _sb_add "{ \"type\": \"vless\", \"tag\":\"${NODE_NAME} reality-grpc\", \"server\": \"${SERVER_IP}\", \"server_port\": ${GRPC_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }" "\"${NODE_NAME} reality-grpc\""
+  grep -q 'vless-ws' <<< "$PROTOS_NOW" && _sb_add "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} vless-ws\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" "\"${NODE_NAME} vless-ws\""
+  grep -q 'vmess-ws' <<< "$PROTOS_NOW" && _sb_add "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} vmess-ws\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" "\"${NODE_NAME} vmess-ws\""
+  grep -q 'trojan-ws' <<< "$PROTOS_NOW" && _sb_add "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} trojan-ws\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" "\"${NODE_NAME} trojan-ws\""
+  grep -qw 'ss-ws' <<< "$PROTOS_NOW" && _sb_add "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ss-ws\", \"server\": \"${SERVER}\", \"server_port\": 443, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" "\"${NODE_NAME} ss-ws\""
 
   local SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
   echo "$SING_BOX_JSON" | sed "s#\"<OUTBOUND_REPLACE>\"#${SB_OUTBOUNDS}#; s#\"<NODE_REPLACE>\"#${SB_TAGS}#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box
@@ -2300,24 +2369,28 @@ export_list() {
     local _vdh=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _vdh="&mport=${PORT_HOPPING_START}-${PORT_HOPPING_END}"
     V2N_DISPLAY+="hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?sni=${CERT_SNI}&alpn=h3&insecure=1&pinSHA256=${HY2_FP_SHA256//:/}${_vdh}#${NODE_NAME// /%20}%20hysteria2\n\n"
   fi
-  grep -q 'reality-grpc'  <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20reality-grpc\n\n"
-  grep -q 'vless-ws'      <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20vless-ws\n\n"
-  grep -q 'vmess-ws'      <<< "$PROTOS_NOW" && V2N_DISPLAY+="vmess://$(echo -n "$VMESS" | base64 -w0)\n\n"
-  grep -q 'trojan-ws'     <<< "$PROTOS_NOW" && V2N_DISPLAY+="trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20trojan-ws\n\n"
-  grep -qw 'ss-ws'        <<< "$PROTOS_NOW" && V2N_DISPLAY+="ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws\n\n"
-  grep -q 'vless-xhttp'   <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh#${NODE_NAME// /%20}%20vless-xhttp\n\n"
+  grep -q 'reality-grpc' <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20reality-grpc\n\n"
+  grep -q 'vless-ws' <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20vless-ws\n\n"
+  grep -q 'vmess-ws' <<< "$PROTOS_NOW" && V2N_DISPLAY+="vmess://$(echo -n "$VMESS" | base64 -w0)\n\n"
+  grep -q 'trojan-ws' <<< "$PROTOS_NOW" && V2N_DISPLAY+="trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20trojan-ws\n\n"
+  grep -qw 'ss-ws' <<< "$PROTOS_NOW" && V2N_DISPLAY+="ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws\n\n"
+  grep -q 'vless-xhttp' <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh#${NODE_NAME// /%20}%20vless-xhttp\n\n"
+  grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && V2N_DISPLAY+="vless://${UUID}@${SERVER_IP_1}:${XHTTP_PORT_j:-30008}?encryption=none&security=tls&sni=${CERT_SNI}&fp=chrome&alpn=h3&insecure=1&allowInsecure=1&pcs=${HY2_FP_SHA256//:/}&type=xhttp&path=%2F${WS_PATH}-xh3&mode=stream-up#${NODE_NAME// /%20}%20xhttp-h3-direct\n\n"
 
   grep -q 'reality-vision' <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20reality-vision&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}\n\n"
   if grep -q 'hysteria2' <<< "$PROTOS_NOW"; then
     local _sdh=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _sdh="&mport=${HY2_PORT},${PORT_HOPPING_START}-${PORT_HOPPING_END}"
     SR_DISPLAY+="hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?peer=${CERT_SNI}&hpkp=${HY2_FP_SHA256}&obfs=none${_sdh}#${NODE_NAME// /%20}%20hysteria2\n\n"
   fi
-  grep -q 'reality-grpc'  <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20reality-grpc&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}\n\n"
-  grep -q 'vless-ws'      <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-ws\n\n"
-  grep -q 'vmess-ws'      <<< "$PROTOS_NOW" && SR_DISPLAY+="vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${NODE_NAME// /%20}%20vmess-ws&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0\n\n"
-  grep -q 'trojan-ws'     <<< "$PROTOS_NOW" && SR_DISPLAY+="trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20trojan-ws\n\n"
-  grep -qw 'ss-ws'        <<< "$PROTOS_NOW" && SR_DISPLAY+="ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20ss-ws\n\n"
-  grep -q 'vless-xhttp'   <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-xhttp\n\n"
+  grep -q 'reality-grpc' <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20reality-grpc&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}\n\n"
+  grep -q 'vless-ws' <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-ws\n\n"
+  grep -q 'vmess-ws' <<< "$PROTOS_NOW" && SR_DISPLAY+="vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${NODE_NAME// /%20}%20vmess-ws&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0\n\n"
+  grep -q 'trojan-ws' <<< "$PROTOS_NOW" && SR_DISPLAY+="trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20trojan-ws\n\n"
+  grep -qw 'ss-ws' <<< "$PROTOS_NOW" && SR_DISPLAY+="ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20ss-ws\n\n"
+  grep -q 'vless-xhttp' <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-xhttp\n\n"
+  grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && SR_DISPLAY+="vless://$(echo -n "auto:${UUID}@${SERVER_IP_1}:${XHTTP_PORT_j:-30008}" | base64 -w0)?path=/${WS_PATH}-xh3&remarks=${NODE_NAME// /%20}%20xhttp-h3-direct&obfs=xhttp&tls=1&peer=${CERT_SNI}&alpn=h3&mode=stream-up&hpkp=${HY2_FP_SHA256}
+
+"
 
   CLASH_DISPLAY=$(echo -e "$CLASH_SUBSCRIBE" | sed '1d')
 
@@ -2423,6 +2496,7 @@ change_protocols() {
       if [ "${NODE_TAG[$idx]}" = "$tag" ]; then
         local p_name="${PROTOCOL_LIST[$idx]}"
         [ "${NODE_TAG[$idx]}" = "vless-xhttp" ] && p_name=$(text 101)
+        [ "${NODE_TAG[$idx]}" = "xhttp-h3-direct" ] && p_name="VLESS + XHTTP Direct (h3)"
         EXISTED_PROTOCOLS+=("${p_name}")
         break
       fi
@@ -2436,6 +2510,7 @@ change_protocols() {
     if ! $found; then
       local p_name="${PROTOCOL_LIST[$idx]}"
       [ "${NODE_TAG[$idx]}" = "vless-xhttp" ] && p_name=$(text 101)
+      [ "${NODE_TAG[$idx]}" = "xhttp-h3-direct" ] && p_name="VLESS + XHTTP Direct (h3)"
       NOT_EXISTED_PROTOCOLS+=("${p_name}")
     fi
   done
@@ -2490,7 +2565,7 @@ change_protocols() {
     local tag="${NODE_TAG[$idx]}"
     local pname="${PROTOCOL_LIST[$idx]}"
     for p in "${REINSTALL_PROTOCOLS[@]}"; do
-      if [ "$p" = "$pname" ] || [ "$tag" = "vless-xhttp" -a "$p" = "$(text 101)" ]; then
+      if [ "$p" = "$pname" ] || [ "$tag" = "vless-xhttp" -a "$p" = "$(text 101)" ] || [ "$tag" = "xhttp-h3-direct" -a "$p" = "VLESS + XHTTP Direct (h3)" ]; then
         REINSTALL_TAGS+=("$tag")
         break
       fi
@@ -2499,25 +2574,31 @@ change_protocols() {
 
   for pname in "${REMOVE_PROTOCOLS[@]}"; do
     for idx in "${!PROTOCOL_LIST[@]}"; do
-      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "${NODE_TAG[$idx]}" = "vless-xhttp" && "$pname" = "$(text 101)" ) ]] && REMOVE_TAGS+=("${NODE_TAG[$idx]}") && break
+      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "${NODE_TAG[$idx]}" = "vless-xhttp" && "$pname" = "$(text 101)" ) || ( "${NODE_TAG[$idx]}" = "xhttp-h3-direct" && "$pname" = "VLESS + XHTTP Direct (h3)" ) ]] && REMOVE_TAGS+=("${NODE_TAG[$idx]}") && break
     done
   done
   for pname in "${ADD_PROTOCOLS[@]}"; do
     for idx in "${!PROTOCOL_LIST[@]}"; do
-      [[  "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "${NODE_TAG[$idx]}" = "vless-xhttp" && "$pname" = "$(text 101)" ) ]] && ADD_TAGS+=("${NODE_TAG[$idx]}") && break
+      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "${NODE_TAG[$idx]}" = "vless-xhttp" && "$pname" = "$(text 101)" ) || ( "${NODE_TAG[$idx]}" = "xhttp-h3-direct" && "$pname" = "VLESS + XHTTP Direct (h3)" ) ]] && ADD_TAGS+=("${NODE_TAG[$idx]}") && break
     done
   done
 
   cmd_systemctl disable xray
 
   local _HAS_HY2_ADD=false _HAS_HY2_KEEP=false
-  for t in "${ADD_TAGS[@]}";       do [ "$t" = 'hysteria2' ] && _HAS_HY2_ADD=true  && break; done
+  for t in "${ADD_TAGS[@]}"; do [ "$t" = 'hysteria2' ] && _HAS_HY2_ADD=true && break; done
   for t in "${REINSTALL_TAGS[@]}"; do [ "$t" = 'hysteria2' ] && _HAS_HY2_KEEP=true && break; done
   if $_HAS_HY2_ADD; then
     ssl_certificate "${TLS_SERVER}"
     # 先收集端口跳跃范围，再写 NAT 规则（原逻辑顺序颠倒，NAT 参数为空）
     unset IS_HOPPING PORT_HOPPING_RANGE PORT_HOPPING_START PORT_HOPPING_END
     input_hopping_port
+  fi
+
+  local _HAS_XHTTP_DIRECT_ADD=false
+  for _t in "${ADD_TAGS[@]}"; do [ "$_t" = 'xhttp-h3-direct' ] && _HAS_XHTTP_DIRECT_ADD=true && break; done
+  if $_HAS_XHTTP_DIRECT_ADD; then
+    ssl_certificate "${TLS_SERVER}"
   fi
 
   local _HAS_REALITY_ADD=false
@@ -2530,7 +2611,7 @@ change_protocols() {
       [[ -n "$REALITY_PRIVATE" && "$REALITY_PRIVATE" != '__KEY_UNSET__' ]] && REALITY_PUBLIC=$(awk -F= '/^publicKey=/{print $2}' "$CUSTOM_FILE")
     fi
     [[ "$REALITY_PRIVATE" == '__KEY_UNSET__' ]] && REALITY_PRIVATE=''
-    [[ "$REALITY_PUBLIC"  == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
+    [[ "$REALITY_PUBLIC" == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
     if [ -z "$REALITY_PRIVATE" ]; then
       reading "\n $(text 98) " REALITY_PRIVATE
       if [ -z "$REALITY_PRIVATE" ]; then
@@ -2566,9 +2647,9 @@ change_protocols() {
     PORT_HOPPING_END="$_SAVED_HOP_END"
   fi
   [[ -n "$_SAVED_PRIVATE" && "$_SAVED_PRIVATE" != '__KEY_UNSET__' ]] && REALITY_PRIVATE="$_SAVED_PRIVATE"
-  [[ -n "$_SAVED_PUBLIC"  && "$_SAVED_PUBLIC"  != '__KEY_UNSET__' ]] && REALITY_PUBLIC="$_SAVED_PUBLIC"
+  [[ -n "$_SAVED_PUBLIC" && "$_SAVED_PUBLIC" != '__KEY_UNSET__' ]] && REALITY_PUBLIC="$_SAVED_PUBLIC"
   [[ "$REALITY_PRIVATE" == '__KEY_UNSET__' ]] && REALITY_PRIVATE=''
-  [[ "$REALITY_PUBLIC"  == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
+  [[ "$REALITY_PUBLIC" == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
   [ -z "$UUID" ] && UUID=$(cat /proc/sys/kernel/random/uuid)
 
   local _JSON_CLEAN
@@ -2582,13 +2663,14 @@ change_protocols() {
       _USED_PORTS+=("$_EXIST_PORT")
       case "$tag" in
         reality-vision) REALITY_PORT=$_EXIST_PORT ;;
-        hysteria2)      HY2_PORT=$_EXIST_PORT ;;
-        reality-grpc)   GRPC_PORT=$_EXIST_PORT ;;
-        vless-ws)       WS_PORT_e=$_EXIST_PORT ;;
-        vmess-ws)       WS_PORT_f=$_EXIST_PORT ;;
-        trojan-ws)      WS_PORT_g=$_EXIST_PORT ;;
-        ss-ws)          WS_PORT_h=$_EXIST_PORT ;;
-        vless-xhttp)    WS_PORT_i=$_EXIST_PORT ;;
+        hysteria2) HY2_PORT=$_EXIST_PORT ;;
+        reality-grpc) GRPC_PORT=$_EXIST_PORT ;;
+        vless-ws) WS_PORT_e=$_EXIST_PORT ;;
+        vmess-ws) WS_PORT_f=$_EXIST_PORT ;;
+        trojan-ws) WS_PORT_g=$_EXIST_PORT ;;
+        ss-ws) WS_PORT_h=$_EXIST_PORT ;;
+        vless-xhttp) WS_PORT_i=$_EXIST_PORT ;;
+        xhttp-h3-direct) XHTTP_PORT_j=$_EXIST_PORT ;;
       esac
     fi
   done
@@ -2609,13 +2691,14 @@ change_protocols() {
       (( _SCAN_PORT++ ))
       case "$tag" in
         reality-vision) REALITY_PORT=$_NEW_PORT ;;
-        hysteria2)      HY2_PORT=$_NEW_PORT ;;
-        reality-grpc)   GRPC_PORT=$_NEW_PORT ;;
-        vless-ws)       WS_PORT_e=$_NEW_PORT ;;
-        vmess-ws)       WS_PORT_f=$_NEW_PORT ;;
-        trojan-ws)      WS_PORT_g=$_NEW_PORT ;;
-        ss-ws)          WS_PORT_h=$_NEW_PORT ;;
-        vless-xhttp)    WS_PORT_i=$_NEW_PORT ;;
+        hysteria2) HY2_PORT=$_NEW_PORT ;;
+        reality-grpc) GRPC_PORT=$_NEW_PORT ;;
+        vless-ws) WS_PORT_e=$_NEW_PORT ;;
+        vmess-ws) WS_PORT_f=$_NEW_PORT ;;
+        trojan-ws) WS_PORT_g=$_NEW_PORT ;;
+        ss-ws) WS_PORT_h=$_NEW_PORT ;;
+        vless-xhttp) WS_PORT_i=$_NEW_PORT ;;
+        xhttp-h3-direct) XHTTP_PORT_j=$_NEW_PORT ;;
       esac
     fi
   done
@@ -2689,12 +2772,13 @@ EOF
   for tag in "${REINSTALL_TAGS[@]}"; do
     local NEW_BLOCK=''
     case "$tag" in
-      hysteria2)   NEW_BLOCK="{\"tag\":\"${NODE_NAME} hysteria2\",\"protocol\":\"hysteria\",\"port\":${HY2_PORT},\"settings\":{\"version\":2,\"clients\":[{\"auth\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"hysteria\",\"security\":\"tls\",\"tlsSettings\":{\"serverNames\":[\"${TLS_SERVER}\"],\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}}}" ;;
-      vless-ws)    NEW_BLOCK="{\"port\":${WS_PORT_e},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} vless-ws\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vl\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      vmess-ws)    NEW_BLOCK="{\"port\":${WS_PORT_f},\"listen\":\"127.0.0.1\",\"protocol\":\"vmess\",\"tag\":\"${NODE_NAME} vmess-ws\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"alterId\":0}]},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vm\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      trojan-ws)   NEW_BLOCK="{\"port\":${WS_PORT_g},\"listen\":\"127.0.0.1\",\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} trojan-ws\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-tr\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      ss-ws)       NEW_BLOCK="{\"port\":${WS_PORT_h},\"listen\":\"127.0.0.1\",\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ss-ws\",\"settings\":{\"clients\":[{\"method\":\"chacha20-ietf-poly1305\",\"password\":\"${UUID}\"}],\"network\":\"tcp,udp\"},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-sh\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
+      hysteria2) NEW_BLOCK="{\"tag\":\"${NODE_NAME} hysteria2\",\"protocol\":\"hysteria\",\"port\":${HY2_PORT},\"settings\":{\"version\":2,\"clients\":[{\"auth\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"hysteria\",\"security\":\"tls\",\"tlsSettings\":{\"serverNames\":[\"${TLS_SERVER}\"],\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}}}" ;;
+      vless-ws) NEW_BLOCK="{\"port\":${WS_PORT_e},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} vless-ws\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vl\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
+      vmess-ws) NEW_BLOCK="{\"port\":${WS_PORT_f},\"listen\":\"127.0.0.1\",\"protocol\":\"vmess\",\"tag\":\"${NODE_NAME} vmess-ws\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"alterId\":0}]},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vm\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
+      trojan-ws) NEW_BLOCK="{\"port\":${WS_PORT_g},\"listen\":\"127.0.0.1\",\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} trojan-ws\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-tr\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
+      ss-ws) NEW_BLOCK="{\"port\":${WS_PORT_h},\"listen\":\"127.0.0.1\",\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ss-ws\",\"settings\":{\"clients\":[{\"method\":\"chacha20-ietf-poly1305\",\"password\":\"${UUID}\"}],\"network\":\"tcp,udp\"},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-sh\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       vless-xhttp) NEW_BLOCK="{\"port\":${WS_PORT_i},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} vless-xhttp\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"xhttpSettings\":{\"path\":\"/${WS_PATH}-xh\",\"mode\":\"auto\"}}}" ;;
+      xhttp-h3-direct) NEW_BLOCK="{\"tag\":\"${NODE_NAME} xhttp-h3-direct\",\"port\":${XHTTP_PORT_j},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"xhttpSettings\":{\"mode\":\"stream-up\",\"extra\":{\"alpn\":[\"h3\"]},\"path\":\"/${WS_PATH}-xh3\"},\"tlsSettings\":{\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} reality-vision\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"maxTimeDiff\":70000,\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
       reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} reality-grpc\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"maxTimeDiff\":70000,\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
     esac
@@ -2843,7 +2927,7 @@ change_config() {
   hint ""
   reading " $(text 24) " CHOOSE_NODE_INFO
 
-  if ! [[  "$CHOOSE_NODE_INFO" =~ ^[0-9]+$ ]] || \
+  if ! [[ "$CHOOSE_NODE_INFO" =~ ^[0-9]+$ ]] || \
      [ "$CHOOSE_NODE_INFO" -lt 1 ] || \
      [ "$CHOOSE_NODE_INFO" -gt "${#MENU_IDX[@]}" ]; then
     info " $(text 103) " && return
@@ -2880,9 +2964,7 @@ change_config() {
   if [ "$KEY" = "uuid" ]; then
     [[ ! "${NEW_VAL,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && error " $(text 3) "
   elif [ "$KEY" = "sni" ]; then
-    if get_installed_protocols | grep -q 'hysteria2'; then
-      ssl_certificate "$NEW_VAL"
-    fi
+    ssl_certificate "$NEW_VAL"
   elif [ "$KEY" = "serverip" ]; then
     [[ ! "$NEW_VAL" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && [[ ! "$NEW_VAL" =~ ^[0-9a-fA-F:]+$ ]] && error " $(text 112) "
   fi
