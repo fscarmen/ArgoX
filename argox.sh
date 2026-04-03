@@ -30,9 +30,20 @@ DEFAULT_XRAY_VERSION='26.2.6'
 
 export DEBIAN_FRONTEND=noninteractive
 
-trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
+cleanup_temp() {
+  rm -rf "$TEMP_DIR"
+}
 
-mkdir -p $TEMP_DIR
+on_interrupt_exit() {
+  cleanup_temp
+  echo -e '\n'
+  exit 1
+}
+
+trap cleanup_temp EXIT
+trap on_interrupt_exit INT QUIT TERM
+
+mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
@@ -289,27 +300,58 @@ text() {
   fi
 }
 
-# 检测是否启用 Github CDN，如能直接连通，则不使用
+# 检查端口占用，ss 命令输出格式较复杂且不稳定，使用全局变量 PORT_SNAPSHOT 来存储快照，避免多次调用 ss 导致性能问题
+refresh_port_snapshot() {
+  PORT_SNAPSHOT=$(ss -nltup 2>/dev/null)
+}
+
+# 判断端口是否被占用，使用预先获取的 PORT_SNAPSHOT 进行匹配，避免多次调用 ss 导致性能问题
+is_port_in_use() {
+  local _PORT="$1"
+  grep -qE "(^|[[:space:]])[^[:space:]]*:${_PORT}([[:space:]]|$)" <<< "$PORT_SNAPSHOT"
+}
+
+# 检测是否启用 Github CDN，如能直接连通当前项目 raw 地址，则不使用
 check_cdn() {
-  local PROXY
+  local PROXY CODE PID
+  local _WAIT_COUNT=120
+  local PIDS=()
+  local RAW_URL='https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh'
 
-  for PROXY in "" "${GITHUB_PROXY[@]}"; do
+  CODE=$(wget -qT5 -O /dev/null --server-response "$RAW_URL" 2>&1 | awk '/HTTP\//{code=$2} END{print code}')
+  if [ "$CODE" = '200' ]; then
+    GH_PROXY=''
+    return
+  fi
+
+  for PROXY in "${GITHUB_PROXY[@]}"; do
     {
-      local CODE=$(wget -qT5 -O /dev/null --server-response "${PROXY}https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh" 2>&1 | awk '/HTTP\//{code=$2} END{print code}')
-      [ "$CODE" = "200" ] && [ ! -s "${TEMP_DIR}/cdn_proxy" ] && echo "$PROXY" > "${TEMP_DIR}/cdn_proxy"
+      CODE=$(wget -qT5 -O /dev/null --server-response "${PROXY}${RAW_URL}" 2>&1 | awk '/HTTP\//{code=$2} END{print code}')
+      [ "$CODE" = '200' ] && [ ! -e "${TEMP_DIR}/cdn_proxy" ] && printf '%s' "$PROXY" > "${TEMP_DIR}/cdn_proxy"
     } &
+    PIDS+=("$!")
   done
 
-  # 等第一个成功
-  while [ ! -s "${TEMP_DIR}/cdn_proxy" ]; do
+  # 等第一个成功，超时则回退为直连，避免无限等待卡死
+  while [ ! -e "${TEMP_DIR}/cdn_proxy" ] && [ "$_WAIT_COUNT" -gt 0 ]; do
     sleep 0.05
+    (( _WAIT_COUNT-- )) || true
   done
 
-  GH_PROXY=$(cat "${TEMP_DIR}/cdn_proxy")
+  if [ -e "${TEMP_DIR}/cdn_proxy" ]; then
+    GH_PROXY=$(cat "${TEMP_DIR}/cdn_proxy")
+  else
+    GH_PROXY=''
+  fi
 
-  # 清理后台任务和临时文件
-  rm -rf "${TEMP_DIR}/cdn_proxy"
-  wait 2>/dev/null
+  # 清理后台探测任务和临时文件，避免慢连接拖住函数返回
+  for PID in "${PIDS[@]}"; do
+    kill "$PID" >/dev/null 2>&1 || true
+  done
+  for PID in "${PIDS[@]}"; do
+    wait "$PID" 2>/dev/null || true
+  done
+  rm -f "${TEMP_DIR}/cdn_proxy"
 }
 
 # 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out，此处判断改编自 https://github.com/lmc999/RegionRestrictionCheck
@@ -785,7 +827,42 @@ xray_variable() {
       if [ -z "$REALITY_PRIVATE" ]; then
         generate_reality_keypair
       else
-        REALITY_PUBLIC=$($TEMP_DIR/xray x25519 -i "$REALITY_PRIVATE" | awk '/Public/{print $NF}')
+        # 从私钥生成公钥：优先使用 OpenSSL 本地生成，回退使用远程 API
+        if [ -x "$(type -p xxd)" ]; then
+          local B64 MOD PREFIX_HEX PRIV_HEX PRIV_LEN
+          B64=$(printf '%s' "$REALITY_PRIVATE" | tr '_-' '/+')
+          MOD=$(( ${#B64} % 4 ))
+          if [ "$MOD" -eq 2 ]; then
+            B64="${B64}=="
+          elif [ "$MOD" -eq 3 ]; then
+            B64="${B64}="
+          elif [ "$MOD" -ne 0 ]; then
+            B64=''
+          fi
+
+          if [ -n "$B64" ] && echo "$B64" | base64 -d > "$TEMP_DIR/_X25519_PRIV_RAW" 2>/dev/null; then
+            PRIV_LEN=$(stat -c%s "$TEMP_DIR/_X25519_PRIV_RAW" 2>/dev/null || stat -f%z "$TEMP_DIR/_X25519_PRIV_RAW")
+            if [ "$PRIV_LEN" -eq 32 ]; then
+              PREFIX_HEX="302e020100300506032b656e04220420"
+              PRIV_HEX=$(xxd -p -c 256 "$TEMP_DIR/_X25519_PRIV_RAW" | tr -d '\n')
+              printf "%s%s" "$PREFIX_HEX" "$PRIV_HEX" | xxd -r -p > "$TEMP_DIR/_X25519_PRIV_DER"
+              if openssl pkcs8 -inform DER -in "$TEMP_DIR/_X25519_PRIV_DER" -nocrypt -out "$TEMP_DIR/_X25519_PRIV_PEM" 2>/dev/null && \
+                 openssl pkey -in "$TEMP_DIR/_X25519_PRIV_PEM" -pubout -outform DER > "$TEMP_DIR/_X25519_PUB_DER" 2>/dev/null; then
+                tail -c 32 "$TEMP_DIR/_X25519_PUB_DER" > "$TEMP_DIR/_X25519_PUB_RAW"
+                REALITY_PUBLIC=$(base64 -w0 "$TEMP_DIR/_X25519_PUB_RAW" | tr '+/' '-_' | sed -E 's/=+$//')
+              fi
+            fi
+          fi
+        fi
+
+        # 方法 1 失败，尝试方法 2：远程 API
+        if [ -z "$REALITY_PUBLIC" ]; then
+          REALITY_PUBLIC=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 \
+            "https://realitykey.cloudflare.now.cc/?privateKey=$REALITY_PRIVATE" \
+            | awk -F '"' '/publicKey/{print $4}')
+        fi
+
+        # 都失败，生成随机密钥对
         if [ -z "$REALITY_PUBLIC" ]; then
           warning " $(text 99) "
           generate_reality_keypair
@@ -857,7 +934,6 @@ xray_variable() {
 
   if $_HAS_XHTTP_DIRECT && [[ ! " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
     info "\n XHTTP Direct TLS certificate: ${WORK_DIR}/cert/cert.pem \n"
-    ssl_certificate "${TLS_SERVER}"
   fi
 
   local _uuid_step_done=false
@@ -927,7 +1003,6 @@ fast_install_variables() {
   UUID=${UUID:-$(cat /proc/sys/kernel/random/uuid)}
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
-  ssl_certificate "${TLS_SERVER}"
 
   check_system_ip
   SERVER_IP=${SERVER_IP:-$SERVER_IP_DEFAULT}
@@ -998,8 +1073,10 @@ input_start_port() {
     START_PORT=${START_PORT:-"$START_PORT_DEFAULT"}
     if [[ "$START_PORT" =~ ^[1-9][0-9]{2,4}$ && "$START_PORT" -ge "$MIN_PORT" && "$START_PORT" -le "$MAX_PORT" ]]; then
       local IN_USED=()
-      for port in $(eval echo "{${START_PORT}..$((START_PORT+NUM-1))}"); do
-        ss -nltup | grep -q ":${port}" && IN_USED+=("$port")
+      local port
+      refresh_port_snapshot
+      for ((port=START_PORT; port<START_PORT+NUM; port++)); do
+        is_port_in_use "$port" && IN_USED+=("$port")
       done
       [ "${#IN_USED[@]}" -eq 0 ] && break || warning "\n $(text 61) ${IN_USED[*]} \n"
     fi
@@ -1020,7 +1097,8 @@ input_nginx_port() {
     fi
     NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
     if [[ "$NGINX_PORT" =~ ^[1-9][0-9]{1,4}$ && "$NGINX_PORT" -ge "$MIN_PORT" && "$NGINX_PORT" -le "$MAX_PORT" ]]; then
-      ss -nltup | grep -q ":$NGINX_PORT" && warning "\n $(text 61) $NGINX_PORT \n" || break
+      refresh_port_snapshot
+      is_port_in_use "$NGINX_PORT" && warning "\n $(text 61) $NGINX_PORT \n" || break
     fi
   done
 }
@@ -3225,6 +3303,7 @@ if [ -d "$WORK_DIR" ] && [ ! -s "$CUSTOM_FILE" ] && [[ "$(date +%Y%m%d)" < "2026
     warning "[Compatibility Mode] Old installation detected. Switching to legacy script automatically."
     warning "                     This bridge will be removed on 2026-09-30. Auto-switching in 10s, or press any key to skip now."
   fi
+exit 2
   for _i in 10 9 8 7 6 5 4 3 2 1; do
     if [ "${_compat_lang^^}" = 'C' ]; then
       echo -ne "\033[33m\033[01m  ${_i} 秒后自动跳转...\033[0m\r"
