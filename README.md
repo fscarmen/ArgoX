@@ -20,7 +20,9 @@
 
 * * *
 ## 更新信息
-2026.04.01 v2.0.1 新增 VLESS/XHTTP HTTP/3 直连支持
+2026.04.04 v2.0.2 新增 Trojan Direct 和 Shadowsocks 2022 Direct，并在更换 TLS 域名时同步重新生成自签证书
+
+2026.04.01 v2.0.1 新增使用 CDN 的 VLESS/XHTTP 和 XHTTP HTTP/3 直连支持
 
 2026.03.30 v2.0.0 将 ArgoX 重构为模块化协议架构，新增 Hysteria2 和 VLESS/XHTTP 支持，实现协议的自定义安装与管理
 
@@ -85,13 +87,14 @@
 
 ## 项目特点:
 
-* 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP；
+* 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / 直连 TLS；
 * 正常用 CF 是访问机房回源，Argo 则是每次创建两个反向链接到两个就近机房，然后回源是通过源服务器就近机房回源，其中用户访问机房到源服务器连接的就近机房之间是 CF 自己的黑盒线路；
-* 使用  CloudFlare 的 Argo 隧道，使用 TLS 加密通信，可以将应用程序流量安全地传输到 Cloudflare 网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel 也可以防止 IP 泄露和 DDoS 攻击等网络威胁；
+* 使用 CloudFlare 的 Argo 隧道，使用 TLS 加密通信，可以将应用程序流量安全地传输到 Cloudflare 网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel 也可以防止 IP 泄露和 DDoS 攻击等网络威胁；
 * Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守 443 被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
-* **安装时可按需多选协议**，支持 8 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP；安装后支持随时增删协议（`argox -r`）；
-* Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality 和 Hysteria2 协议直连，架构简洁；
+* **安装时可按需多选协议**，支持 11 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
+* Hysteria2、VLESS + XHTTP Direct、Trojan Direct 使用自签证书直连；更换 TLS 域名时会自动同步重新生成自签证书；
+* Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality、Hysteria2、Trojan Direct、Shadowsocks 2022 Direct 与 XHTTP Direct 可按各自模式直连，架构简洁；
 * 内置 warp 链式代理解锁 chatGPT；
 * 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Nekobox / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
 * 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到 5 秒。

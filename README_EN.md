@@ -21,7 +21,9 @@
 * * *
 
 ## Update Information
-2026.04.01 v2.0.1 Added VLESS/XHTTP HTTP/3 direct connection support
+2026.04.04 v2.0.2 Added Trojan Direct and Shadowsocks 2022 Direct, and regenerate the self-signed certificate when changing the TLS domain
+
+2026.04.01 v2.0.1 Added VLESS/XHTTP over CDN and XHTTP HTTP/3 direct connection support
 
 2026.03.30 v2.0.0 Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation and management.
 
@@ -86,13 +88,14 @@
 
 ## Project Features:
 
-* Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP;
+* Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / direct TLS;
 * Normally CF backhauls from data centers, Argo creates two reverse links to two nearby data centers, and backhauls from the source server through the nearby data centers. The line between the user's data center and the source server's nearby data center is CF's proprietary black box line;
 * Using CloudFlare's Argo Tunnel with TLS encrypted communication, application traffic can be securely transmitted to the Cloudflare network, improving application security and reliability. In addition, Argo Tunnel can also prevent network threats such as IP leaks and DDoS attacks;
 * Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
 * Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
-* **Select protocols on demand during installation**, supporting 8 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS  + XHTTP; add or remove protocols at any time after installation (`argox -r`);
-* Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality and Hysteria2 connect directly — clean and simple architecture;
+* **Select protocols on demand during installation**, supporting 11 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
+* Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
+* Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
 * Built-in warp chained proxy to unlock chatGPT;
 * Node information output to V2rayN / Clash Meta / Shadowrocket / Nekobox / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
 * Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
