@@ -320,46 +320,60 @@ is_port_in_use() {
   grep -qE "(^|[[:space:]])[^[:space:]]*:${_PORT}([[:space:]]|$)" <<< "$PORT_SNAPSHOT"
 }
 
-# 检测是否启用 Github CDN，如能直接连通当前项目 raw 地址，则不使用
+# 检测是否启用 Github CDN
 check_cdn() {
-  local PROXY CODE PID
+  local PROXY CODE PID CMD
   local _WAIT_COUNT=120
   local PIDS=()
   local RAW_URL='https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh'
 
-  CODE=$(wget -qT5 -O /dev/null --server-response "$RAW_URL" 2>&1 | awk '/HTTP\//{code=$2} END{print code}')
+  # 确定下载工具：优先 wget，次选 curl
+  if command -v wget >/dev/null 2>&1; then
+    CMD='wget'
+  elif command -v curl >/dev/null 2>&1; then
+    CMD='curl'
+  else
+    GH_PROXY=''
+    return
+  fi
+
+  # 获取 HTTP 状态码的函数
+  get_code() {
+    local url=$1
+    if [ "$CMD" = 'wget' ]; then
+      wget -qT5 -O /dev/null --server-response "$url" 2>&1 | awk '/HTTP\//{code=$2} END{print code}'
+    else
+      curl -skL -w "%{http_code}" "$url" -o /dev/null
+    fi
+  }
+
+  # 直连检测
+  CODE=$(get_code "$RAW_URL")
   if [ "$CODE" = '200' ]; then
     GH_PROXY=''
     return
   fi
 
+  # 并发探测代理
   for PROXY in "${GITHUB_PROXY[@]}"; do
     {
-      CODE=$(wget -qT5 -O /dev/null --server-response "${PROXY}${RAW_URL}" 2>&1 | awk '/HTTP\//{code=$2} END{print code}')
+      CODE=$(get_code "${PROXY}${RAW_URL}")
       [ "$CODE" = '200' ] && [ ! -e "${TEMP_DIR}/cdn_proxy" ] && printf '%s' "$PROXY" > "${TEMP_DIR}/cdn_proxy"
     } &
     PIDS+=("$!")
   done
 
-  # 等第一个成功，超时则回退为直连，避免无限等待卡死
+  # 等待探测结果或超时
   while [ ! -e "${TEMP_DIR}/cdn_proxy" ] && [ "$_WAIT_COUNT" -gt 0 ]; do
     sleep 0.05
     (( _WAIT_COUNT-- )) || true
   done
 
-  if [ -e "${TEMP_DIR}/cdn_proxy" ]; then
-    GH_PROXY=$(cat "${TEMP_DIR}/cdn_proxy")
-  else
-    GH_PROXY=''
-  fi
+  [ -e "${TEMP_DIR}/cdn_proxy" ] && GH_PROXY=$(cat "${TEMP_DIR}/cdn_proxy") || GH_PROXY=''
 
-  # 清理后台探测任务和临时文件，避免慢连接拖住函数返回
-  for PID in "${PIDS[@]}"; do
-    kill "$PID" >/dev/null 2>&1 || true
-  done
-  for PID in "${PIDS[@]}"; do
-    wait "$PID" 2>/dev/null || true
-  done
+  # 清理后台任务和临时文件
+  for PID in "${PIDS[@]}"; do kill "$PID" >/dev/null 2>&1 || true; done
+  for PID in "${PIDS[@]}"; do wait "$PID" 2>/dev/null || true; done
   rm -f "${TEMP_DIR}/cdn_proxy"
 }
 
@@ -368,7 +382,7 @@ check_chatgpt() {
   local CHECK_STACK=$1
   local UA_BROWSER="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
   local UA_SEC_CH_UA='"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"'
-  wget --help | grep -q '\-\-ciphers' && local IS_CIPHERS=is_ciphers
+  wget --help | grep -q -- '--ciphers' && local IS_CIPHERS=is_ciphers
 
   local CHECK_RESULT1=$(wget --timeout=2 --tries=2 --retry-connrefused --waitretry=5 ${CHECK_STACK} -qO- --content-on-error --header='authority: api.openai.com' --header='accept: */*' --header='accept-language: en-US,en;q=0.9' --header='authorization: Bearer null' --header='content-type: application/json' --header='origin: https://platform.openai.com' --header='referer: https://platform.openai.com/' --header="sec-ch-ua: ${UA_SEC_CH_UA}" --header='sec-ch-ua-mobile: ?0' --header='sec-ch-ua-platform: "Windows"' --header='sec-fetch-dest: empty' --header='sec-fetch-mode: cors' --header='sec-fetch-site: same-site' --user-agent="${UA_BROWSER}" 'https://api.openai.com/compliance/cookie_requirements')
 
@@ -492,7 +506,7 @@ check_install() {
 # 为了适配 alpine，定义 cmd_systemctl 的函数
 cmd_systemctl() {
   nginx_run() {
-    $(type -p nginx) -c $WORK_DIR/nginx.conf
+    $(command -v nginx) -c $WORK_DIR/nginx.conf
   }
 
   nginx_stop() {
@@ -510,7 +524,7 @@ cmd_systemctl() {
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl daemon-reload
       systemctl enable --now $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_run; firewall_configuration open; }
+      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
     else
       systemctl daemon-reload
       systemctl enable --now $APP >/dev/null 2>&1
@@ -522,7 +536,7 @@ cmd_systemctl() {
       rc-update del $APP default >/dev/null 2>&1
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl disable --now $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_stop; firewall_configuration close; }
+      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_stop
     else
       systemctl disable --now $APP >/dev/null 2>&1
     fi
@@ -537,8 +551,8 @@ cmd_systemctl() {
 
 check_system_info() {
   [ -s /etc/os-release ] && SYS="$(awk -F '"' 'tolower($0) ~ /pretty_name/{print $2}' /etc/os-release)"
-  [[ -z "$SYS" && -x "$(type -p hostnamectl)" ]] && SYS="$(hostnamectl | awk -F ': ' 'tolower($0) ~ /operating system/{print $2}')"
-  [[ -z "$SYS" && -x "$(type -p lsb_release)" ]] && SYS="$(lsb_release -sd)"
+  [[ -z "$SYS" ]] && command -v hostnamectl >/dev/null 2>&1 && SYS="$(hostnamectl | awk -F ': ' 'tolower($0) ~ /operating system/{print $2}')"
+  [[ -z "$SYS" ]] && command -v lsb_release >/dev/null 2>&1 && SYS="$(lsb_release -sd)"
   [[ -z "$SYS" && -s /etc/lsb-release ]] && SYS="$(awk -F '"' 'tolower($0) ~ /distrib_description/{print $2}' /etc/lsb-release)"
   [[ -z "$SYS" && -s /etc/redhat-release ]] && SYS="$(cat /etc/redhat-release)"
   [[ -z "$SYS" && -s /etc/issue ]] && SYS="$(sed -E '/^$|^\\/d' /etc/issue | awk -F '\\' '{print $1}' | sed 's/[ ]*$//g')"
@@ -553,7 +567,7 @@ check_system_info() {
     [[ "${SYS,,}" =~ ${REGEX[int]} ]] && SYSTEM="${RELEASE[int]}" && break
   done
   if [ -z "$SYSTEM" ]; then
-    [ -x "$(type -p yum)" ] && int=2 && SYSTEM='CentOS' || error " $(text 5) "
+    command -v yum >/dev/null 2>&1 && int=2 && SYSTEM='CentOS' || error " $(text 5) "
   fi
 
   ARGO_DAEMON_FILE='/etc/systemd/system/argo.service'; XRAY_DAEMON_FILE='/etc/systemd/system/xray.service'; DAEMON_RUN_PATTERN="ExecStart="
@@ -563,17 +577,17 @@ check_system_info() {
     ARGO_DAEMON_FILE='/etc/init.d/argo'; XRAY_DAEMON_FILE='/etc/init.d/xray'; DAEMON_RUN_PATTERN="command_args="
   fi
 
-  if [ -x "$(type -p systemd-detect-virt)" ]; then
+  if command -v systemd-detect-virt >/dev/null 2>&1; then
     VIRT=$(systemd-detect-virt)
   elif grep -qa container= /proc/1/environ 2>/dev/null; then
     VIRT=$(tr '\0' '\n' </proc/1/environ | awk -F= '/container=/{print $2; exit}')
   elif grep -Eq '(lxc|docker|kubepods|containerd)' /proc/1/cgroup 2>/dev/null; then
     VIRT=$(grep -Eo '(lxc|docker|kubepods|containerd)' /proc/1/cgroup | sed -n 1p)
-  elif [ -x "$(type -p hostnamectl)" ]; then
+  elif command -v hostnamectl >/dev/null 2>&1; then
     VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
   else
-    [ -x "$(type -p virt-what)" ] && ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
-    [ -x "$(type -p virt-what)" ] && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
+    command -v virt-what >/dev/null 2>&1 && ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
+    command -v virt-what >/dev/null 2>&1 && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
   fi
 }
 
@@ -707,12 +721,13 @@ generate_reality_keypair() {
     REALITY_PUBLIC=$(awk '/Public/{print $NF}' <<< "$KEYPAIR")
   else
     # 回退逻辑：使用 openssl 生成私钥并派生公钥
-    [ ! -x "$(type -p openssl)" ] && return
+    ! command -v openssl >/dev/null 2>&1 && return
     REALITY_PRIVATE=$(openssl genpkey -algorithm x25519 -outform DER 2>/dev/null | tail -c 32 | base64 | tr '/+' '_-' | tr -d '=')
     REALITY_PUBLIC=''
   fi
 }
 
+# 定义 Xray 相关变量，包含协议选择交互和相关配置
 xray_variable() {
   local STEP_NUM=0
   local TOTAL_STEPS=''
@@ -848,7 +863,7 @@ xray_variable() {
         generate_reality_keypair
       else
         # 从私钥生成公钥：优先使用 OpenSSL 本地生成，回退使用远程 API
-        if [ -x "$(type -p xxd)" ]; then
+        if command -v xxd >/dev/null 2>&1; then
           local B64 MOD PREFIX_HEX PRIV_HEX PRIV_LEN
           B64=$(printf '%s' "$REALITY_PRIVATE" | tr '_-' '/+')
           MOD=$(( ${#B64} % 4 ))
@@ -972,14 +987,14 @@ xray_variable() {
 
   local EMOJI_VAL="${EMOJI4:-$EMOJI6}"
   if [ -z "$NODE_NAME" ]; then
-    if [ -x "$(type -p hostname)" ]; then
+    if command -v hostname >/dev/null 2>&1; then
       local HOST_NAME=$(hostname)
     elif [ -s /etc/hostname ]; then
       local HOST_NAME=$(cat /etc/hostname)
     else
       local HOST_NAME="ArgoX"
     fi
-    NODE_NAME_DEFAULT="$HOST_NAME"
+    NODE_NAME_DEFAULT="${EMOJI_VAL}${EMOJI_VAL:+ }${HOST_NAME}"
     if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
       (( STEP_NUM++ )) || true
       reading "\n $(text 49) " NODE_NAME
@@ -989,7 +1004,7 @@ xray_variable() {
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" || NODE_NAME="${EMOJI_VAL}${EMOJI_VAL:+ }${NODE_NAME}"
 }
 
-# Fast install preset variables
+# 快速安装变量初始化
 fast_install_variables() {
   local _all_protocol_letters=''
   local _idx
@@ -1034,7 +1049,7 @@ fast_install_variables() {
   check_system_ip
   SERVER_IP=${SERVER_IP:-$SERVER_IP_DEFAULT}
   local EMOJI_VAL="${EMOJI4:-$EMOJI6}"
-  if [ -x "$(type -p hostname)" ]; then
+  if command -v hostname >/dev/null 2>&1; then
     local HOST_NAME=$(hostname)
   elif [ -s /etc/hostname ]; then
     local HOST_NAME=$(cat /etc/hostname)
@@ -1044,45 +1059,54 @@ fast_install_variables() {
   NODE_NAME="${EMOJI_VAL}${EMOJI_VAL:+ }${HOST_NAME}"
 }
 
+# 检测并安装依赖，Alpine 额外处理 BusyBox wget 和 openrc，其他系统补充 iproute2 和 systemctl
 check_dependencies() {
+  local DEPS_CHECK=() DEPS_INSTALL=() TO_INSTALL=()
+  
+  # 1. 基础通用依赖 (所有系统都需要)
+  DEPS_CHECK=(  "wget" "bash" "ss"       "nginx" "unzip" "openssl")
+  DEPS_INSTALL=("wget" "bash" "iproute2" "nginx" "unzip" "openssl")
+
+  # 2. 根据系统差异补充初始化系统依赖（不含防火墙，防火墙仅端口跳跃时按需安装）
   if [ "$SYSTEM" = 'Alpine' ]; then
+    # Alpine 特有处理：检查 BusyBox wget
     local CHECK_WGET=$(wget 2>&1 | sed -n 1p)
-    grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
+    grep -qi 'busybox' <<< "$CHECK_WGET" && TO_INSTALL+=("wget")
 
-    local DEPS_CHECK=("bash" "rc-update" "iptables" "ip6tables" "nginx")
-    local DEPS_INSTALL=("bash" "openrc" "iptables" "ip6tables" "nginx")
-    for g in "${!DEPS_CHECK[@]}"; do
-      [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS_ALPINE+=(${DEPS_INSTALL[g]})
-    done
-    if [ "${#DEPS_ALPINE[@]}" -ge 1 ]; then
-      info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS_ALPINE[@]}) \n"
-      ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
-      ${PACKAGE_INSTALL[int]} ${DEPS_ALPINE[@]} >/dev/null 2>&1
-    fi
+    DEPS_CHECK+=("rc-update")
+    DEPS_INSTALL+=("openrc")
+  else
+    DEPS_CHECK+=("systemctl")
+    DEPS_INSTALL+=("systemctl")
   fi
 
-  local DEPS_CHECK=("wget" "ss" "unzip" "bash" "nginx" "openssl")
-  local DEPS_INSTALL=("wget" "iproute2" "unzip" "bash" "nginx" "openssl")
-
-  [ "$SYSTEM" != 'Alpine' ] && DEPS_CHECK+=("systemctl") && DEPS_INSTALL+=("systemctl")
-
-  if [ "$SYSTEM" != 'Alpine' ]; then
-    [ ! -x "$(type -p iptables)" ] && DEPS_CHECK+=("iptables") && DEPS_INSTALL+=("iptables")
-    [ ! -x "$(type -p ip6tables)" ] && DEPS_CHECK+=("ip6tables") && DEPS_INSTALL+=("ip6tables")
-  fi
-
-  for g in "${!DEPS_CHECK[@]}"; do
-    [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS+=(${DEPS_INSTALL[g]})
+  # 3. 统一循环检查
+  for i in "${!DEPS_CHECK[@]}"; do
+    ! command -v "${DEPS_CHECK[i]}" >/dev/null 2>&1 && TO_INSTALL+=("${DEPS_INSTALL[i]}")
   done
-  if [ "${#DEPS[@]}" -ge 1 ]; then
-    info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS[@]}) \n"
+
+  # 4. 数组去重并执行安装
+  if [ "${#TO_INSTALL[@]}" -gt 0 ]; then
+    # 去重处理
+    TO_INSTALL=($(printf "%s\n" "${TO_INSTALL[@]}" | sort -u))
+    
+    info "\n $(text 7) $(sed "s/ /,&/g" <<< "${TO_INSTALL[*]}") \n"
+    
+    # CentOS 通常不需要频繁 update，节省时间
     [ "$SYSTEM" != 'CentOS' ] && ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
-    ${PACKAGE_INSTALL[int]} ${DEPS[@]} >/dev/null 2>&1
+    ${PACKAGE_INSTALL[int]} "${TO_INSTALL[@]}" >/dev/null 2>&1
   else
     info "\n $(text 8) \n"
   fi
 
-  (type -p nginx >/dev/null 2>&1) && cmd_systemctl disable nginx >/dev/null 2>&1 || true
+  # 5. 后置处理: 禁用 nginx 默认自启 (防止端口冲突)
+  if command -v nginx >/dev/null 2>&1; then
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      rc-update del nginx default >/dev/null 2>&1 || true
+    else
+      cmd_systemctl disable nginx >/dev/null 2>&1 || true
+    fi
+  fi
 }
 
 # 输入 WS/XHTTP 内部起始端口，连续 NUM 个端口逐一检测是否被占用
@@ -1223,7 +1247,7 @@ fetch_tunnel_domain() {
 
 # 检查并安装 nginx
 check_nginx() {
-  if [ ! -x "$(type -p nginx)" ]; then
+  if ! command -v nginx >/dev/null 2>&1; then
     info "\n $(text 7) nginx \n"
     ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1
     [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1
@@ -1259,11 +1283,43 @@ EOF
   rm -f ${WORK_DIR}/cert/cert.conf
 }
 
+# 按需安装端口跳跃所需的防火墙依赖，安装完后确保 firewalld 已启动
+# 策略：Alpine → iptables；CentOS 或已装 firewalld → firewalld；其他 → iptables + netfilter-persistent
+install_firewall_deps() {
+  local FW_CHECK=() FW_INSTALL=() FW_TO_INSTALL=()
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    FW_CHECK=("iptables")
+    FW_INSTALL=("iptables")
+  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+    FW_CHECK=("firewall-cmd")
+    FW_INSTALL=("firewalld")
+  else
+    FW_CHECK=("iptables" "netfilter-persistent")
+    FW_INSTALL=("iptables" "netfilter-persistent")
+  fi
+  for i in "${!FW_CHECK[@]}"; do
+    ! command -v "${FW_CHECK[i]}" >/dev/null 2>&1 && FW_TO_INSTALL+=("${FW_INSTALL[i]}")
+  done
+  if [ "${#FW_TO_INSTALL[@]}" -gt 0 ]; then
+    FW_TO_INSTALL=($(printf "%s\n" "${FW_TO_INSTALL[@]}" | sort -u))
+    [ "$SYSTEM" != 'CentOS' ] && ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
+    ${PACKAGE_INSTALL[int]} "${FW_TO_INSTALL[@]}" >/dev/null 2>&1
+  fi
+  # 安装后确保 firewalld 已启动（CentOS 或已装 firewalld 的系统）
+  if command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+    [ "$(systemctl is-active firewalld 2>/dev/null)" != 'active' ] && cmd_systemctl enable firewalld >/dev/null 2>&1
+    [ "$(firewall-cmd --zone=public --get-target 2>/dev/null)" != 'ACCEPT' ] && firewall-cmd --zone=public --set-target=ACCEPT --permanent >/dev/null 2>&1
+    firewall-cmd --reload >/dev/null 2>&1
+  fi
+}
+
 # 添加端口跳跃 NAT 规则
 add_port_hopping_nat() {
   local HOP_START=$1 HOP_END=$2 HOP_TARGET=$3
   # 防止空参数写入残缺规则
   [[ -z "$HOP_START" || -z "$HOP_END" || -z "$HOP_TARGET" ]] && return 1
+  # 按需安装防火墙依赖（内部已确保 firewalld 启动）
+  install_firewall_deps
   local COMMENT="NAT ${HOP_START}:${HOP_END} to ${HOP_TARGET} (ArgoX)"
   if [ "$SYSTEM" = 'Alpine' ]; then
     iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
@@ -1272,16 +1328,15 @@ add_port_hopping_nat() {
     rc-update show default | grep -q 'ip6tables' || rc-update add ip6tables >/dev/null 2>&1
     rc-service iptables save >/dev/null 2>&1
     rc-service ip6tables save >/dev/null 2>&1
-  elif [ -x "$(type -p firewalld)" ] && [ "$(systemctl is-active firewalld 2>/dev/null)" = 'active' ]; then
-    [ "$(firewall-cmd --query-masquerade --permanent 2>/dev/null)" != 'yes' ] && \
-      firewall-cmd --add-masquerade --permanent >/dev/null 2>&1 && firewall-cmd --reload >/dev/null 2>&1
-    firewall-cmd --add-forward-port=port=${HOP_START}-${HOP_END}:proto=udp:toport=${HOP_TARGET} --permanent >/dev/null 2>&1
+  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+    [ "$(firewall-cmd --zone=public --query-masquerade --permanent 2>/dev/null)" != 'yes' ] && \
+      firewall-cmd --zone=public --add-masquerade --permanent >/dev/null 2>&1
+    firewall-cmd --zone=public --add-forward-port=port=${HOP_START}-${HOP_END}:proto=udp:toport=${HOP_TARGET} --permanent >/dev/null 2>&1
     firewall-cmd --reload >/dev/null 2>&1
   else
-    [ ! -x "$(type -p netfilter-persistent)" ] && ${PACKAGE_INSTALL[int]} iptables-persistent >/dev/null 2>&1
     iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
     ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-    [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save 2>/dev/null
+    netfilter-persistent save >/dev/null 2>&1 || true
   fi
 }
 
@@ -1293,17 +1348,17 @@ del_port_hopping_nat() {
   if [ "$SYSTEM" = 'Alpine' ]; then
     iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
     ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-  elif [ -x "$(type -p firewalld)" ] && [ "$(systemctl is-active firewalld 2>/dev/null)" = 'active' ]; then
-    firewall-cmd --permanent --remove-forward-port=port=${PORT_HOPPING_START}-${PORT_HOPPING_END}:proto=udp:toport=${PORT_HOPPING_TARGET} >/dev/null 2>&1
+  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+    firewall-cmd --zone=public --permanent --remove-forward-port=port=${PORT_HOPPING_START}-${PORT_HOPPING_END}:proto=udp:toport=${PORT_HOPPING_TARGET} >/dev/null 2>&1
     firewall-cmd --reload >/dev/null 2>&1
   else
     iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
     ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-    [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save 2>/dev/null
+    netfilter-persistent save >/dev/null 2>&1 || true
   fi
 }
 
-# 检查端口跳跃 NAT 规则（读取当前 iptables）
+# 检查端口跳跃 NAT 规则（读取当前 iptables / firewalld）
 check_port_hopping_nat() {
   unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE PORT_HOPPING_TARGET
   [ -s $WORK_DIR/inbound.json ] && PORT_HOPPING_TARGET=$($WORK_DIR/jq -r \
@@ -1314,8 +1369,8 @@ check_port_hopping_nat() {
     local LIST=$(iptables --table nat --list-rules PREROUTING 2>/dev/null | grep 'ArgoX')
     [ -n "$LIST" ] && PORT_HOPPING_RANGE=$(awk '{for(i=0;i<NF;i++) if($i=="--dport"){print $(i+1);exit}}' <<< "$LIST") && \
       PORT_HOPPING_TARGET=$(awk '{for(i=0;i<NF;i++) if($i=="to"){print $(i+1);exit}}' <<< "$LIST")
-  elif [ -x "$(type -p firewalld)" ] && [ "$(systemctl is-active firewalld 2>/dev/null)" = 'active' ]; then
-    local LIST=$(firewall-cmd --list-all --permanent 2>/dev/null | grep "toport=${PORT_HOPPING_TARGET}")
+  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+    local LIST=$(firewall-cmd --zone=public --list-all --permanent 2>/dev/null | grep "toport=${PORT_HOPPING_TARGET}")
     [ -n "$LIST" ] && PORT_HOPPING_START=$(sed "s/.*port=\([^-]\+\)-.*toport.*/\1/" <<< "$LIST") && \
       PORT_HOPPING_END=$(sed "s/.*port=${PORT_HOPPING_START}-\([^:]\+\):.*/\1/" <<< "$LIST")
   else
@@ -1361,21 +1416,6 @@ input_hopping_port() {
 }
 
 # 处理防火墙规则
-firewall_configuration() {
-  local LISTEN_PORT=$(awk -F [:,] '/"port"/{print $2; exit}' $WORK_DIR/inbound.json)
-  if grep -q "open" <<< "$1"; then
-    firewall-cmd --zone=public --add-port=${LISTEN_PORT}/tcp --permanent >/dev/null 2>&1
-  elif grep -q "close" <<< "$1"; then
-    firewall-cmd --zone=public --remove-port=${LISTEN_PORT}/tcp --permanent >/dev/null 2>&1
-  fi
-  firewall-cmd --reload >/dev/null 2>&1
-
-  if [[ -s /etc/selinux/config && -x "$(type -p getenforce)" && $(getenforce) = 'Enforcing' ]]; then
-    hint "\n $(text 69) "
-    setenforce 0
-    grep -qs '^SELINUX=disabled$' /etc/selinux/config || sed -i 's/^SELINUX=[epd].*/# &/; /SELINUX=[epd]/a\SELINUX=disabled' /etc/selinux/config
-  fi
-}
 
 # Nginx 配置文件（新架构：Nginx 作为唯一对外分流入口，按已安装协议动态生成 location）
 json_nginx() {
@@ -1915,7 +1955,6 @@ WantedBy=multi-user.target"
           "serverNames": [ "${TLS_SERVER}" ],
           "privateKey": "${REALITY_PRIVATE}",
           "publicKey": "${REALITY_PUBLIC}",
-          "maxTimeDiff": 70000,
           "shortIds": [ "" ]
         }
       },
@@ -1975,7 +2014,6 @@ JSONEOF
           "serverNames": [ "${TLS_SERVER}" ],
           "privateKey": "${REALITY_PRIVATE}",
           "publicKey": "${REALITY_PUBLIC}",
-          "maxTimeDiff": 70000,
           "shortIds": [ "" ]
         },
         "grpcSettings": {
@@ -2974,8 +3012,8 @@ EOF
       xhttp-h3-direct) NEW_BLOCK="{\"tag\":\"${NODE_NAME} xhttp-h3-direct\",\"port\":${XHTTP_PORT_j},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"xhttpSettings\":{\"mode\":\"stream-up\",\"extra\":{\"alpn\":[\"h3\"]},\"path\":\"/${WS_PATH}-xh3\"},\"tlsSettings\":{\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       trojan-direct) NEW_BLOCK="{\"port\":${TROJAN_PORT},\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} trojan-direct\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       ss2022-direct) NEW_BLOCK="{\"port\":${SS2022_PORT},\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ss2022-direct\",\"settings\":{\"method\":\"2022-blake3-aes-128-gcm\",\"password\":\"${SS2022_PASSWORD}\",\"network\":\"tcp,udp\"},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} reality-vision\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"maxTimeDiff\":70000,\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
-      reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} reality-grpc\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"maxTimeDiff\":70000,\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
+      reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} reality-vision\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
+      reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} reality-grpc\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
     esac
     if [ -n "$NEW_BLOCK" ] && [ -x "$WORK_DIR/jq" ]; then
       $WORK_DIR/jq --argjson block "$NEW_BLOCK" '.inbounds += [$block]' \
@@ -2992,7 +3030,7 @@ EOF
   if [ -n "$_NGINX_PID" ]; then
     nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
   else
-    $(type -p nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
+    $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
   fi
 
   if [ ! -s "${ARGO_DAEMON_FILE}" ]; then
