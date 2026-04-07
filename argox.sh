@@ -71,10 +71,10 @@ E[11]="Please enter Argo Token, Argo Json or Cloudflare API\n\n [*] Token: Visit
 C[11]="请输入 Argo Token, Argo Json 或者 Cloudflare API\n\n [*] Token: 访问 https://dash.cloudflare.com/ ，Zero Trust > 网络 > 连接器 > 创建隧道 > 选择 Cloudflared\n\n [*] Json: 用户通过以下网站轻松获取: https://fscarmen.cloudflare.now.cc\n\n [*] Cloudflare API: 访问 https://dash.cloudflare.com/profile/api-tokens > 创建令牌 > 创建自定义令牌 > 添加以下权限:\n - 帐户 > Cloudflare One连接器: Cloudflared > 编辑\n - 区域 > DNS > 编辑\n\n - 帐户资源: 包括 > 所需账户\n - 区域资源: 包括 > 特定区域 > 所需域名"
 E[12]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter Xray UUID (Default is \${UUID_DEFAULT}):"
 C[12]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入 Xray UUID (默认为 \${UUID_DEFAULT}):"
-E[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter Xray WS Path (Default is \${WS_PATH_DEFAULT}):"
-C[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入 Xray WS 路径 (默认为 \${WS_PATH_DEFAULT}):"
-E[14]="Xray WS Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @, please re-enter (\${a} times remaining):"
-C[14]="Xray WS 路径只允许英文大小写、数字、连字符、下划线、点和@字符，请重新输入 (剩余\${a}次):"
+E[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter WS/XHTTP Path (Default is \${WS_PATH_DEFAULT}):"
+C[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入 WS/XHTTP 路径 (默认为 \${WS_PATH_DEFAULT}):"
+E[14]="WS/XHTTP Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @, please re-enter (\${a} times remaining):"
+C[14]="WS/XHTTP 路径只允许英文大小写、数字、连字符、下划线、点和@字符，请重新输入 (剩余\${a}次):"
 E[15]="ArgoX script has not been installed yet."
 C[15]="ArgoX 脚本还没有安装"
 E[16]="ArgoX is completely uninstalled."
@@ -620,7 +620,7 @@ check_system_ip() {
     local IP4_DATA=$(cat $TEMP_DIR/ip4.json)
     WAN4=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP4_DATA")
     COUNTRY4=$(awk -F '"' '/"country"/{print $4}' <<< "$IP4_DATA")
-    EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_DATA")
+    EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_DATA" | tr -d ' ')
     ASNORG4=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP4_DATA")
     rm -f $TEMP_DIR/ip4.json
   fi
@@ -629,7 +629,7 @@ check_system_ip() {
     local IP6_DATA=$(cat $TEMP_DIR/ip6.json)
     WAN6=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP6_DATA")
     COUNTRY6=$(awk -F '"' '/"country"/{print $4}' <<< "$IP6_DATA")
-    EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_DATA")
+    EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_DATA" | tr -d ' ')
     ASNORG6=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP6_DATA")
     rm -f $TEMP_DIR/ip6.json
   fi
@@ -695,15 +695,17 @@ argo_variable() {
 # 根据 INSTALL_PROTOCOLS 计算安装流程总步骤数
 calc_install_steps() {
   local _total=7  # 固定步骤：协议选择、起始端口、Nginx端口、VPS IP、Argo域名、UUID、节点名
-  local _has_reality=false _has_ws_xhttp=false _has_hy2=false
+  local _has_reality=false _has_ws_xhttp=false _has_hy2=false _has_direct_h3=false
   for _p in "${INSTALL_PROTOCOLS[@]}"; do
     [[ "$_p" =~ ^[bd]$ ]] && _has_reality=true
     [[ "$_p" =~ ^[efghi]$ ]] && _has_ws_xhttp=true
     [[ "$_p" == 'c' ]] && _has_hy2=true
+    [[ "$_p" == 'j' ]] && _has_direct_h3=true
   done
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && (( _total-- ))  # 非交互安装时不单独询问 VPS IP
   $_has_reality && (( _total++ ))      # Reality 密钥
-  $_has_ws_xhttp && (( _total += 2 ))  # CDN 域名 + WS 路径
+  $_has_ws_xhttp && (( _total++ ))     # WS 路径（CDN 域名仅 efghi 需要，j 不需要）
+  $_has_direct_h3 && (( _total++ ))    # WS 路径（j 专用）
   $_has_hy2 && (( _total++ ))          # 端口跳跃
   TOTAL_STEPS=$_total
 }
@@ -908,14 +910,19 @@ xray_variable() {
 
   local _HAS_WS_XHTTP=false _HAS_XHTTP_DIRECT=false
   for p in "${INSTALL_PROTOCOLS[@]}"; do
-    [[ "$p" =~ ^[efghi]$ ]] && _HAS_WS_XHTTP=true && break
+    [[ "$p" =~ ^[efghij]$ ]] && _HAS_WS_XHTTP=true && break
   done
   for p in "${INSTALL_PROTOCOLS[@]}"; do
     [[ "$p" == 'j' ]] && _HAS_XHTTP_DIRECT=true && break
   done
 
   if [ -z "$SERVER" ]; then
-    if $_HAS_WS_XHTTP; then
+    # 仅当含有 efghi（需要 CDN 的 WS/XHTTP 协议）时才询问 CDN
+    local _HAS_WS_XHTTP_CDN=false
+    for p in "${INSTALL_PROTOCOLS[@]}"; do
+      [[ "$p" =~ ^[efghi]$ ]] && _HAS_WS_XHTTP_CDN=true && break
+    done
+    if $_HAS_WS_XHTTP_CDN; then
       if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
         (( STEP_NUM++ )) || true
         echo ""
