@@ -21,6 +21,8 @@
 * * *
 
 ## Update Information
+2026.04.10 v2.0.3 1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry
+
 2026.04.04 v2.0.2 Added Trojan Direct and Shadowsocks 2022 Direct, and regenerate the self-signed certificate when changing the TLS domain
 
 2026.04.01 v2.0.1 Added VLESS/XHTTP over CDN and XHTTP HTTP/3 direct connection support

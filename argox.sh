@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.2 (2026.04.04)'
+VERSION='2.0.3 (2026.04.11)'
 
 # Github 反代加速代理
-GITHUB_PROXY=('https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/' 'https://ghproxy.lvedong.eu.org/')
+GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
 
 # 协议列表和对应的节点标签，顺序必须一一对应
 PROTOCOL_LIST=("VLESS + Reality Vision" "Hysteria2" "VLESS + Reality gRPC" "VLESS + WS" "VMess + WS" "Trojan + WS" "Shadowsocks + WS" "VLESS + XHTTP" "VLESS + XHTTP Direct" "Trojan Direct" "Shadowsocks 2022 Direct")
@@ -21,6 +21,8 @@ WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 CUSTOM_FILE="$WORK_DIR/custom"
+FIREWALL_STATE_DIR="${WORK_DIR}/firewall"
+SERVICE_FIREWALL_STATE_FILE="${FIREWALL_STATE_DIR}/service_ports.list"
 TLS_SERVER='addons.mozilla.org'
 START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此基础上顺数
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
@@ -47,8 +49,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Refactor ArgoX into a modular protocol system with fully customizable protocol installation.\n2. Add support for Hysteria2, VLESS/XHTTP over CDN, VLESS/XHTTP Direct, Trojan Direct, and Shadowsocks 2022 Direct.\n3. Regenerate the self-signed certificate automatically when changing the TLS domain."
-C[1]="1. 将 ArgoX 重构为模块化协议架构，并支持协议的自定义安装与管理\n2. 新增 Hysteria2、CDN 模式的 VLESS/XHTTP、VLESS/XHTTP Direct、Trojan Direct 和 Shadowsocks 2022 Direct 支持\n3. 更换 TLS 域名时会自动重新生成自签证书"
+E[1]="1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry"
+C[1]="1. 自动检测 UFW 并切换规则管理方式; 2. [argox -d] 支持修改起始端口并自动同步防火墙; 3. 新增 Hysteria2 带宽配置入口"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -71,10 +73,10 @@ E[11]="Please enter Argo Token, Argo Json or Cloudflare API\n\n [*] Token: Visit
 C[11]="请输入 Argo Token, Argo Json 或者 Cloudflare API\n\n [*] Token: 访问 https://dash.cloudflare.com/ ，Zero Trust > 网络 > 连接器 > 创建隧道 > 选择 Cloudflared\n\n [*] Json: 用户通过以下网站轻松获取: https://fscarmen.cloudflare.now.cc\n\n [*] Cloudflare API: 访问 https://dash.cloudflare.com/profile/api-tokens > 创建令牌 > 创建自定义令牌 > 添加以下权限:\n - 帐户 > Cloudflare One连接器: Cloudflared > 编辑\n - 区域 > DNS > 编辑\n\n - 帐户资源: 包括 > 所需账户\n - 区域资源: 包括 > 特定区域 > 所需域名"
 E[12]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter Xray UUID (Default is \${UUID_DEFAULT}):"
 C[12]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入 Xray UUID (默认为 \${UUID_DEFAULT}):"
-E[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter WS/XHTTP Path (Default is \${WS_PATH_DEFAULT}):"
-C[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入 WS/XHTTP 路径 (默认为 \${WS_PATH_DEFAULT}):"
-E[14]="WS/XHTTP Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @, please re-enter (\${a} times remaining):"
-C[14]="WS/XHTTP 路径只允许英文大小写、数字、连字符、下划线、点和@字符，请重新输入 (剩余\${a}次):"
+E[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter Xray WS Path (Default is \${WS_PATH_DEFAULT}):"
+C[13]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入 Xray WS 路径 (默认为 \${WS_PATH_DEFAULT}):"
+E[14]="Xray WS Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @, please re-enter (\${a} times remaining):"
+C[14]="Xray WS 路径只允许英文大小写、数字、连字符、下划线、点和@字符，请重新输入 (剩余\${a}次):"
 E[15]="ArgoX script has not been installed yet."
 C[15]="ArgoX 脚本还没有安装"
 E[16]="ArgoX is completely uninstalled."
@@ -157,8 +159,8 @@ E[54]="Warp / warp-go was detected to be running. Please enter the correct serve
 C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器 IP:"
 E[55]="The script runs today: \${TODAY}. Total: \${TOTAL}"
 C[55]="脚本当天运行次数: \${TODAY}，累计运行次数: \${TOTAL}"
-E[56]="(\${STEP_NUM}/\${TOTAL_STEPS}) Please enter the starting port for all protocols. Must be \${MIN_PORT}-\${MAX_PORT}, need \${NUM} consecutive free ports (Default: \${START_PORT_DEFAULT}):"
-C[56]="(\${STEP_NUM}/\${TOTAL_STEPS}) 请输入所有协议的起始端口，必须是 \${MIN_PORT}-\${MAX_PORT}，需要 \${NUM} 个连续空闲端口(默认为 \${START_PORT_DEFAULT}):"
+E[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter the starting port for all protocols. Must be \${MIN_PORT}-\${MAX_PORT}, need \${NUM} consecutive free ports (Default: \${START_PORT_DEFAULT}):"
+C[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入所有协议的起始端口，必须是 \${MIN_PORT}-\${MAX_PORT}，需要 \${NUM} 个连续空闲端口(默认为 \${START_PORT_DEFAULT}):"
 E[57]="Install sba scripts (argo + sing-box) [https://github.com/fscarmen/sba]"
 C[57]="安装 sba 脚本 (argo + sing-box) [https://github.com/fscarmen/sba]"
 E[58]="No server ip, script exits. Feedback:[https://github.com/fscarmen/sing-box/issues]"
@@ -275,6 +277,24 @@ E[113]="(VLESS + XHTTP not supported)"
 C[113]="（不支持 VLESS + XHTTP）"
 E[114]="Port range out of bounds. Start must be \${MIN_HOPPING_PORT}–\${MAX_HOPPING_PORT}, end must be \${MIN_HOPPING_PORT}–\${MAX_HOPPING_PORT}, and start < end."
 C[114]="端口范围超界。起始端口必须在 \${MIN_HOPPING_PORT}–\${MAX_HOPPING_PORT} 之间，结束端口同理，且起始 < 结束。"
+E[115]="UFW was detected. Firewall rules will be managed by UFW, and iptables / netfilter-persistent will not be installed."
+C[115]="检测到 UFW。防火墙规则将由 UFW 管理，不再安装 iptables / netfilter-persistent"
+E[116]="UFW is not active. Firewall rules were written, but you should manually enable UFW to make sure the policy is applied."
+C[116]="UFW 未处于激活状态。防火墙规则已写入，但建议手动启用 UFW 以确保策略生效"
+E[117]="Failed to update UFW firewall rules. Please check UFW configuration files manually."
+C[117]="更新 UFW 防火墙规则失败，请手动检查 UFW 配置文件"
+E[118]="\n[WARN] UFW is detected, but its current status is: \${UFW_STATUS:-unknown}\nBecause UFW rules can affect SSH and port forwarding, please enable and verify UFW manually before running this installer again.\nRecommended first step: ufw allow ssh\nThen enable UFW manually, confirm your SSH session still works, and rerun the script.\nInstaller will now exit.\n"
+C[118]="\n[警告] 检测到系统已安装 UFW，但当前状态为: \${UFW_STATUS:-unknown}\n由于 UFW 与 SSH 及端口转发规则关系较复杂，建议先手动启用并确认 UFW 配置正确后，再重新运行本安装脚本。\n建议先执行: ufw allow ssh\n然后手动启用 UFW，确认 SSH 连接正常后，再重新运行本安装脚本。\n安装程序现在退出。\n"
+E[119]="xray listen ports  (current: \${_val})"
+C[119]="xray 监听端口  (当前：\${_val})"
+E[120]="Hysteria2 bandwidth  (current: up \${HY2_UP_NOW} Mbps, down \${HY2_DOWN_NOW} Mbps)"
+C[120]="Hysteria2 带宽  (当前: 上行 \${HY2_UP_NOW} Mbps, 下行 \${HY2_DOWN_NOW} Mbps)"
+E[121]="Please enter Hysteria2 client upload speed in Mbps (e.g. 200):"
+C[121]="请输入 Hysteria2 客户端上行速率 Mbps（纯数字，如 200）:"
+E[122]="Please enter Hysteria2 client download speed in Mbps (e.g. 1000):"
+C[122]="请输入 Hysteria2 客户端下行速率 Mbps（纯数字，如 1000）:"
+E[123]="Invalid input, please enter a positive integer."
+C[123]="输入无效，请输入正整数。"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -455,6 +475,23 @@ check_root() {
   [ "$(id -u)" != 0 ] && error "\n $(text 47) \n"
 }
 
+detect_ufw() {
+  command -v ufw >/dev/null 2>&1 && IS_UFW=is_ufw || unset IS_UFW
+}
+
+check_ufw_active_preinstall() {
+  detect_ufw
+  [ "$IS_UFW" = 'is_ufw' ] || return 0
+
+  local UFW_STATUS
+  UFW_STATUS=$(ufw status 2>/dev/null | awk '/^Status/{print $NF; exit}')
+  [ "$UFW_STATUS" = 'active' ] && return 0
+
+  eval "echo -e \"\033[31m\033[01m${E[118]}\033[0m\""
+  eval "echo -e \"\033[31m\033[01m${C[118]}\033[0m\""
+  exit 1
+}
+
 # 判断处理器架构
 check_arch() {
   case $(uname -m) in
@@ -550,6 +587,7 @@ cmd_systemctl() {
 }
 
 check_system_info() {
+  detect_ufw
   [ -s /etc/os-release ] && SYS="$(awk -F '"' 'tolower($0) ~ /pretty_name/{print $2}' /etc/os-release)"
   [[ -z "$SYS" ]] && command -v hostnamectl >/dev/null 2>&1 && SYS="$(hostnamectl | awk -F ': ' 'tolower($0) ~ /operating system/{print $2}')"
   [[ -z "$SYS" ]] && command -v lsb_release >/dev/null 2>&1 && SYS="$(lsb_release -sd)"
@@ -620,7 +658,7 @@ check_system_ip() {
     local IP4_DATA=$(cat $TEMP_DIR/ip4.json)
     WAN4=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP4_DATA")
     COUNTRY4=$(awk -F '"' '/"country"/{print $4}' <<< "$IP4_DATA")
-    EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_DATA" | tr -d ' ')
+    EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_DATA")
     ASNORG4=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP4_DATA")
     rm -f $TEMP_DIR/ip4.json
   fi
@@ -629,7 +667,7 @@ check_system_ip() {
     local IP6_DATA=$(cat $TEMP_DIR/ip6.json)
     WAN6=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP6_DATA")
     COUNTRY6=$(awk -F '"' '/"country"/{print $4}' <<< "$IP6_DATA")
-    EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_DATA" | tr -d ' ')
+    EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_DATA")
     ASNORG6=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP6_DATA")
     rm -f $TEMP_DIR/ip6.json
   fi
@@ -695,17 +733,15 @@ argo_variable() {
 # 根据 INSTALL_PROTOCOLS 计算安装流程总步骤数
 calc_install_steps() {
   local _total=7  # 固定步骤：协议选择、起始端口、Nginx端口、VPS IP、Argo域名、UUID、节点名
-  local _has_reality=false _has_ws_xhttp=false _has_hy2=false _has_direct_h3=false
+  local _has_reality=false _has_ws_xhttp=false _has_hy2=false
   for _p in "${INSTALL_PROTOCOLS[@]}"; do
     [[ "$_p" =~ ^[bd]$ ]] && _has_reality=true
     [[ "$_p" =~ ^[efghi]$ ]] && _has_ws_xhttp=true
     [[ "$_p" == 'c' ]] && _has_hy2=true
-    [[ "$_p" == 'j' ]] && _has_direct_h3=true
   done
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && (( _total-- ))  # 非交互安装时不单独询问 VPS IP
   $_has_reality && (( _total++ ))      # Reality 密钥
-  $_has_ws_xhttp && (( _total++ ))     # WS 路径（CDN 域名仅 efghi 需要，j 不需要）
-  $_has_direct_h3 && (( _total++ ))    # WS 路径（j 专用）
+  $_has_ws_xhttp && (( _total += 2 ))  # CDN 域名 + WS 路径
   $_has_hy2 && (( _total++ ))          # 端口跳跃
   TOTAL_STEPS=$_total
 }
@@ -910,19 +946,14 @@ xray_variable() {
 
   local _HAS_WS_XHTTP=false _HAS_XHTTP_DIRECT=false
   for p in "${INSTALL_PROTOCOLS[@]}"; do
-    [[ "$p" =~ ^[efghij]$ ]] && _HAS_WS_XHTTP=true && break
+    [[ "$p" =~ ^[efghi]$ ]] && _HAS_WS_XHTTP=true && break
   done
   for p in "${INSTALL_PROTOCOLS[@]}"; do
     [[ "$p" == 'j' ]] && _HAS_XHTTP_DIRECT=true && break
   done
 
   if [ -z "$SERVER" ]; then
-    # 仅当含有 efghi（需要 CDN 的 WS/XHTTP 协议）时才询问 CDN
-    local _HAS_WS_XHTTP_CDN=false
-    for p in "${INSTALL_PROTOCOLS[@]}"; do
-      [[ "$p" =~ ^[efghi]$ ]] && _HAS_WS_XHTTP_CDN=true && break
-    done
-    if $_HAS_WS_XHTTP_CDN; then
+    if $_HAS_WS_XHTTP; then
       if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
         (( STEP_NUM++ )) || true
         echo ""
@@ -1164,7 +1195,7 @@ input_nginx_port() {
 # 从已安装的 inbound.json / protocols 等配置文件中读取各参数，供 export_list / change_protocols 复用
 fetch_nodes_value() {
   unset SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER UUID WS_PATH NODE_NAME SS_METHOD SS2022_PASSWORD \
-        GRPC_PORT HY2_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 SERVER_IP_2
+        GRPC_PORT HY2_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 SERVER_IP_2 HY2_UP_NOW HY2_DOWN_NOW
 
   [ -s "$CUSTOM_FILE" ] && . "$CUSTOM_FILE"
   SERVER_IP="${serverIp:-}"
@@ -1206,6 +1237,20 @@ fetch_nodes_value() {
   else
     SERVER_IP_1="$SERVER_IP"
     SERVER_IP_2="$SERVER_IP"
+  fi
+
+  # 读取 Hysteria2 带宽参数（从订阅文件 proxies 中解析）
+  if [ -n "$HY2_PORT" ] && [ -s "${WORK_DIR}/subscribe/proxies" ]; then
+    local HY2_LINE=$(grep 'type: hysteria2' ${WORK_DIR}/subscribe/proxies)
+    if [[ "$HY2_LINE" =~ up:[[:space:]]*\"([0-9]+)[[:space:]]*Mbps\".*down:[[:space:]]*\"([0-9]+)[[:space:]]*Mbps\" ]]; then
+      HY2_UP_NOW="${BASH_REMATCH[1]}"
+      HY2_DOWN_NOW="${BASH_REMATCH[2]}"
+    elif [[ "$HY2_LINE" =~ down:[[:space:]]*\"([0-9]+)[[:space:]]*Mbps\".*up:[[:space:]]*\"([0-9]+)[[:space:]]*Mbps\" ]]; then
+      HY2_DOWN_NOW="${BASH_REMATCH[1]}"
+      HY2_UP_NOW="${BASH_REMATCH[2]}"
+    fi
+    HY2_UP_NOW=${HY2_UP_NOW:-200}
+    HY2_DOWN_NOW=${HY2_DOWN_NOW:-1000}
   fi
 
   [ -n "$HY2_PORT" ] && check_port_hopping_nat
@@ -1290,20 +1335,391 @@ EOF
   rm -f ${WORK_DIR}/cert/cert.conf
 }
 
-# 按需安装端口跳跃所需的防火墙依赖，安装完后确保 firewalld 已启动
-# 策略：Alpine → iptables；CentOS 或已装 firewalld → firewalld；其他 → iptables + netfilter-persistent
-install_firewall_deps() {
-  local FW_CHECK=() FW_INSTALL=() FW_TO_INSTALL=()
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    FW_CHECK=("iptables")
-    FW_INSTALL=("iptables")
-  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
-    FW_CHECK=("firewall-cmd")
-    FW_INSTALL=("firewalld")
-  else
-    FW_CHECK=("iptables" "netfilter-persistent")
-    FW_INSTALL=("iptables" "netfilter-persistent")
+# 生成 UFW PortHopping 备注
+port_hopping_ufw_comment() {
+  local PORT_HOPPING_START=$1
+  local PORT_HOPPING_END=$2
+  local PORT_HOPPING_TARGET=$3
+  echo "ArgoX UFW NAT ${PORT_HOPPING_START}:${PORT_HOPPING_END} -> ${PORT_HOPPING_TARGET}"
+}
+
+# 向指定的 UFW 规则文件写入 PortHopping NAT 规则块
+add_port_hopping_ufw_block() {
+  local RULES_FILE="$1" BLOCK_BEGIN="$2" BLOCK_END="$3" PORT_HOPPING_START="$4" PORT_HOPPING_END="$5" PORT_HOPPING_TARGET="$6" COMMENT="$7"
+  [ ! -e "$RULES_FILE" ] && return 0
+  [ -z "$PORT_HOPPING_START" ] || [ -z "$PORT_HOPPING_END" ] || [ -z "$PORT_HOPPING_TARGET" ] || [ -z "$COMMENT" ] && return 1
+  awk -v begin="$BLOCK_BEGIN" -v end="$BLOCK_END" -v start="$PORT_HOPPING_START" -v finish="$PORT_HOPPING_END" -v target="$PORT_HOPPING_TARGET" -v comment="$COMMENT" '
+    BEGIN { inserted=0 }
+    {
+      if ($0 ~ /^\*filter/ && inserted==0) {
+        print begin
+        print "*nat"
+        print ":PREROUTING ACCEPT [0:0]"
+        print "-A PREROUTING -p udp --dport " start ":" finish " -m comment --comment \"" comment "\" -j DNAT --to-destination :" target
+        print "COMMIT"
+        print end
+        inserted=1
+      }
+      print
+    }
+    END {
+      if (inserted==0) {
+        print begin
+        print "*nat"
+        print ":PREROUTING ACCEPT [0:0]"
+        print "-A PREROUTING -p udp --dport " start ":" finish " -m comment --comment \"" comment "\" -j DNAT --to-destination :" target
+        print "COMMIT"
+        print end
+      }
+    }
+  ' "$RULES_FILE" > "${TEMP_DIR}/$(basename "$RULES_FILE")" && mv "${TEMP_DIR}/$(basename "$RULES_FILE")" "$RULES_FILE"
+}
+
+# 删除 UFW 规则文件中的 PortHopping NAT 规则块
+remove_block_between_markers() {
+  local FILE="$1" BEGIN_PATTERN="$2" END_PATTERN="$3"
+  [ ! -e "$FILE" ] && return 0
+  awk -v begin="$BEGIN_PATTERN" -v end="$END_PATTERN" '
+    $0 ~ begin { skip=1; next }
+    $0 ~ end { skip=0; next }
+    skip != 1 { print }
+  ' "$FILE" > "${TEMP_DIR}/$(basename "$FILE")" && mv "${TEMP_DIR}/$(basename "$FILE")" "$FILE"
+}
+
+del_port_hopping_ufw_block() {
+  local RULES_FILE=$1 LABEL=$2
+  remove_block_between_markers "$RULES_FILE" "ArgoX UFW NAT .* ${LABEL} BEGIN" "ArgoX UFW NAT .* ${LABEL} END"
+}
+
+# 写入 UFW PortHopping NAT 规则
+add_port_hopping_ufw_rules() {
+  local PH_START=$1 PH_END=$2 TARGET_PORT=$3 COMMENT
+  COMMENT=$(port_hopping_ufw_comment "$PH_START" "$PH_END" "$TARGET_PORT")
+  [ -z "$PH_START" ] || [ -z "$PH_END" ] || [ -z "$TARGET_PORT" ] && return 1
+  local UFW_BEFORE_RULES='/etc/ufw/before.rules'
+  local UFW_BEFORE6_RULES='/etc/ufw/before6.rules'
+  local UFW_IPV4_BLOCK_BEGIN="# ${COMMENT} IPv4 BEGIN"
+  local UFW_IPV4_BLOCK_END="# ${COMMENT} IPv4 END"
+  local UFW_IPV6_BLOCK_BEGIN="# ${COMMENT} IPv6 BEGIN"
+  local UFW_IPV6_BLOCK_END="# ${COMMENT} IPv6 END"
+
+  del_port_hopping_ufw_rules >/dev/null 2>&1
+  add_port_hopping_ufw_block "$UFW_BEFORE_RULES" "$UFW_IPV4_BLOCK_BEGIN" "$UFW_IPV4_BLOCK_END" "$PH_START" "$PH_END" "$TARGET_PORT" "$COMMENT" || return 1
+  add_port_hopping_ufw_block "$UFW_BEFORE6_RULES" "$UFW_IPV6_BLOCK_BEGIN" "$UFW_IPV6_BLOCK_END" "$PH_START" "$PH_END" "$TARGET_PORT" "$COMMENT" || return 1
+  ufw delete allow ${PH_START}:${PH_END}/udp >/dev/null 2>&1 || true
+  ufw allow ${PH_START}:${PH_END}/udp comment "$COMMENT" >/dev/null 2>&1 || return 1
+  ufw reload >/dev/null 2>&1 || return 1
+  [ "$(ufw status 2>/dev/null | awk '/^Status/{print $NF; exit}')" != 'active' ] && warning "\n $(text 116) \n"
+  return 0
+}
+
+# 删除 UFW PortHopping NAT 规则
+# 同时清理 allow 与 numbered 规则，避免重复残留
+del_port_hopping_ufw_rules() {
+  local UFW_BEFORE_RULES='/etc/ufw/before.rules'
+  local UFW_BEFORE6_RULES='/etc/ufw/before6.rules'
+  local COMMENT_PREFIX='ArgoX UFW NAT'
+  local RULE_NUM OLD_START OLD_END
+  check_port_hopping_ufw_rules
+  OLD_START="$PORT_HOPPING_START"
+  OLD_END="$PORT_HOPPING_END"
+  del_port_hopping_ufw_block "$UFW_BEFORE_RULES" "IPv4" >/dev/null 2>&1
+  del_port_hopping_ufw_block "$UFW_BEFORE6_RULES" "IPv6" >/dev/null 2>&1
+  if [ -n "$OLD_START" ] && [ -n "$OLD_END" ]; then
+    ufw delete allow ${OLD_START}:${OLD_END}/udp >/dev/null 2>&1 || true
   fi
+  while read -r RULE_NUM; do
+    [ -n "$RULE_NUM" ] && ufw --force delete "$RULE_NUM" >/dev/null 2>&1 || true
+  done < <(ufw status numbered 2>/dev/null | grep "$COMMENT_PREFIX" | awk -F'[][]' '{print $2}' | sort -rn)
+  ufw reload >/dev/null 2>&1 || return 1
+  unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE
+  return 0
+}
+
+# 检查 UFW PortHopping NAT 规则
+check_port_hopping_ufw_rules() {
+  unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE
+  local DETECTED_TARGET
+  local UFW_BEFORE_RULES='/etc/ufw/before.rules'
+  local UFW_BEFORE6_RULES='/etc/ufw/before6.rules'
+  local UFW_RULE=''
+
+  [ -s $WORK_DIR/inbound.json ] && DETECTED_TARGET=$($WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' $WORK_DIR/inbound.json 2>/dev/null)
+
+  if [ -s "$UFW_BEFORE_RULES" ]; then
+    UFW_RULE=$(awk '/ArgoX UFW NAT .* IPv4 BEGIN/ { in_block=1; next } /ArgoX UFW NAT .* IPv4 END/ { in_block=0 } in_block && /-A PREROUTING -p udp/ { print; exit }' "$UFW_BEFORE_RULES")
+  fi
+  if [ -z "$UFW_RULE" ] && [ -s "$UFW_BEFORE6_RULES" ]; then
+    UFW_RULE=$(awk '/ArgoX UFW NAT .* IPv6 BEGIN/ { in_block=1; next } /ArgoX UFW NAT .* IPv6 END/ { in_block=0 } in_block && /-A PREROUTING -p udp/ { print; exit }' "$UFW_BEFORE6_RULES")
+  fi
+
+  [ -z "$UFW_RULE" ] && {
+    PORT_HOPPING_TARGET="$DETECTED_TARGET"
+    return 0
+  }
+
+  if [[ "$UFW_RULE" =~ --dport[[:space:]]+([0-9]+):([0-9]+) ]]; then
+    PORT_HOPPING_START="${BASH_REMATCH[1]}"
+    PORT_HOPPING_END="${BASH_REMATCH[2]}"
+    PORT_HOPPING_RANGE="${PORT_HOPPING_START}:${PORT_HOPPING_END}"
+  fi
+  if [[ "$UFW_RULE" =~ --to-destination[[:space:]]+:([0-9]+) ]]; then
+    PORT_HOPPING_TARGET="${BASH_REMATCH[1]}"
+  else
+    PORT_HOPPING_TARGET="$DETECTED_TARGET"
+  fi
+}
+
+# 检测防火墙后端
+check_firewall_backend() {
+  if [ "$IS_UFW" = 'is_ufw' ]; then
+    echo 'ufw'
+  elif [ "$SYSTEM" = 'Alpine' ]; then
+    echo 'alpine-iptables'
+  elif command -v firewall-cmd >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+    echo 'firewalld'
+  else
+    echo 'iptables'
+  fi
+}
+
+# 初始化防火墙状态目录
+init_firewall_state_dir() {
+  [ ! -d "$FIREWALL_STATE_DIR" ] && mkdir -p "$FIREWALL_STATE_DIR"
+}
+
+# 读取上一次由脚本管理的普通端口规则
+read_service_firewall_state() {
+  MANAGED_TCP_PORTS=()
+  MANAGED_UDP_PORTS=()
+  [ ! -s "$SERVICE_FIREWALL_STATE_FILE" ] && return 0
+  while read -r PROTO PORT; do
+    case "$PROTO" in
+      tcp ) MANAGED_TCP_PORTS+=("$PORT") ;;
+      udp ) MANAGED_UDP_PORTS+=("$PORT") ;;
+    esac
+  done < "$SERVICE_FIREWALL_STATE_FILE"
+}
+
+# 写入本次由脚本管理的普通端口规则
+write_service_firewall_state() {
+  init_firewall_state_dir
+  : > "$SERVICE_FIREWALL_STATE_FILE"
+  local PORT
+  for PORT in "${EXPOSED_TCP_PORTS[@]}"; do [ -n "$PORT" ] && echo "tcp $PORT" >> "$SERVICE_FIREWALL_STATE_FILE"; done
+  for PORT in "${EXPOSED_UDP_PORTS[@]}"; do [ -n "$PORT" ] && echo "udp $PORT" >> "$SERVICE_FIREWALL_STATE_FILE"; done
+}
+
+# 端口数组去重追加
+append_unique_port() {
+  local ARRAY_NAME=$1 PORT=$2
+  local -n ARRAY_REF="$ARRAY_NAME"
+  [ -z "$PORT" ] && return 0
+  [[ ! "$PORT" =~ ^[0-9]+$ ]] && return 0
+  local ITEM
+  for ITEM in "${ARRAY_REF[@]}"; do [ "$ITEM" = "$PORT" ] && return 0; done
+  ARRAY_REF+=("$PORT")
+}
+
+# 收集当前应该对外开放的普通端口
+collect_exposed_ports() {
+  EXPOSED_TCP_PORTS=()
+  EXPOSED_UDP_PORTS=()
+  [ -s "$WORK_DIR/inbound.json" ] || return 0
+
+  local TAG PORT NGINX_PORT_NOW HAS_NGINX=false
+  [ -s "$WORK_DIR/nginx.conf" ] && HAS_NGINX=true
+
+  while IFS=$'	' read -r TAG PORT; do
+    [ -z "$TAG" ] || [ -z "$PORT" ] && continue
+    TAG=${TAG##* }
+    case "$TAG" in
+      hysteria2)
+        append_unique_port EXPOSED_UDP_PORTS "$PORT"
+        ;;
+      vless-ws|vmess-ws|trojan-ws|ss-ws|vless-xhttp)
+        [ "$HAS_NGINX" = false ] && append_unique_port EXPOSED_TCP_PORTS "$PORT"
+        ;;
+      xhttp-h3-direct)
+        append_unique_port EXPOSED_UDP_PORTS "$PORT"
+        ;;
+      ss2022-direct)
+        append_unique_port EXPOSED_TCP_PORTS "$PORT"
+        append_unique_port EXPOSED_UDP_PORTS "$PORT"
+        ;;
+      *)
+        append_unique_port EXPOSED_TCP_PORTS "$PORT"
+        ;;
+    esac
+  done < <($WORK_DIR/jq -r '.inbounds[] | [.tag, .port] | @tsv' "$WORK_DIR/inbound.json" 2>/dev/null)
+
+  if [ "$HAS_NGINX" = true ]; then
+    NGINX_PORT_NOW=$(awk '/listen[[:space:]]+[0-9]+[[:space:]]*;/{gsub(/;/, "", $2); print $2; exit}' "$WORK_DIR/nginx.conf")
+    append_unique_port EXPOSED_TCP_PORTS "$NGINX_PORT_NOW"
+  fi
+}
+
+service_port_ufw_comment() { echo "ArgoX UFW PORT $1 $2"; }
+add_service_port_rule_ufw() { local COMMENT; COMMENT=$(service_port_ufw_comment "$1" "$2"); [ -z "$1" ] || [ -z "$2" ] && return 1; ufw allow $2/$1 comment "$COMMENT" >/dev/null 2>&1; }
+del_service_port_rule_ufw() {
+  local RULE_NUM COMMENT_PREFIX='ArgoX UFW PORT'
+  [ -z "$1" ] || [ -z "$2" ] && return 0
+  ufw --force delete allow $2/$1 >/dev/null 2>&1 || true
+  while read -r RULE_NUM; do [ -n "$RULE_NUM" ] && ufw --force delete "$RULE_NUM" >/dev/null 2>&1 || true; done < <(ufw status numbered 2>/dev/null | grep "$COMMENT_PREFIX $1 $2" | awk -F'[][]' '{print $2}' | sort -rn)
+}
+purge_service_port_rules_ufw() {
+  local RULE_NUM COMMENT_PREFIX='ArgoX UFW PORT'
+  while read -r RULE_NUM; do [ -n "$RULE_NUM" ] && ufw --force delete "$RULE_NUM" >/dev/null 2>&1 || true; done < <(ufw status numbered 2>/dev/null | grep "$COMMENT_PREFIX" | awk -F'[][]' '{print $2}' | sort -rn)
+  ufw reload >/dev/null 2>&1 || true
+}
+add_service_port_rule_firewalld() { [ -z "$1" ] || [ -z "$2" ] && return 1; firewall-cmd --zone=public --add-port=$2/$1 --permanent >/dev/null 2>&1; }
+del_service_port_rule_firewalld() { [ -z "$1" ] || [ -z "$2" ] && return 0; firewall-cmd --zone=public --remove-port=$2/$1 --permanent >/dev/null 2>&1; }
+service_port_iptables_comment() { echo "ArgoX PORT $1 $2"; }
+add_service_port_rule_iptables() {
+  local COMMENT; COMMENT=$(service_port_iptables_comment "$1" "$2")
+  [ -z "$1" ] || [ -z "$2" ] && return 1
+  iptables -C INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1 || iptables -A INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1
+  ip6tables -C INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1 || ip6tables -A INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1
+}
+del_service_port_rule_iptables() {
+  local COMMENT; COMMENT=$(service_port_iptables_comment "$1" "$2")
+  [ -z "$1" ] || [ -z "$2" ] && return 0
+  iptables -D INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1 || true
+  ip6tables -D INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1 || true
+}
+
+# 按后端保存 / 重载防火墙规则
+reload_or_save_firewall_rules() {
+  local FW_BACKEND
+  FW_BACKEND=$(check_firewall_backend)
+  case "$FW_BACKEND" in
+    ufw ) ufw reload >/dev/null 2>&1 || true ;;
+    firewalld ) firewall-cmd --reload >/dev/null 2>&1 || true ;;
+    alpine-iptables ) rc-service iptables save >/dev/null 2>&1 || true; rc-service ip6tables save >/dev/null 2>&1 || true ;;
+    * ) [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save >/dev/null 2>&1 || true ;;
+  esac
+}
+
+# 清理上一次由脚本管理的普通端口规则
+purge_service_firewall_rules() {
+  local FW_BACKEND PORT
+  FW_BACKEND=$(check_firewall_backend)
+  init_firewall_state_dir
+  read_service_firewall_state
+  case "$FW_BACKEND" in
+    ufw ) purge_service_port_rules_ufw ;;
+    firewalld )
+      for PORT in "${MANAGED_TCP_PORTS[@]}"; do del_service_port_rule_firewalld tcp "$PORT"; done
+      for PORT in "${MANAGED_UDP_PORTS[@]}"; do del_service_port_rule_firewalld udp "$PORT"; done
+      ;;
+    alpine-iptables|iptables )
+      for PORT in "${MANAGED_TCP_PORTS[@]}"; do del_service_port_rule_iptables tcp "$PORT"; done
+      for PORT in "${MANAGED_UDP_PORTS[@]}"; do del_service_port_rule_iptables udp "$PORT"; done
+      ;;
+  esac
+  : > "$SERVICE_FIREWALL_STATE_FILE"
+  reload_or_save_firewall_rules
+}
+
+# 同步普通服务端口规则
+sync_service_firewall_rules() {
+  local FW_BACKEND PORT
+  collect_exposed_ports
+  FW_BACKEND=$(check_firewall_backend)
+  purge_service_firewall_rules
+  case "$FW_BACKEND" in
+    ufw )
+      for PORT in "${EXPOSED_TCP_PORTS[@]}"; do add_service_port_rule_ufw tcp "$PORT"; done
+      for PORT in "${EXPOSED_UDP_PORTS[@]}"; do add_service_port_rule_ufw udp "$PORT"; done
+      ;;
+    firewalld )
+      for PORT in "${EXPOSED_TCP_PORTS[@]}"; do add_service_port_rule_firewalld tcp "$PORT"; done
+      for PORT in "${EXPOSED_UDP_PORTS[@]}"; do add_service_port_rule_firewalld udp "$PORT"; done
+      ;;
+    alpine-iptables|iptables )
+      for PORT in "${EXPOSED_TCP_PORTS[@]}"; do add_service_port_rule_iptables tcp "$PORT"; done
+      for PORT in "${EXPOSED_UDP_PORTS[@]}"; do add_service_port_rule_iptables udp "$PORT"; done
+      ;;
+  esac
+  write_service_firewall_state
+  reload_or_save_firewall_rules
+}
+
+# 同步 Hysteria2 端口跳跃规则
+sync_port_hopping_firewall_rules() {
+  local HY2_TARGET DESIRED_START DESIRED_END EXISTING_START EXISTING_END EXISTING_TARGET
+  HY2_TARGET=$($WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' "$WORK_DIR/inbound.json" 2>/dev/null)
+  check_port_hopping_nat
+  EXISTING_START="$PORT_HOPPING_START"
+  EXISTING_END="$PORT_HOPPING_END"
+  EXISTING_TARGET="$PORT_HOPPING_TARGET"
+  DESIRED_START="${PORT_HOPPING_START:-$EXISTING_START}"
+  DESIRED_END="${PORT_HOPPING_END:-$EXISTING_END}"
+  if [ -z "$HY2_TARGET" ]; then
+    [ -n "$EXISTING_START" ] && [ -n "$EXISTING_END" ] && del_port_hopping_nat
+    unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE PORT_HOPPING_TARGET
+    return 0
+  fi
+  if [ -z "$DESIRED_START" ] || [ -z "$DESIRED_END" ]; then
+    [ -n "$EXISTING_START" ] && [ -n "$EXISTING_END" ] && del_port_hopping_nat
+    unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE
+    PORT_HOPPING_TARGET="$HY2_TARGET"
+    return 0
+  fi
+  if [ "$EXISTING_START" != "$DESIRED_START" ] || [ "$EXISTING_END" != "$DESIRED_END" ] || [ "$EXISTING_TARGET" != "$HY2_TARGET" ]; then
+    [ -n "$EXISTING_START" ] && [ -n "$EXISTING_END" ] && del_port_hopping_nat
+    PORT_HOPPING_START="$DESIRED_START"
+    PORT_HOPPING_END="$DESIRED_END"
+    PORT_HOPPING_RANGE="${DESIRED_START}:${DESIRED_END}"
+    PORT_HOPPING_TARGET="$HY2_TARGET"
+    add_port_hopping_nat "$PORT_HOPPING_START" "$PORT_HOPPING_END" "$PORT_HOPPING_TARGET"
+  fi
+}
+
+# 同步所有防火墙规则
+sync_firewall_rules() {
+  sync_service_firewall_rules
+  sync_port_hopping_firewall_rules
+}
+
+# 清理所有由脚本管理的防火墙规则
+purge_managed_firewall_rules() {
+  local FW_BACKEND
+  FW_BACKEND=$(check_firewall_backend)
+  purge_service_firewall_rules
+  case "$FW_BACKEND" in
+    ufw )
+      del_port_hopping_ufw_rules >/dev/null 2>&1 || true
+      ;;
+    * )
+      del_port_hopping_nat >/dev/null 2>&1 || true
+      ;;
+  esac
+}
+
+# 按需安装端口跳跃所需的防火墙依赖
+# 策略：UFW → 不安装 iptables / netfilter-persistent；Alpine → iptables；CentOS 或已装 firewalld → firewalld；其他 → iptables + netfilter-persistent
+install_firewall_deps() {
+  local FW_BACKEND FW_CHECK=() FW_INSTALL=() FW_TO_INSTALL=()
+  FW_BACKEND=$(check_firewall_backend)
+  case "$FW_BACKEND" in
+    ufw )
+      [ "$FIREWALL_SILENT" = '1' ] || info "\n $(text 115) \n"
+      return 0
+      ;;
+    alpine-iptables )
+      FW_CHECK=("iptables")
+      FW_INSTALL=("iptables")
+      ;;
+    firewalld )
+      FW_CHECK=("firewall-cmd")
+      FW_INSTALL=("firewalld")
+      ;;
+    * )
+      FW_CHECK=("iptables" "netfilter-persistent")
+      FW_INSTALL=("iptables" "netfilter-persistent")
+      ;;
+  esac
   for i in "${!FW_CHECK[@]}"; do
     ! command -v "${FW_CHECK[i]}" >/dev/null 2>&1 && FW_TO_INSTALL+=("${FW_INSTALL[i]}")
   done
@@ -1312,8 +1728,7 @@ install_firewall_deps() {
     [ "$SYSTEM" != 'CentOS' ] && ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
     ${PACKAGE_INSTALL[int]} "${FW_TO_INSTALL[@]}" >/dev/null 2>&1
   fi
-  # 安装后确保 firewalld 已启动（CentOS 或已装 firewalld 的系统）
-  if command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
+  if [ "$FW_BACKEND" = 'firewalld' ]; then
     [ "$(systemctl is-active firewalld 2>/dev/null)" != 'active' ] && cmd_systemctl enable firewalld >/dev/null 2>&1
     [ "$(firewall-cmd --zone=public --get-target 2>/dev/null)" != 'ACCEPT' ] && firewall-cmd --zone=public --set-target=ACCEPT --permanent >/dev/null 2>&1
     firewall-cmd --reload >/dev/null 2>&1
@@ -1322,69 +1737,85 @@ install_firewall_deps() {
 
 # 添加端口跳跃 NAT 规则
 add_port_hopping_nat() {
-  local HOP_START=$1 HOP_END=$2 HOP_TARGET=$3
-  # 防止空参数写入残缺规则
+  local HOP_START=$1 HOP_END=$2 HOP_TARGET=$3 FW_BACKEND COMMENT
   [[ -z "$HOP_START" || -z "$HOP_END" || -z "$HOP_TARGET" ]] && return 1
-  # 按需安装防火墙依赖（内部已确保 firewalld 启动）
   install_firewall_deps
-  local COMMENT="NAT ${HOP_START}:${HOP_END} to ${HOP_TARGET} (ArgoX)"
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-    ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-    rc-update show default | grep -q 'iptables' || rc-update add iptables >/dev/null 2>&1
-    rc-update show default | grep -q 'ip6tables' || rc-update add ip6tables >/dev/null 2>&1
-    rc-service iptables save >/dev/null 2>&1
-    rc-service ip6tables save >/dev/null 2>&1
-  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
-    [ "$(firewall-cmd --zone=public --query-masquerade --permanent 2>/dev/null)" != 'yes' ] && \
-      firewall-cmd --zone=public --add-masquerade --permanent >/dev/null 2>&1
-    firewall-cmd --zone=public --add-forward-port=port=${HOP_START}-${HOP_END}:proto=udp:toport=${HOP_TARGET} --permanent >/dev/null 2>&1
-    firewall-cmd --reload >/dev/null 2>&1
-  else
-    iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-    ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-    netfilter-persistent save >/dev/null 2>&1 || true
-  fi
+  FW_BACKEND=$(check_firewall_backend)
+  COMMENT="NAT ${HOP_START}:${HOP_END} to ${HOP_TARGET} (ArgoX)"
+  case "$FW_BACKEND" in
+    ufw )
+      add_port_hopping_ufw_rules "$HOP_START" "$HOP_END" "$HOP_TARGET" || warning "\n $(text 117) \n"
+      ;;
+    alpine-iptables )
+      iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
+      ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
+      rc-update show default | grep -q 'iptables' || rc-update add iptables >/dev/null 2>&1
+      rc-update show default | grep -q 'ip6tables' || rc-update add ip6tables >/dev/null 2>&1
+      rc-service iptables save >/dev/null 2>&1
+      rc-service ip6tables save >/dev/null 2>&1
+      ;;
+    firewalld )
+      [ "$(firewall-cmd --zone=public --query-masquerade --permanent 2>/dev/null)" != 'yes' ] && firewall-cmd --zone=public --add-masquerade --permanent >/dev/null 2>&1
+      firewall-cmd --zone=public --add-forward-port=port=${HOP_START}-${HOP_END}:proto=udp:toport=${HOP_TARGET} --permanent >/dev/null 2>&1
+      firewall-cmd --reload >/dev/null 2>&1
+      ;;
+    * )
+      iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
+      ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
+      [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save >/dev/null 2>&1 || true
+      ;;
+  esac
 }
 
 # 删除端口跳跃 NAT 规则
 del_port_hopping_nat() {
   check_port_hopping_nat
   [ -z "$PORT_HOPPING_START" ] && return
-  local COMMENT="NAT ${PORT_HOPPING_START}:${PORT_HOPPING_END} to ${PORT_HOPPING_TARGET} (ArgoX)"
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-    ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
-    firewall-cmd --zone=public --permanent --remove-forward-port=port=${PORT_HOPPING_START}-${PORT_HOPPING_END}:proto=udp:toport=${PORT_HOPPING_TARGET} >/dev/null 2>&1
-    firewall-cmd --reload >/dev/null 2>&1
-  else
-    iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-    ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-    netfilter-persistent save >/dev/null 2>&1 || true
-  fi
+  local FW_BACKEND COMMENT
+  FW_BACKEND=$(check_firewall_backend)
+  COMMENT="NAT ${PORT_HOPPING_START}:${PORT_HOPPING_END} to ${PORT_HOPPING_TARGET} (ArgoX)"
+  case "$FW_BACKEND" in
+    ufw )
+      del_port_hopping_ufw_rules || warning "\n $(text 117) \n"
+      ;;
+    alpine-iptables )
+      iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+      ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+      ;;
+    firewalld )
+      firewall-cmd --zone=public --permanent --remove-forward-port=port=${PORT_HOPPING_START}-${PORT_HOPPING_END}:proto=udp:toport=${PORT_HOPPING_TARGET} >/dev/null 2>&1
+      firewall-cmd --reload >/dev/null 2>&1
+      ;;
+    * )
+      iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+      ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+      [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save >/dev/null 2>&1 || true
+      ;;
+  esac
 }
 
-# 检查端口跳跃 NAT 规则（读取当前 iptables / firewalld）
+# 检查端口跳跃 NAT 规则（读取当前 UFW / iptables / firewalld）
 check_port_hopping_nat() {
+  local FW_BACKEND LIST
+  FW_BACKEND=$(check_firewall_backend)
   unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE PORT_HOPPING_TARGET
-  [ -s $WORK_DIR/inbound.json ] && PORT_HOPPING_TARGET=$($WORK_DIR/jq -r \
-    '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' \
-    $WORK_DIR/inbound.json 2>/dev/null)
+  [ -s $WORK_DIR/inbound.json ] && PORT_HOPPING_TARGET=$($WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' $WORK_DIR/inbound.json 2>/dev/null)
   [ -z "$PORT_HOPPING_TARGET" ] && return
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    local LIST=$(iptables --table nat --list-rules PREROUTING 2>/dev/null | grep 'ArgoX')
-    [ -n "$LIST" ] && PORT_HOPPING_RANGE=$(awk '{for(i=0;i<NF;i++) if($i=="--dport"){print $(i+1);exit}}' <<< "$LIST") && \
-      PORT_HOPPING_TARGET=$(awk '{for(i=0;i<NF;i++) if($i=="to"){print $(i+1);exit}}' <<< "$LIST")
-  elif command -v firewalld >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
-    local LIST=$(firewall-cmd --zone=public --list-all --permanent 2>/dev/null | grep "toport=${PORT_HOPPING_TARGET}")
-    [ -n "$LIST" ] && PORT_HOPPING_START=$(sed "s/.*port=\([^-]\+\)-.*toport.*/\1/" <<< "$LIST") && \
-      PORT_HOPPING_END=$(sed "s/.*port=${PORT_HOPPING_START}-\([^:]\+\):.*/\1/" <<< "$LIST")
-  else
-    local LIST=$(iptables --table nat --list-rules PREROUTING 2>/dev/null | grep 'ArgoX')
-    [ -n "$LIST" ] && PORT_HOPPING_RANGE=$(awk '{for(i=0;i<NF;i++) if($i=="--dport"){print $(i+1);exit}}' <<< "$LIST") && \
-      PORT_HOPPING_TARGET=$(awk '{for(i=0;i<NF;i++) if($i=="to"){print $(i+1);exit}}' <<< "$LIST")
-  fi
+  case "$FW_BACKEND" in
+    ufw )
+      check_port_hopping_ufw_rules
+      # 若 UFW 规则已被清空，仍保留当前 Hysteria2 监听端口，方便后续重新启用端口跳跃
+      [ -z "$PORT_HOPPING_TARGET" ] && PORT_HOPPING_TARGET=$($WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' $WORK_DIR/inbound.json 2>/dev/null)
+      ;;
+    alpine-iptables|iptables )
+      LIST=$(iptables --table nat --list-rules PREROUTING 2>/dev/null | grep 'ArgoX')
+      [ -n "$LIST" ] && PORT_HOPPING_RANGE=$(awk '{for(i=0;i<NF;i++) if($i=="--dport"){print $(i+1);exit}}' <<< "$LIST") && PORT_HOPPING_TARGET=$(awk '{for(i=0;i<NF;i++) if($i=="to"){print $(i+1);exit}}' <<< "$LIST")
+      ;;
+    firewalld )
+      LIST=$(firewall-cmd --zone=public --list-all --permanent 2>/dev/null | grep "toport=${PORT_HOPPING_TARGET}")
+      [ -n "$LIST" ] && PORT_HOPPING_START=$(sed "s/.*port=\([^-]\+\)-.*toport.*/\1/" <<< "$LIST") && PORT_HOPPING_END=$(sed "s/.*port=${PORT_HOPPING_START}-\([^:]\+\):.*/\1/" <<< "$LIST")
+      ;;
+  esac
   [ -n "$PORT_HOPPING_RANGE" ] && PORT_HOPPING_START=${PORT_HOPPING_RANGE%:*} && PORT_HOPPING_END=${PORT_HOPPING_RANGE#*:}
 }
 
@@ -1959,15 +2390,22 @@ WantedBy=multi-user.target"
         "realitySettings": {
           "show": false,
           "dest": "${TLS_SERVER}:443",
-          "serverNames": [ "${TLS_SERVER}" ],
+          "serverNames": [
+            "${TLS_SERVER}"
+          ],
           "privateKey": "${REALITY_PRIVATE}",
           "publicKey": "${REALITY_PUBLIC}",
-          "shortIds": [ "" ]
+          "shortIds": [
+            ""
+          ]
         }
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls" ]
+        "destOverride": [
+          "http",
+          "tls"
+        ]
       }
     }
 JSONEOF
@@ -1981,15 +2419,28 @@ JSONEOF
       "port": ${HY2_PORT},
       "settings": {
         "version": 2,
-        "clients": [ { "auth": "${UUID}" } ]
+        "clients": [
+          {
+            "auth": "${UUID}"
+          }
+        ]
       },
       "streamSettings": {
         "network": "hysteria",
         "security": "tls",
         "tlsSettings": {
-          "serverNames": [ "${TLS_SERVER}" ],
-          "alpn": [ "h3" ],
-          "certificates": [ { "certificateFile": "${WORK_DIR}/cert/cert.pem", "keyFile": "${WORK_DIR}/cert/private.key" } ]
+          "serverNames": [
+            "${TLS_SERVER}"
+          ],
+          "alpn": [
+            "h3"
+          ],
+          "certificates": [
+            {
+              "certificateFile": "${WORK_DIR}/cert/cert.pem",
+              "keyFile": "${WORK_DIR}/cert/private.key"
+            }
+          ]
         }
       }
     }
@@ -2018,10 +2469,14 @@ JSONEOF
           "show": false,
           "dest": "${TLS_SERVER}:443",
           "xver": 0,
-          "serverNames": [ "${TLS_SERVER}" ],
+          "serverNames": [
+            "${TLS_SERVER}"
+          ],
           "privateKey": "${REALITY_PRIVATE}",
           "publicKey": "${REALITY_PUBLIC}",
-          "shortIds": [ "" ]
+          "shortIds": [
+            ""
+          ]
         },
         "grpcSettings": {
           "serviceName": "grpc",
@@ -2030,7 +2485,10 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls" ]
+        "destOverride": [
+          "http",
+          "tls"
+        ]
       }
     }
 JSONEOF
@@ -2061,7 +2519,11 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls", "quic" ],
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
         "metadataOnly": false
       }
     }
@@ -2091,7 +2553,11 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls", "quic" ],
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
         "metadataOnly": false
       }
     }
@@ -2121,7 +2587,11 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls", "quic" ],
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
         "metadataOnly": false
       }
     }
@@ -2152,7 +2622,11 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls", "quic" ],
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
         "metadataOnly": false
       }
     }
@@ -2263,7 +2737,11 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls", "quic" ],
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
         "metadataOnly": false
       }
     }
@@ -2283,7 +2761,11 @@ JSONEOF
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": [ "http", "tls", "quic" ],
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
         "metadataOnly": false
       }
     }
@@ -2426,6 +2908,7 @@ EOF
     "$(text 28)" )
       info "\n Xray $(text 28) $(text 37) \n"
   esac
+  sync_firewall_rules
 }
 
 # 创建快捷方式
@@ -2526,13 +3009,18 @@ export_list() {
   # hysteria2
   if grep -q 'hysteria2' <<< "$PROTOS_NOW"; then
     local _h2h=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _h2h="&mport=${HY2_PORT},${PORT_HOPPING_START}-${PORT_HOPPING_END}"
-    local _sbhp=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _sbhp=",\"server_ports\":[\"${PORT_HOPPING_START}:${PORT_HOPPING_END}\"]"
-    local _chop=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _chop="ports: ${PORT_HOPPING_START}-${PORT_HOPPING_END}, HopInterval: 60, "
+    local _sbhp=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _sbhp=",\"server_ports\":[\"${PORT_HOPPING_START}:${PORT_HOPPING_END}\"], \"hop_interval\": \"30s\", \"hop_interval_max\": \"60s\""
+    local _chop=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _chop="ports: ${PORT_HOPPING_START}-${PORT_HOPPING_END}, hop-interval: 30, "
+    local _srhop=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _srhop="&keepalive=30"
+    local _nekohop=''; [[ -n "$PORT_HOPPING_START" && -n "$PORT_HOPPING_END" ]] && _nekohop="&hop_interval=30"
+    # 使用动态带宽参数，默认为 200/1000
+    local _hy2_up="${HY2_UP_NOW:-200}"
+    local _hy2_down="${HY2_DOWN_NOW:-1000}"
     _add \
-      "{name: \"${NODE_NAME} hysteria2\", type: hysteria2, server: ${SERVER_IP}, port: ${HY2_PORT}, ${_chop}up: \"200 Mbps\", down: \"1000 Mbps\", password: ${UUID}, sni: ${CERT_SNI}, skip-cert-verify: false, fingerprint: ${HY2_FP_SHA256}}" \
-      "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?peer=${CERT_SNI}&hpkp=${HY2_FP_SHA256}&obfs=none${_h2h}#${NODE_NAME// /%20}%20hysteria2" \
-      "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?sni=${CERT_SNI}&alpn=h3&insecure=1&pinSHA256=${HY2_FP_SHA256//:/}${_h2h}#${NODE_NAME// /%20}%20hysteria2" \
-      "{ \"type\": \"hysteria2\", \"tag\": \"${NODE_NAME} hysteria2\", \"server\": \"${SERVER_IP}\", \"server_port\": ${HY2_PORT}${_sbhp}, \"up_mbps\": 200, \"down_mbps\": 1000, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${HY2_FP_BASE64}\"], \"alpn\": [ \"h3\" ] } }" \
+      "{name: \"${NODE_NAME} hysteria2\", type: hysteria2, server: ${SERVER_IP}, port: ${HY2_PORT}, ${_chop}up: \"${_hy2_up} Mbps\", down: \"${_hy2_down} Mbps\", password: ${UUID}, sni: ${CERT_SNI}, skip-cert-verify: false, fingerprint: ${HY2_FP_SHA256}}" \
+      "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?peer=${CERT_SNI}&hpkp=${HY2_FP_SHA256}&obfs=none&upmbps=${_hy2_up}&downmbps=${_hy2_down}${_srhop}${_h2h}#${NODE_NAME// /%20}%20hysteria2" \
+      "hy2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?insecure=1&sni=${CERT_SNI}&upmbps=${_hy2_up}&downmbps=${_hy2_down}${_nekohop}${_h2h}#${NODE_NAME// /%20}%20hysteria2" \
+      "{ \"type\": \"hysteria2\", \"tag\": \"${NODE_NAME} hysteria2\", \"server\": \"${SERVER_IP}\", \"server_port\": ${HY2_PORT}${_sbhp}, \"up_mbps\": ${_hy2_up}, \"down_mbps\": ${_hy2_down}, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${HY2_FP_BASE64}\"], \"alpn\": [ \"h3\" ] } }" \
       "${NODE_NAME} hysteria2"
   fi
 
@@ -3051,6 +3539,7 @@ EOF
     && info "\n Xray $(text 28) $(text 37) \n" \
     || warning "\n Xray $(text 28) $(text 38) \n"
   export_list
+  sync_firewall_rules
 }
 
 # 更换 Argo 隧道类型
@@ -3133,6 +3622,67 @@ change_argo() {
 }
 
 # 更换优选域名 / Reality SNI / 节点信息
+change_start_port() {
+  local OLD_PORTS OLD_START_PORT OLD_CONSECUTIVE_PORTS
+  local _STEP_NUM_BAK="${STEP_NUM-}" _TOTAL_STEPS_BAK="${TOTAL_STEPS-}"
+  [ ! -s "$WORK_DIR/inbound.json" ] && error " $(text 70) "
+  OLD_PORTS=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
+  [ -z "$OLD_PORTS" ] && error " $(text 70) "
+  OLD_START_PORT=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$OLD_PORTS")
+  OLD_CONSECUTIVE_PORTS=$(awk 'END { print NR }' <<< "$OLD_PORTS")
+  unset STEP_NUM TOTAL_STEPS
+  START_PORT=''
+  input_start_port "$OLD_CONSECUTIVE_PORTS"
+  STEP_NUM="$_STEP_NUM_BAK"
+  TOTAL_STEPS="$_TOTAL_STEPS_BAK"
+  [ -z "$START_PORT" ] && info " $(text 103) " && return
+  [ "$START_PORT" = "$OLD_START_PORT" ] && info " $(text 103) " && return
+
+  grep -v '^//' "$WORK_DIR/inbound.json"     | $WORK_DIR/jq --argjson start "$START_PORT" '.inbounds |= (to_entries | map(.value.port = ($start + .key) | .value))'     > "$TEMP_DIR/inbound_tmp.json"     && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
+
+  fetch_nodes_value
+  [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
+  cmd_systemctl disable xray
+  cmd_systemctl enable xray
+  FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
+  sleep 2
+  export_list
+  cmd_systemctl status xray &>/dev/null && info "
+ Xray $(text 28) $(text 37) 
+" || warning "
+ Xray $(text 27) $(text 38) 
+"
+}
+
+# 更换优选域名 / Reality SNI / 节点信息
+change_start_port() {
+  local OLD_PORTS OLD_START_PORT OLD_CONSECUTIVE_PORTS
+  [ ! -s "$WORK_DIR/inbound.json" ] && error " $(text 70) "
+  OLD_PORTS=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
+  [ -z "$OLD_PORTS" ] && error " $(text 70) "
+  OLD_START_PORT=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$OLD_PORTS")
+  OLD_CONSECUTIVE_PORTS=$(awk 'END { print NR }' <<< "$OLD_PORTS")
+  START_PORT=''
+  input_start_port "$OLD_CONSECUTIVE_PORTS"
+  [ -z "$START_PORT" ] && info " $(text 103) " && return
+  [ "$START_PORT" = "$OLD_START_PORT" ] && info " $(text 103) " && return
+
+  grep -v '^//' "$WORK_DIR/inbound.json"     | $WORK_DIR/jq --argjson start "$START_PORT" '.inbounds |= (to_entries | map(.value.port = ($start + .key) | .value))'     > "$TEMP_DIR/inbound_tmp.json"     && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
+
+  fetch_nodes_value
+  [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
+  cmd_systemctl disable xray
+  cmd_systemctl enable xray
+  FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
+  sleep 2
+  export_list
+  cmd_systemctl status xray &>/dev/null && info "
+ Xray $(text 28) $(text 37) 
+" || warning "
+ Xray $(text 27) $(text 38) 
+"
+}
+
 change_config() {
   [ ! -d "${WORK_DIR}" ] && error " $(text 70) "
 
@@ -3142,12 +3692,26 @@ change_config() {
 
   [[ -n "$SERVER" && "$SERVER" != '__CDN_UNSET__' ]] && MENU_IDX+=(107) && MENU_KEY+=(cdn) && MENU_VAL+=("$SERVER")
   [ -n "$TLS_SERVER" ] && MENU_IDX+=(108) && MENU_KEY+=(sni) && MENU_VAL+=("$TLS_SERVER")
+  local PORTS_NOW=$(grep -v '^//' "$WORK_DIR/inbound.json" 2>/dev/null | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
+  if [ -n "$PORTS_NOW" ]; then
+    local PORTS_NOW_START=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$PORTS_NOW")
+    local PORTS_NOW_COUNT=$(awk 'END { print NR }' <<< "$PORTS_NOW")
+    local PORTS_NOW_END=$((PORTS_NOW_START + PORTS_NOW_COUNT - 1))
+    MENU_IDX+=(119) && MENU_KEY+=(ports) && MENU_VAL+=("${PORTS_NOW_START} - ${PORTS_NOW_END}")
+  fi
   [ -n "$NODE_NAME" ] && MENU_IDX+=(109) && MENU_KEY+=(name) && MENU_VAL+=("$NODE_NAME")
   [ -n "$UUID" ] && MENU_IDX+=(110) && MENU_KEY+=(uuid) && MENU_VAL+=("$UUID")
   [ -n "$SERVER_IP" ] && MENU_IDX+=(111) && MENU_KEY+=(serverip) && MENU_VAL+=("$SERVER_IP")
-  # 仅当 hysteria2 已安装（PORT_HOPPING_TARGET 非空）时才显示端口跳跃选项
-  if [ -n "$PORT_HOPPING_TARGET" ]; then
-    MENU_IDX+=(6); MENU_KEY+=(hopping)
+  
+  # Hysteria2 带宽和端口跳跃（仅在 Hysteria2 已安装时显示）
+  if [ -n "$HY2_PORT" ]; then
+    # Hysteria2 带宽参数（一定有，默认 200/1000）
+    HY2_UP_NOW=${HY2_UP_NOW:-200}
+    HY2_DOWN_NOW=${HY2_DOWN_NOW:-1000}
+    MENU_IDX+=(120) && MENU_KEY+=(hy2bw) && MENU_VAL+=("${HY2_UP_NOW}/${HY2_DOWN_NOW}")
+    
+    # 端口跳跃选项；是否已启用由 PORT_HOPPING_START/END 决定
+    MENU_IDX+=(6) && MENU_KEY+=(hopping)
     if [ -n "$PORT_HOPPING_START" ]; then
       MENU_VAL+=("${PORT_HOPPING_START}:${PORT_HOPPING_END}")
     else
@@ -3177,22 +3741,57 @@ change_config() {
   local KEY="${MENU_KEY[IDX]}"
   local OLD="${MENU_VAL[IDX]}"
 
-  # 端口跳跃：走独立交互流程，不走通用 reading/sed 替换
-  if [ "$KEY" = "hopping" ]; then
-    # 提前保存 TARGET，del_port_hopping_nat 内会调用 check_port_hopping_nat 清空它
-    local _HOP_TARGET="$PORT_HOPPING_TARGET"
+  # 特殊操作路由（不走通用 reading/sed 替换）
+  if [ "$KEY" = "ports" ]; then
+    change_start_port
+    return
+  elif [ "$KEY" = "hy2bw" ]; then
+    # 修改 Hysteria2 带宽 - 内联实现
+    local HY2_UP HY2_DOWN
+    while true; do
+      reading " $(text 121) " HY2_UP
+      [[ "$HY2_UP" =~ ^[1-9][0-9]*$ ]] && break
+      warning " $(text 123) "
+    done
+    while true; do
+      reading " $(text 122) " HY2_DOWN
+      [[ "$HY2_DOWN" =~ ^[1-9][0-9]*$ ]] && break
+      warning " $(text 123) "
+    done
+    sed -i -E "s/(up: \")([0-9]+)( Mbps\")/\1${HY2_UP}\3/g; s/(down: \")([0-9]+)( Mbps\")/\1${HY2_DOWN}\3/g" ${WORK_DIR}/subscribe/proxies
+    sync_firewall_rules
+    hint " $(text 112) "
+    export_list
+    return
+  elif [ "$KEY" = "hopping" ]; then
+    # 保存旧状态，留空禁用时需要正确判断“是禁用成功”还是“本来就没开”
+    local _OLD_HOP_START="$PORT_HOPPING_START" _OLD_HOP_END="$PORT_HOPPING_END" _OLD_HOP_RANGE="$OLD"
+    # 提前保存 TARGET，del_port_hopping_nat / sync_firewall_rules 内部检查可能会重置相关变量
+    local _HOP_TARGET="${PORT_HOPPING_TARGET:-$HY2_PORT}"
     unset IS_HOPPING PORT_HOPPING_RANGE PORT_HOPPING_START PORT_HOPPING_END
     input_hopping_port
-    # 保存用户输入的起止端口，del_port_hopping_nat 内 check_port_hopping_nat 会 unset 它们
-    local _HOP_START="$PORT_HOPPING_START" _HOP_END="$PORT_HOPPING_END"
+    # 保存用户输入的起止端口，后续删除旧规则时内部检测可能会清空
+    local _NEW_HOP_START="$PORT_HOPPING_START" _NEW_HOP_END="$PORT_HOPPING_END"
     # 先删除旧规则（无论原来是否有）
     del_port_hopping_nat
     if [ "$IS_HOPPING" = 'is_hopping' ]; then
-      add_port_hopping_nat "$_HOP_START" "$_HOP_END" "$_HOP_TARGET"
-      info "\n $(text 37) \n"
+      PORT_HOPPING_START="$_NEW_HOP_START"
+      PORT_HOPPING_END="$_NEW_HOP_END"
+      PORT_HOPPING_RANGE="${_NEW_HOP_START}:${_NEW_HOP_END}"
+      PORT_HOPPING_TARGET="$_HOP_TARGET"
+      FIREWALL_SILENT=1 add_port_hopping_nat "$PORT_HOPPING_START" "$PORT_HOPPING_END" "$PORT_HOPPING_TARGET" >/dev/null 2>&1
     else
-      info "\n $(text 103) \n"
+      unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE
+      PORT_HOPPING_TARGET="$_HOP_TARGET"
+      # 只有在未做任何修改时才提示
+      if [ -z "$_NEW_HOP_START" ] && [ -z "$_OLD_HOP_START" ]; then
+        info "
+ $(text 103) 
+"
+        return
+      fi
     fi
+    FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
     export_list
     return
   fi
@@ -3266,15 +3865,17 @@ change_config() {
     info "\n Xray $(text 28) $(text 37) \n" || \
     warning "\n Xray $(text 27) $(text 38) \n"
 
+  FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
   export_list
 }
 
 # 卸载 ArgoX
 uninstall() {
   if [ -d $WORK_DIR ]; then
-    cmd_systemctl disable argo
-    cmd_systemctl disable xray
-    get_installed_protocols | grep -q 'hysteria2' && del_port_hopping_nat
+    detect_ufw
+    cmd_systemctl disable argo >/dev/null 2>&1
+    cmd_systemctl disable xray >/dev/null 2>&1
+    purge_managed_firewall_rules >/dev/null 2>&1 || true
     local _NGINX_MASTER
     _NGINX_MASTER=$(ps -eo pid,args | awk '/nginx: master process.*\/etc\/argox\/nginx.conf/{print $1;exit}')
     if [ -n "$_NGINX_MASTER" ]; then
@@ -3522,8 +4123,9 @@ exit 2
   exit $?
 fi
 
-select_language
 check_root
+check_ufw_active_preinstall
+select_language
 check_arch
 check_system_info
 check_dependencies

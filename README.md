@@ -20,6 +20,8 @@
 
 * * *
 ## 更新信息
+2026.04.10 v2.0.3 1. 自动检测 UFW 并切换规则管理方式; 2. [argox -d] 支持修改起始端口并自动同步防火墙; 3. 新增 Hysteria2 带宽配置入口
+
 2026.04.04 v2.0.2 新增 Trojan Direct 和 Shadowsocks 2022 Direct，并在更换 TLS 域名时同步重新生成自签证书
 
 2026.04.01 v2.0.1 新增使用 CDN 的 VLESS/XHTTP 和 XHTTP HTTP/3 直连支持
