@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.3 (2026.04.11)'
+VERSION='2.0.4 (2026.04.11)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
 
 # 协议列表和对应的节点标签，顺序必须一一对应
 PROTOCOL_LIST=("VLESS + Reality Vision" "Hysteria2" "VLESS + Reality gRPC" "VLESS + WS" "VMess + WS" "Trojan + WS" "Shadowsocks + WS" "VLESS + XHTTP" "VLESS + XHTTP Direct" "Trojan Direct" "Shadowsocks 2022 Direct")
-NODE_TAG=("reality-vision" "hysteria2" "reality-grpc" "vless-ws" "vmess-ws" "trojan-ws" "ss-ws" "vless-xhttp" "xhttp-h3-direct" "trojan-direct" "ss2022-direct")
+NODE_TAG=(     "reality-vision"         "hysteria2" "reality-grpc"         "vless-ws"   "vmess-ws"   "trojan-ws"   "ss-ws"            "vless-xhttp"   "xhttp-h3-direct"      "trojan-direct" "ss2022-direct")
 
 # 端口范围限制
 MIN_PORT=100
@@ -36,21 +36,15 @@ cleanup_temp() {
   rm -rf "$TEMP_DIR"
 }
 
-on_interrupt_exit() {
-  cleanup_temp
-  echo -e '\n'
-  exit 1
-}
-
 trap cleanup_temp EXIT
-trap on_interrupt_exit INT QUIT TERM
+trap 'cleanup_temp; echo -e '\''\n'\''; exit 1' INT QUIT TERM
 
 mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry"
-C[1]="1. 自动检测 UFW 并切换规则管理方式; 2. [argox -d] 支持修改起始端口并自动同步防火墙; 3. 新增 Hysteria2 带宽配置入口"
+E[1]="1. support non-443 ports for CDN address (IPv4 / IPv6 / domain); 2. remove pre-install UFW blocking logic, fallback to iptables when inactive; 3. avoid unnecessary xray restart for CDN / bandwidth / port hopping changes"
+C[1]="1. 优选地址支持非 443 端口（IPv4 / IPv6 / 域名）; 2. 移除安装前 UFW 强制校验，inactive 自动回退 iptables; 3. 优选地址 / 带宽 / 端口跳跃修改不再重启 xray"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -131,8 +125,8 @@ E[40]="Argo tunnel is: \${ARGO_TYPE}\\\n The domain is: \${ARGO_DOMAIN}"
 C[40]="Argo 隧道类型为: \${ARGO_TYPE}\\\n 域名是: \${ARGO_DOMAIN}"
 E[41]="Argo tunnel type:\n 1. Try (VLESS + XHTTP not supported)\n 2. Token or Json"
 C[41]="Argo 隧道类型:\n 1. Try（不支持 VLESS + XHTTP）\n 2. Token 或者 Json"
-E[42]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
-C[42]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
+E[42]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please select or enter the preferred address (domain / IPv4 / [IPv6], optional :port), the default is \${CDN_DOMAIN[0]}:"
+C[42]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请选择或者填入优选地址（域名 / IPv4 / [IPv6]，可选 :端口），默认为 \${CDN_DOMAIN[0]}:"
 E[43]="\${APP} local version: \${LOCAL}.\\\t The newest version: \${ONLINE}"
 C[43]="\${APP} 本地版本: \${LOCAL}.\\\t 最新版本: \${ONLINE}"
 E[44]="No upgrade required."
@@ -191,8 +185,8 @@ E[70]="ArgoX is not installed and cannot change the CDN."
 C[70]="ArgoX 未安装，不能更换 CDN"
 E[71]="Current CDN is: \${CDN_NOW}"
 C[71]="当前 CDN 为: \${CDN_NOW}"
-E[72]="Please select or enter a new CDN (press Enter to keep the current one):"
-C[72]="请选择或输入新的 CDN (回车保持当前值):"
+E[72]="Please select or enter a new preferred address (domain / IPv4 / [IPv6], optional :port; press Enter to keep the current one):"
+C[72]="请选择或输入新的优选地址（域名 / IPv4 / [IPv6]，可选 :端口；回车保持当前值）:"
 E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
 C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
 E[74]="Unable to access api.github.com. This may be due to IP restrictions (HTTP/1.1 403 Rate Limit Exceeded). Please try again later"
@@ -261,8 +255,8 @@ E[105]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Enter port range for Hys
 C[105]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Hysteria2 端口跳跃范围（如 50000:51000），留空禁用:"
 E[106]="Please select what to modify:"
 C[106]="请选择修改项目:"
-E[107]="Preferred CDN (current: \${_val})"
-C[107]="优选域名/IP (当前：\${_val})"
+E[107]="Preferred address (current: \${_val})"
+C[107]="优选地址 (当前：\${_val})"
 E[108]="SNI / TLS domain (current: \${_val}) [Reality & Hysteria2]"
 C[108]="SNI / TLS 域名 (当前：\${_val}) [Reality 和 Hysteria2 共用]"
 E[109]="Node name (current: \${_val})"
@@ -283,8 +277,8 @@ E[116]="UFW is not active. Firewall rules were written, but you should manually 
 C[116]="UFW 未处于激活状态。防火墙规则已写入，但建议手动启用 UFW 以确保策略生效"
 E[117]="Failed to update UFW firewall rules. Please check UFW configuration files manually."
 C[117]="更新 UFW 防火墙规则失败，请手动检查 UFW 配置文件"
-E[118]="\n[WARN] UFW is detected, but its current status is: \${UFW_STATUS:-unknown}\nBecause UFW rules can affect SSH and port forwarding, please enable and verify UFW manually before running this installer again.\nRecommended first step: ufw allow ssh\nThen enable UFW manually, confirm your SSH session still works, and rerun the script.\nInstaller will now exit.\n"
-C[118]="\n[警告] 检测到系统已安装 UFW，但当前状态为: \${UFW_STATUS:-unknown}\n由于 UFW 与 SSH 及端口转发规则关系较复杂，建议先手动启用并确认 UFW 配置正确后，再重新运行本安装脚本。\n建议先执行: ufw allow ssh\n然后手动启用 UFW，确认 SSH 连接正常后，再重新运行本安装脚本。\n安装程序现在退出。\n"
+E[118]="Invalid preferred address format. Please enter a domain, IPv4, or [IPv6], optionally with :port."
+C[118]="优选地址格式错误。请输入域名、IPv4 或 [IPv6]，并可选附带 :端口。"
 E[119]="xray listen ports  (current: \${_val})"
 C[119]="xray 监听端口  (当前：\${_val})"
 E[120]="Hysteria2 bandwidth  (current: up \${HY2_UP_NOW} Mbps, down \${HY2_DOWN_NOW} Mbps)"
@@ -475,23 +469,6 @@ check_root() {
   [ "$(id -u)" != 0 ] && error "\n $(text 47) \n"
 }
 
-detect_ufw() {
-  command -v ufw >/dev/null 2>&1 && IS_UFW=is_ufw || unset IS_UFW
-}
-
-check_ufw_active_preinstall() {
-  detect_ufw
-  [ "$IS_UFW" = 'is_ufw' ] || return 0
-
-  local UFW_STATUS
-  UFW_STATUS=$(ufw status 2>/dev/null | awk '/^Status/{print $NF; exit}')
-  [ "$UFW_STATUS" = 'active' ] && return 0
-
-  eval "echo -e \"\033[31m\033[01m${E[118]}\033[0m\""
-  eval "echo -e \"\033[31m\033[01m${C[118]}\033[0m\""
-  exit 1
-}
-
 # 判断处理器架构
 check_arch() {
   case $(uname -m) in
@@ -587,7 +564,6 @@ cmd_systemctl() {
 }
 
 check_system_info() {
-  detect_ufw
   [ -s /etc/os-release ] && SYS="$(awk -F '"' 'tolower($0) ~ /pretty_name/{print $2}' /etc/os-release)"
   [[ -z "$SYS" ]] && command -v hostnamectl >/dev/null 2>&1 && SYS="$(hostnamectl | awk -F ': ' 'tolower($0) ~ /operating system/{print $2}')"
   [[ -z "$SYS" ]] && command -v lsb_release >/dev/null 2>&1 && SYS="$(lsb_release -sd)"
@@ -694,7 +670,13 @@ check_system_ip() {
 
 # 定义 Argo 变量（协议选择已在 xray_variable 中完成，此处只处理隧道配置）
 argo_variable() {
-  [ "${INSTALL_NGINX,,}" != 'n' ] && check_nginx >/dev/null 2>&1 &
+  [ "${INSTALL_NGINX,,}" != 'n' ] && {
+    if ! command -v nginx >/dev/null 2>&1; then
+      info "\n $(text 7) nginx \n"
+      ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1
+      [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1
+    fi
+  } >/dev/null 2>&1 &
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
 
   if [ -z "$SERVER_IP" ]; then
@@ -965,16 +947,28 @@ xray_variable() {
       case "$CUSTOM_CDN" in
         [1-9]|[1-9][0-9] )
           [ "$CUSTOM_CDN" -le "${#CDN_DOMAIN[@]}" ] && SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}" || SERVER="${CDN_DOMAIN[0]}"
+          SERVER_PORT=443
           ;;
         ?????* )
-          SERVER="$CUSTOM_CDN"
+          parse_preferred_addr "$CUSTOM_CDN" || error " $(text 118) "
+          SERVER="$PREFERRED_ADDR"
+          SERVER_PORT="$PREFERRED_PORT"
           ;;
         * )
           SERVER="${CDN_DOMAIN[0]}"
+          SERVER_PORT=443
       esac
     else
       SERVER='__CDN_UNSET__'
+      SERVER_PORT=443
     fi
+  fi
+
+  if [[ -n "$SERVER" && "$SERVER" != '__CDN_UNSET__' ]]; then
+    parse_preferred_addr "${SERVER}:${SERVER_PORT:-443}" || error " $(text 118) "
+    SERVER="$PREFERRED_ADDR"
+    SERVER_PORT="$PREFERRED_PORT"
+    SERVER_DISPLAY="$PREFERRED_DISPLAY"
   fi
 
   if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
@@ -1080,6 +1074,13 @@ fast_install_variables() {
   IS_HOPPING=${IS_HOPPING:-no_hopping}
 
   SERVER=${SERVER:-"${CDN_DOMAIN[0]}"}
+  SERVER_PORT=${SERVER_PORT:-${cdnPort:-443}}
+  if [ "$SERVER" != '__CDN_UNSET__' ]; then
+    parse_preferred_addr "${SERVER}:${SERVER_PORT}" || error " $(text 118) "
+    SERVER="$PREFERRED_ADDR"
+    SERVER_PORT="$PREFERRED_PORT"
+    SERVER_DISPLAY="$PREFERRED_DISPLAY"
+  fi
   UUID=${UUID:-$(cat /proc/sys/kernel/random/uuid)}
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
@@ -1192,9 +1193,45 @@ input_nginx_port() {
   done
 }
 
+parse_preferred_addr() {
+  local _raw="$1" _host='' _port='443'
+  _raw=$(printf '%s' "$_raw" | sed 's/[[:space:]]//g; s/：/:/g; s/。/./g; s/【/[/g; s/】/]/g')
+  [ -z "$_raw" ] && return 1
+
+  if [[ "$_raw" =~ ^\[([0-9A-Fa-f:]+)\](:([0-9]{1,5}))?$ ]]; then
+    _host="${BASH_REMATCH[1]}"
+    [ -n "${BASH_REMATCH[3]}" ] && _port="${BASH_REMATCH[3]}"
+  elif [[ "$_raw" =~ ^((([0-9]{1,3})\.){3}([0-9]{1,3}))(:([0-9]{1,5}))?$ ]]; then
+    _host="${BASH_REMATCH[1]}"
+    [ -n "${BASH_REMATCH[6]}" ] && _port="${BASH_REMATCH[6]}"
+    IFS='.' read -r _o1 _o2 _o3 _o4 <<< "$_host"
+    for _oct in "$_o1" "$_o2" "$_o3" "$_o4"; do
+      [[ "$_oct" =~ ^[0-9]+$ ]] || return 1
+      [ "$_oct" -gt 255 ] && return 1
+    done
+  elif [[ "$_raw" =~ ^([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?))+)(:([0-9]{1,5}))?$ ]]; then
+    _host="${BASH_REMATCH[1]}"
+    [ -n "${BASH_REMATCH[7]}" ] && _port="${BASH_REMATCH[7]}"
+  else
+    return 1
+  fi
+
+  [[ "$_port" =~ ^[0-9]+$ ]] || return 1
+  [ "$_port" -lt 1 ] || [ "$_port" -gt 65535 ] && return 1
+
+  PREFERRED_ADDR="$_host"
+  PREFERRED_PORT="$_port"
+  if [[ "$_host" == *:* ]]; then
+    PREFERRED_DISPLAY="[$_host]:$_port"
+  else
+    PREFERRED_DISPLAY="$_host:$_port"
+  fi
+  return 0
+}
+
 # 从已安装的 inbound.json / protocols 等配置文件中读取各参数，供 export_list / change_protocols 复用
 fetch_nodes_value() {
-  unset SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER UUID WS_PATH NODE_NAME SS_METHOD SS2022_PASSWORD \
+  unset SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER SERVER_PORT SERVER_DISPLAY UUID WS_PATH NODE_NAME SS_METHOD SS2022_PASSWORD \
         GRPC_PORT HY2_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 SERVER_IP_2 HY2_UP_NOW HY2_DOWN_NOW
 
   [ -s "$CUSTOM_FILE" ] && . "$CUSTOM_FILE"
@@ -1202,7 +1239,8 @@ fetch_nodes_value() {
   REALITY_PRIVATE="${privateKey:-}"
   REALITY_PUBLIC="${publicKey:-}"
   SERVER="${cdn:-}"
-  unset serverIp privateKey publicKey cdn language
+  SERVER_PORT="${cdnPort:-443}"
+  unset serverIp privateKey publicKey cdn cdnPort language
 
   local JSON
   JSON=$(grep -v '^//' $WORK_DIR/inbound.json 2>/dev/null)
@@ -1229,7 +1267,18 @@ fetch_nodes_value() {
 
   [ -z "$WS_PATH" ] && WS_PATH="$WS_PATH_DEFAULT"
   [ -z "$NODE_NAME" ] && NODE_NAME="ArgoX"
-  [[ -z "$SERVER" || "$SERVER" == '__CDN_UNSET__' ]] && SERVER='__CDN_UNSET__'
+  if [[ -z "$SERVER" || "$SERVER" == '__CDN_UNSET__' ]]; then
+    SERVER='__CDN_UNSET__'
+    SERVER_PORT=443
+    SERVER_DISPLAY='__CDN_UNSET__'
+  elif parse_preferred_addr "${SERVER}:${SERVER_PORT}"; then
+    SERVER="$PREFERRED_ADDR"
+    SERVER_PORT="$PREFERRED_PORT"
+    SERVER_DISPLAY="$PREFERRED_DISPLAY"
+  else
+    SERVER_PORT=443
+    SERVER_DISPLAY="$SERVER"
+  fi
 
   if [[ "$SERVER_IP" =~ : ]]; then
     SERVER_IP_1="[$SERVER_IP]"
@@ -1298,14 +1347,6 @@ fetch_tunnel_domain() {
 }
 
 # 检查并安装 nginx
-check_nginx() {
-  if ! command -v nginx >/dev/null 2>&1; then
-    info "\n $(text 7) nginx \n"
-    ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1
-    [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1
-  fi
-}
-
 # 生成100年自签证书（供 Hysteria2 使用）
 ssl_certificate() {
   local TLS_SRV="${1:-$TLS_SERVER}"
@@ -1336,13 +1377,6 @@ EOF
 }
 
 # 生成 UFW PortHopping 备注
-port_hopping_ufw_comment() {
-  local PORT_HOPPING_START=$1
-  local PORT_HOPPING_END=$2
-  local PORT_HOPPING_TARGET=$3
-  echo "ArgoX UFW NAT ${PORT_HOPPING_START}:${PORT_HOPPING_END} -> ${PORT_HOPPING_TARGET}"
-}
-
 # 向指定的 UFW 规则文件写入 PortHopping NAT 规则块
 add_port_hopping_ufw_block() {
   local RULES_FILE="$1" BLOCK_BEGIN="$2" BLOCK_END="$3" PORT_HOPPING_START="$4" PORT_HOPPING_END="$5" PORT_HOPPING_TARGET="$6" COMMENT="$7"
@@ -1376,25 +1410,20 @@ add_port_hopping_ufw_block() {
 }
 
 # 删除 UFW 规则文件中的 PortHopping NAT 规则块
-remove_block_between_markers() {
-  local FILE="$1" BEGIN_PATTERN="$2" END_PATTERN="$3"
-  [ ! -e "$FILE" ] && return 0
-  awk -v begin="$BEGIN_PATTERN" -v end="$END_PATTERN" '
+del_port_hopping_ufw_block() {
+  local RULES_FILE=$1 LABEL=$2
+  [ ! -e "$RULES_FILE" ] && return 0
+  awk -v begin="ArgoX UFW NAT .* ${LABEL} BEGIN" -v end="ArgoX UFW NAT .* ${LABEL} END" '
     $0 ~ begin { skip=1; next }
     $0 ~ end { skip=0; next }
     skip != 1 { print }
-  ' "$FILE" > "${TEMP_DIR}/$(basename "$FILE")" && mv "${TEMP_DIR}/$(basename "$FILE")" "$FILE"
-}
-
-del_port_hopping_ufw_block() {
-  local RULES_FILE=$1 LABEL=$2
-  remove_block_between_markers "$RULES_FILE" "ArgoX UFW NAT .* ${LABEL} BEGIN" "ArgoX UFW NAT .* ${LABEL} END"
+  ' "$RULES_FILE" > "${TEMP_DIR}/$(basename "$RULES_FILE")" && mv "${TEMP_DIR}/$(basename "$RULES_FILE")" "$RULES_FILE"
 }
 
 # 写入 UFW PortHopping NAT 规则
 add_port_hopping_ufw_rules() {
   local PH_START=$1 PH_END=$2 TARGET_PORT=$3 COMMENT
-  COMMENT=$(port_hopping_ufw_comment "$PH_START" "$PH_END" "$TARGET_PORT")
+  COMMENT="ArgoX UFW NAT ${PH_START}:${PH_END} -> ${TARGET_PORT}"
   [ -z "$PH_START" ] || [ -z "$PH_END" ] || [ -z "$TARGET_PORT" ] && return 1
   local UFW_BEFORE_RULES='/etc/ufw/before.rules'
   local UFW_BEFORE6_RULES='/etc/ufw/before6.rules'
@@ -1472,9 +1501,12 @@ check_port_hopping_ufw_rules() {
 
 # 检测防火墙后端
 check_firewall_backend() {
-  if [ "$IS_UFW" = 'is_ufw' ]; then
-    echo 'ufw'
-  elif [ "$SYSTEM" = 'Alpine' ]; then
+  local UFW_STATUS
+  if command -v ufw >/dev/null 2>&1; then
+    UFW_STATUS=$(ufw status 2>/dev/null | awk '/^Status/{print $NF; exit}')
+    [ "$UFW_STATUS" = 'active' ] && { echo 'ufw'; return; }
+  fi
+  if [ "$SYSTEM" = 'Alpine' ]; then
     echo 'alpine-iptables'
   elif command -v firewall-cmd >/dev/null 2>&1 || [ "$SYSTEM" = 'CentOS' ]; then
     echo 'firewalld'
@@ -1489,27 +1521,7 @@ init_firewall_state_dir() {
 }
 
 # 读取上一次由脚本管理的普通端口规则
-read_service_firewall_state() {
-  MANAGED_TCP_PORTS=()
-  MANAGED_UDP_PORTS=()
-  [ ! -s "$SERVICE_FIREWALL_STATE_FILE" ] && return 0
-  while read -r PROTO PORT; do
-    case "$PROTO" in
-      tcp ) MANAGED_TCP_PORTS+=("$PORT") ;;
-      udp ) MANAGED_UDP_PORTS+=("$PORT") ;;
-    esac
-  done < "$SERVICE_FIREWALL_STATE_FILE"
-}
-
 # 写入本次由脚本管理的普通端口规则
-write_service_firewall_state() {
-  init_firewall_state_dir
-  : > "$SERVICE_FIREWALL_STATE_FILE"
-  local PORT
-  for PORT in "${EXPOSED_TCP_PORTS[@]}"; do [ -n "$PORT" ] && echo "tcp $PORT" >> "$SERVICE_FIREWALL_STATE_FILE"; done
-  for PORT in "${EXPOSED_UDP_PORTS[@]}"; do [ -n "$PORT" ] && echo "udp $PORT" >> "$SERVICE_FIREWALL_STATE_FILE"; done
-}
-
 # 端口数组去重追加
 append_unique_port() {
   local ARRAY_NAME=$1 PORT=$2
@@ -1522,55 +1534,12 @@ append_unique_port() {
 }
 
 # 收集当前应该对外开放的普通端口
-collect_exposed_ports() {
-  EXPOSED_TCP_PORTS=()
-  EXPOSED_UDP_PORTS=()
-  [ -s "$WORK_DIR/inbound.json" ] || return 0
-
-  local TAG PORT NGINX_PORT_NOW HAS_NGINX=false
-  [ -s "$WORK_DIR/nginx.conf" ] && HAS_NGINX=true
-
-  while IFS=$'	' read -r TAG PORT; do
-    [ -z "$TAG" ] || [ -z "$PORT" ] && continue
-    TAG=${TAG##* }
-    case "$TAG" in
-      hysteria2)
-        append_unique_port EXPOSED_UDP_PORTS "$PORT"
-        ;;
-      vless-ws|vmess-ws|trojan-ws|ss-ws|vless-xhttp)
-        [ "$HAS_NGINX" = false ] && append_unique_port EXPOSED_TCP_PORTS "$PORT"
-        ;;
-      xhttp-h3-direct)
-        append_unique_port EXPOSED_UDP_PORTS "$PORT"
-        ;;
-      ss2022-direct)
-        append_unique_port EXPOSED_TCP_PORTS "$PORT"
-        append_unique_port EXPOSED_UDP_PORTS "$PORT"
-        ;;
-      *)
-        append_unique_port EXPOSED_TCP_PORTS "$PORT"
-        ;;
-    esac
-  done < <($WORK_DIR/jq -r '.inbounds[] | [.tag, .port] | @tsv' "$WORK_DIR/inbound.json" 2>/dev/null)
-
-  if [ "$HAS_NGINX" = true ]; then
-    NGINX_PORT_NOW=$(awk '/listen[[:space:]]+[0-9]+[[:space:]]*;/{gsub(/;/, "", $2); print $2; exit}' "$WORK_DIR/nginx.conf")
-    append_unique_port EXPOSED_TCP_PORTS "$NGINX_PORT_NOW"
-  fi
-}
-
-service_port_ufw_comment() { echo "ArgoX UFW PORT $1 $2"; }
-add_service_port_rule_ufw() { local COMMENT; COMMENT=$(service_port_ufw_comment "$1" "$2"); [ -z "$1" ] || [ -z "$2" ] && return 1; ufw allow $2/$1 comment "$COMMENT" >/dev/null 2>&1; }
+add_service_port_rule_ufw() { local COMMENT="ArgoX UFW PORT $1 $2"; [ -z "$1" ] || [ -z "$2" ] && return 1; ufw allow $2/$1 comment "$COMMENT" >/dev/null 2>&1; }
 del_service_port_rule_ufw() {
   local RULE_NUM COMMENT_PREFIX='ArgoX UFW PORT'
   [ -z "$1" ] || [ -z "$2" ] && return 0
   ufw --force delete allow $2/$1 >/dev/null 2>&1 || true
   while read -r RULE_NUM; do [ -n "$RULE_NUM" ] && ufw --force delete "$RULE_NUM" >/dev/null 2>&1 || true; done < <(ufw status numbered 2>/dev/null | grep "$COMMENT_PREFIX $1 $2" | awk -F'[][]' '{print $2}' | sort -rn)
-}
-purge_service_port_rules_ufw() {
-  local RULE_NUM COMMENT_PREFIX='ArgoX UFW PORT'
-  while read -r RULE_NUM; do [ -n "$RULE_NUM" ] && ufw --force delete "$RULE_NUM" >/dev/null 2>&1 || true; done < <(ufw status numbered 2>/dev/null | grep "$COMMENT_PREFIX" | awk -F'[][]' '{print $2}' | sort -rn)
-  ufw reload >/dev/null 2>&1 || true
 }
 add_service_port_rule_firewalld() { [ -z "$1" ] || [ -z "$2" ] && return 1; firewall-cmd --zone=public --add-port=$2/$1 --permanent >/dev/null 2>&1; }
 del_service_port_rule_firewalld() { [ -z "$1" ] || [ -z "$2" ] && return 0; firewall-cmd --zone=public --remove-port=$2/$1 --permanent >/dev/null 2>&1; }
@@ -1605,9 +1574,21 @@ purge_service_firewall_rules() {
   local FW_BACKEND PORT
   FW_BACKEND=$(check_firewall_backend)
   init_firewall_state_dir
-  read_service_firewall_state
+  MANAGED_TCP_PORTS=()
+  MANAGED_UDP_PORTS=()
+  if [ -s "$SERVICE_FIREWALL_STATE_FILE" ]; then
+    while read -r PROTO PORT; do
+      case "$PROTO" in
+        tcp ) MANAGED_TCP_PORTS+=("$PORT") ;;
+        udp ) MANAGED_UDP_PORTS+=("$PORT") ;;
+      esac
+    done < "$SERVICE_FIREWALL_STATE_FILE"
+  fi
   case "$FW_BACKEND" in
-    ufw ) purge_service_port_rules_ufw ;;
+    ufw )
+      while read -r RULE_NUM; do [ -n "$RULE_NUM" ] && ufw --force delete "$RULE_NUM" >/dev/null 2>&1 || true; done < <(ufw status numbered 2>/dev/null | grep 'ArgoX UFW PORT' | awk -F'[][]' '{print $2}' | sort -rn)
+      ufw reload >/dev/null 2>&1 || true
+      ;;
     firewalld )
       for PORT in "${MANAGED_TCP_PORTS[@]}"; do del_service_port_rule_firewalld tcp "$PORT"; done
       for PORT in "${MANAGED_UDP_PORTS[@]}"; do del_service_port_rule_firewalld udp "$PORT"; done
@@ -1623,8 +1604,27 @@ purge_service_firewall_rules() {
 
 # 同步普通服务端口规则
 sync_service_firewall_rules() {
-  local FW_BACKEND PORT
-  collect_exposed_ports
+  local FW_BACKEND PORT TAG NGINX_PORT_NOW HAS_NGINX=false
+  EXPOSED_TCP_PORTS=()
+  EXPOSED_UDP_PORTS=()
+  if [ -s "$WORK_DIR/inbound.json" ]; then
+    [ -s "$WORK_DIR/nginx.conf" ] && HAS_NGINX=true
+    while IFS=$'	' read -r TAG PORT; do
+      [ -z "$TAG" ] || [ -z "$PORT" ] && continue
+      TAG=${TAG##* }
+      case "$TAG" in
+        hysteria2) append_unique_port EXPOSED_UDP_PORTS "$PORT" ;;
+        vless-ws|vmess-ws|trojan-ws|ss-ws|vless-xhttp) [ "$HAS_NGINX" = false ] && append_unique_port EXPOSED_TCP_PORTS "$PORT" ;;
+        xhttp-h3-direct) append_unique_port EXPOSED_UDP_PORTS "$PORT" ;;
+        ss2022-direct) append_unique_port EXPOSED_TCP_PORTS "$PORT"; append_unique_port EXPOSED_UDP_PORTS "$PORT" ;;
+        *) append_unique_port EXPOSED_TCP_PORTS "$PORT" ;;
+      esac
+    done < <($WORK_DIR/jq -r '.inbounds[] | [.tag, .port] | @tsv' "$WORK_DIR/inbound.json" 2>/dev/null)
+    if [ "$HAS_NGINX" = true ]; then
+      NGINX_PORT_NOW=$(awk '/listen[[:space:]]+[0-9]+[[:space:]]*;/{gsub(/;/, "", $2); print $2; exit}' "$WORK_DIR/nginx.conf")
+      append_unique_port EXPOSED_TCP_PORTS "$NGINX_PORT_NOW"
+    fi
+  fi
   FW_BACKEND=$(check_firewall_backend)
   purge_service_firewall_rules
   case "$FW_BACKEND" in
@@ -1641,7 +1641,10 @@ sync_service_firewall_rules() {
       for PORT in "${EXPOSED_UDP_PORTS[@]}"; do add_service_port_rule_iptables udp "$PORT"; done
       ;;
   esac
-  write_service_firewall_state
+  init_firewall_state_dir
+  : > "$SERVICE_FIREWALL_STATE_FILE"
+  for PORT in "${EXPOSED_TCP_PORTS[@]}"; do [ -n "$PORT" ] && echo "tcp $PORT" >> "$SERVICE_FIREWALL_STATE_FILE"; done
+  for PORT in "${EXPOSED_UDP_PORTS[@]}"; do [ -n "$PORT" ] && echo "udp $PORT" >> "$SERVICE_FIREWALL_STATE_FILE"; done
   reload_or_save_firewall_rules
 }
 
@@ -2198,6 +2201,7 @@ install_argox() {
   write_custom 'privateKey' "${REALITY_PRIVATE:-__KEY_UNSET__}"
   write_custom 'publicKey' "${REALITY_PUBLIC:-__KEY_UNSET__}"
   write_custom 'cdn' "${SERVER:-__CDN_UNSET__}"
+  write_custom 'cdnPort' "${SERVER_PORT:-443}"
   [ -s "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORK_DIR/
 
   wait
@@ -2987,6 +2991,7 @@ export_list() {
   VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME} vmess-ws\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
 
   # 统一生成所有客户端订阅
+  local SERVER_PORT_NOW=${SERVER_PORT:-443}
   local CLASH='proxies:' SR_SUBSCRIBE='' V2N_SUBSCRIBE='' SR_DISPLAY='' V2N_DISPLAY=''
   local SB_OUTBOUNDS='' SB_TAGS='' SB_SEP=''
   _sb_add() { SB_OUTBOUNDS+="${SB_SEP}$1"; SB_TAGS+="${SB_SEP}$2"; SB_SEP=', '; }
@@ -3034,42 +3039,35 @@ export_list() {
 
   # vless-ws
   grep -q 'vless-ws' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} vless-ws\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }" \
-    "vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-ws" \
-    "vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20vless-ws" \
-    "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} vless-ws\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "{name: \"${NODE_NAME} vless-ws\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-ws" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20vless-ws" \
+    "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} vless-ws\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
     "${NODE_NAME} vless-ws"
 
   # vmess-ws
   grep -q 'vmess-ws' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} vmess-ws\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
-    "vmess://$(echo -n "none:${UUID}@${SERVER}:443" | base64 -w0)?remarks=${NODE_NAME// /%20}%20vmess-ws&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
+    "{name: \"${NODE_NAME} vmess-ws\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
+    "vmess://$(echo -n "none:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20vmess-ws&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
     "vmess://$(echo -n "$VMESS" | base64 -w0)" \
-    "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} vmess-ws\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} vmess-ws\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
     "${NODE_NAME} vmess-ws"
 
   # trojan-ws
   grep -q 'trojan-ws' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} trojan-ws\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20trojan-ws" \
-    "trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20trojan-ws" \
-    "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} trojan-ws\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "{name: \"${NODE_NAME} trojan-ws\", type: trojan, server: ${SERVER}, port: ${SERVER_PORT_NOW}, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20trojan-ws" \
+    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20trojan-ws" \
+    "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} trojan-ws\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
     "${NODE_NAME} trojan-ws"
 
   # ss-ws
   grep -qw 'ss-ws' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ss-ws\", type: ss, server: ${SERVER}, port: 443, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }" \
-    "ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:443" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20ss-ws" \
-    "ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws" \
-    "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ss-ws\", \"server\": \"${SERVER}\", \"server_port\": 443, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" \
+    "{name: \"${NODE_NAME} ss-ws\", type: ss, server: ${SERVER}, port: ${SERVER_PORT_NOW}, cipher: ${SS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }" \
+    "ss://$(echo -n "chacha20-ietf-poly1305:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20ss-ws" \
+    "ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:${SERVER_PORT_NOW}?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws" \
+    "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ss-ws\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" \
     "${NODE_NAME} ss-ws"
-
-  # vless-xhttp
-  grep -q 'vless-xhttp' <<< "$PROTOS_NOW" && _add \
-    "" \
-    "vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20vless-xhttp" \
-    "vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=xhttp&host=${ARGO_DOMAIN}&path=/${WS_PATH}-xh#${NODE_NAME// /%20}%20vless-xhttp" \
-    "" ""
 
   # xhttp-h3-direct (修复跨行问题)
   grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && _add \
@@ -3451,12 +3449,16 @@ change_protocols() {
     case "$CUSTOM_CDN" in
       [1-9]|[1-9][0-9] )
         [ "$CUSTOM_CDN" -le "${#CDN_DOMAIN[@]}" ] && SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}" || SERVER="${CDN_DOMAIN[0]}"
+        SERVER_PORT=443
         ;;
       ?????* )
-        SERVER="$CUSTOM_CDN"
+        parse_preferred_addr "$CUSTOM_CDN" || error " $(text 118) "
+        SERVER="$PREFERRED_ADDR"
+        SERVER_PORT="$PREFERRED_PORT"
         ;;
       * )
         SERVER="${CDN_DOMAIN[0]}"
+        SERVER_PORT=443
     esac
   fi
 
@@ -3478,6 +3480,7 @@ change_protocols() {
   write_custom 'privateKey' "${REALITY_PRIVATE:-__KEY_UNSET__}"
   write_custom 'publicKey' "${REALITY_PUBLIC:-__KEY_UNSET__}"
   write_custom 'cdn' "${SERVER:-__CDN_UNSET__}"
+  write_custom 'cdnPort' "${SERVER_PORT:-443}"
 
   cat > $WORK_DIR/inbound.json << EOF
 {
@@ -3654,35 +3657,6 @@ change_start_port() {
 "
 }
 
-# 更换优选域名 / Reality SNI / 节点信息
-change_start_port() {
-  local OLD_PORTS OLD_START_PORT OLD_CONSECUTIVE_PORTS
-  [ ! -s "$WORK_DIR/inbound.json" ] && error " $(text 70) "
-  OLD_PORTS=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
-  [ -z "$OLD_PORTS" ] && error " $(text 70) "
-  OLD_START_PORT=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$OLD_PORTS")
-  OLD_CONSECUTIVE_PORTS=$(awk 'END { print NR }' <<< "$OLD_PORTS")
-  START_PORT=''
-  input_start_port "$OLD_CONSECUTIVE_PORTS"
-  [ -z "$START_PORT" ] && info " $(text 103) " && return
-  [ "$START_PORT" = "$OLD_START_PORT" ] && info " $(text 103) " && return
-
-  grep -v '^//' "$WORK_DIR/inbound.json"     | $WORK_DIR/jq --argjson start "$START_PORT" '.inbounds |= (to_entries | map(.value.port = ($start + .key) | .value))'     > "$TEMP_DIR/inbound_tmp.json"     && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
-
-  fetch_nodes_value
-  [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
-  cmd_systemctl disable xray
-  cmd_systemctl enable xray
-  FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
-  sleep 2
-  export_list
-  cmd_systemctl status xray &>/dev/null && info "
- Xray $(text 28) $(text 37) 
-" || warning "
- Xray $(text 27) $(text 38) 
-"
-}
-
 change_config() {
   [ ! -d "${WORK_DIR}" ] && error " $(text 70) "
 
@@ -3690,7 +3664,7 @@ change_config() {
 
   local MENU_IDX=() MENU_KEY=() MENU_VAL=()
 
-  [[ -n "$SERVER" && "$SERVER" != '__CDN_UNSET__' ]] && MENU_IDX+=(107) && MENU_KEY+=(cdn) && MENU_VAL+=("$SERVER")
+  [[ -n "$SERVER" && "$SERVER" != '__CDN_UNSET__' ]] && MENU_IDX+=(107) && MENU_KEY+=(cdn) && MENU_VAL+=("${SERVER_DISPLAY:-$SERVER}")
   [ -n "$TLS_SERVER" ] && MENU_IDX+=(108) && MENU_KEY+=(sni) && MENU_VAL+=("$TLS_SERVER")
   local PORTS_NOW=$(grep -v '^//' "$WORK_DIR/inbound.json" 2>/dev/null | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
   if [ -n "$PORTS_NOW" ]; then
@@ -3759,8 +3733,6 @@ change_config() {
       warning " $(text 123) "
     done
     sed -i -E "s/(up: \")([0-9]+)( Mbps\")/\1${HY2_UP}\3/g; s/(down: \")([0-9]+)( Mbps\")/\1${HY2_DOWN}\3/g" ${WORK_DIR}/subscribe/proxies
-    sync_firewall_rules
-    hint " $(text 112) "
     export_list
     return
   elif [ "$KEY" = "hopping" ]; then
@@ -3797,8 +3769,31 @@ change_config() {
   fi
 
   hint ""
-  reading " $(text 60) " NEW_VAL
-  [ -z "$NEW_VAL" ] && info " $(text 103) " && return
+  if [ "$KEY" = "cdn" ]; then
+    local CUSTOM_CDN NEW_PORT NEW_DISPLAY
+    for _c in "${!CDN_DOMAIN[@]}"; do
+      hint " $((_c+1)). ${CDN_DOMAIN[_c]} "
+    done
+    reading "
+ $(text 72) " CUSTOM_CDN
+    [ -z "$CUSTOM_CDN" ] && info " $(text 103) " && return
+    case "$CUSTOM_CDN" in
+      [1-9]|[1-9][0-9] )
+        [ "$CUSTOM_CDN" -le "${#CDN_DOMAIN[@]}" ] && NEW_VAL="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}" || NEW_VAL="${CDN_DOMAIN[0]}"
+        NEW_PORT=443
+        NEW_DISPLAY="$NEW_VAL"
+        ;;
+      * )
+        parse_preferred_addr "$CUSTOM_CDN" || error " $(text 118) "
+        NEW_VAL="$PREFERRED_ADDR"
+        NEW_PORT="$PREFERRED_PORT"
+        NEW_DISPLAY="$PREFERRED_DISPLAY"
+        ;;
+    esac
+  else
+    reading " $(text 60) " NEW_VAL
+    [ -z "$NEW_VAL" ] && info " $(text 103) " && return
+  fi
 
   if [ "$KEY" = "uuid" ]; then
     [[ ! "${NEW_VAL,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && error " $(text 3) "
@@ -3814,6 +3809,11 @@ change_config() {
   case "$KEY" in
     cdn)
       write_custom 'cdn' "${NEW_VAL}"
+      write_custom 'cdnPort' "${NEW_PORT:-443}"
+      SERVER_PORT="${NEW_PORT:-443}"
+      SERVER_DISPLAY="${NEW_DISPLAY:-$NEW_VAL}"
+      export_list
+      return
       ;;
     serverip)
       write_custom 'serverIp' "${NEW_VAL}"
@@ -3872,7 +3872,6 @@ change_config() {
 # 卸载 ArgoX
 uninstall() {
   if [ -d $WORK_DIR ]; then
-    detect_ufw
     cmd_systemctl disable argo >/dev/null 2>&1
     cmd_systemctl disable xray >/dev/null 2>&1
     purge_managed_firewall_rules >/dev/null 2>&1 || true
@@ -4072,6 +4071,7 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
           if cmd_systemctl status argo &>/dev/null; then
             info "\n Argo $(text 28) $(text 37)"
             grep -qs "^${DAEMON_RUN_PATTERN}.*--url" ${ARGO_DAEMON_FILE} && fetch_tunnel_domain quick && export_list
+          return
           else
             error " Argo $(text 28) $(text 38) "
           fi
@@ -4124,7 +4124,6 @@ exit 2
 fi
 
 check_root
-check_ufw_active_preinstall
 select_language
 check_arch
 check_system_info

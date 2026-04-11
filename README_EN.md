@@ -21,6 +21,8 @@
 * * *
 
 ## Update Information
+2026.04.11 v2.0.4 1. support non-443 ports for CDN address (IPv4 / IPv6 / domain); 2. remove pre-install UFW blocking logic, fallback to iptables when inactive; 3. avoid unnecessary xray restart for CDN / bandwidth / port hopping changes
+
 2026.04.10 v2.0.3 1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry
 
 2026.04.04 v2.0.2 Added Trojan Direct and Shadowsocks 2022 Direct, and regenerate the self-signed certificate when changing the TLS domain
