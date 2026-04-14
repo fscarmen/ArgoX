@@ -289,6 +289,8 @@ E[122]="Please enter Hysteria2 client download speed in Mbps (e.g. 1000):"
 C[122]="请输入 Hysteria2 客户端下行速率 Mbps（纯数字，如 1000）:"
 E[123]="Invalid input, please enter a positive integer."
 C[123]="输入无效，请输入正整数。"
+E[124]="The order of the selected protocols and ports is as follows:"
+C[124]="选择的协议及端口次序如下:"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -812,6 +814,16 @@ xray_variable() {
 
   # 协议已确定，计算总步骤数
   calc_install_steps
+
+  # 显示选择协议及其次序，输入开始端口号
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$START_PORT" ]; then
+    hint "\n $(text 124) "
+    for w in "${!INSTALL_PROTOCOLS[@]}"; do
+      local _proto_idx=$(($(asc ${INSTALL_PROTOCOLS[w]}) - 98))
+      local _proto_name="${PROTOCOL_LIST[$_proto_idx]}"
+      [ "$w" -ge 9 ] && hint " $(( w+1 )). ${_proto_name} " || hint " $(( w+1 )) . ${_proto_name} "
+    done
+  fi
 
   local NUM=${#INSTALL_PROTOCOLS[@]}
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$START_PORT" ]; then
@@ -1557,6 +1569,61 @@ del_service_port_rule_iptables() {
   ip6tables -D INPUT -p $1 --dport $2 -m comment --comment "$COMMENT" -j ACCEPT >/dev/null 2>&1 || true
 }
 
+# 将 iptables/ip6tables 规则持久化到文件，并创建多路径恢复钩子（兼容 OpenVZ）
+# 调用顺序：1) 直接 iptables-save 写文件（最可靠）2) netfilter-persistent save（如果有）
+save_iptables_rules() {
+  # 确保目录存在
+  mkdir -p /etc/iptables 2>/dev/null || true
+  # 直接写文件——这是最可靠的持久化方式，不依赖 netfilter-persistent 是否正常工作
+  iptables-save  > /etc/iptables/rules.v4  2>/dev/null || true
+  ip6tables-save > /etc/iptables/rules.v6  2>/dev/null || true
+  # 额外调用 netfilter-persistent save（如果可用）
+  command -v netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save >/dev/null 2>&1 || true
+  # 安装 if-pre-up.d 钩子（OpenVZ / 无 systemd-networkd 场景的 fallback）
+  install_iptables_restore_hooks
+}
+
+# 安装 iptables 规则恢复钩子，兼容 OpenVZ / 普通 Debian-Ubuntu 环境
+# 路径优先级：/etc/network/if-pre-up.d > /etc/rc.local > systemd oneshot service
+install_iptables_restore_hooks() {
+  local HOOK_DIR='/etc/network/if-pre-up.d'
+  local HOOK_FILE="${HOOK_DIR}/argox-iptables-restore"
+  local RC_LOCAL='/etc/rc.local'
+
+  # 1) if-pre-up.d 钩子（网络接口 UP 之前执行，OpenVZ 下最可靠）
+  if [ -d "$HOOK_DIR" ]; then
+    cat > "$HOOK_FILE" << 'EOF'
+#!/bin/sh
+# ArgoX iptables 规则恢复钩子（由 argox 脚本自动写入，勿手动删除）
+[ -f /etc/iptables/rules.v4 ] && iptables-restore  < /etc/iptables/rules.v4  2>/dev/null || true
+[ -f /etc/iptables/rules.v6 ] && ip6tables-restore < /etc/iptables/rules.v6  2>/dev/null || true
+exit 0
+EOF
+    chmod +x "$HOOK_FILE" 2>/dev/null || true
+  fi
+
+  # 2) /etc/rc.local fallback（OpenVZ 常见引导方式）
+  if [ -f "$RC_LOCAL" ]; then
+    # 如果 rc.local 里已有 argox restore 行，不重复写
+    if ! grep -q 'argox-iptables-restore\|argox iptables restore' "$RC_LOCAL" 2>/dev/null; then
+      # 在 exit 0 之前插入恢复命令
+      sed -i '/^exit 0/i # ArgoX iptables restore\n[ -f /etc/iptables/rules.v4 ] \&\& iptables-restore  < /etc/iptables/rules.v4  2>\/dev\/null || true\n[ -f /etc/iptables/rules.v6 ] \&\& ip6tables-restore < /etc/iptables/rules.v6  2>\/dev\/null || true' "$RC_LOCAL" 2>/dev/null || true
+    fi
+  else
+    # rc.local 不存在时创建
+    cat > "$RC_LOCAL" << 'EOF'
+#!/bin/sh -e
+# ArgoX iptables restore (auto-generated, do not remove)
+[ -f /etc/iptables/rules.v4 ] && iptables-restore  < /etc/iptables/rules.v4  2>/dev/null || true
+[ -f /etc/iptables/rules.v6 ] && ip6tables-restore < /etc/iptables/rules.v6  2>/dev/null || true
+exit 0
+EOF
+    chmod +x "$RC_LOCAL" 2>/dev/null || true
+    # 让 systemd 知道 rc.local 可执行
+    systemctl enable rc-local >/dev/null 2>&1 || true
+  fi
+}
+
 # 按后端保存 / 重载防火墙规则
 reload_or_save_firewall_rules() {
   local FW_BACKEND
@@ -1565,7 +1632,7 @@ reload_or_save_firewall_rules() {
     ufw ) ufw reload >/dev/null 2>&1 || true ;;
     firewalld ) firewall-cmd --reload >/dev/null 2>&1 || true ;;
     alpine-iptables ) rc-service iptables save >/dev/null 2>&1 || true; rc-service ip6tables save >/dev/null 2>&1 || true ;;
-    * ) [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save >/dev/null 2>&1 || true ;;
+    * ) save_iptables_rules ;;
   esac
 }
 
@@ -1719,8 +1786,10 @@ install_firewall_deps() {
       FW_INSTALL=("firewalld")
       ;;
     * )
+      # FW_CHECK 检查命令是否存在；FW_INSTALL 是对应的 apt 包名
+      # iptables-persistent 安装后会自动提供 netfilter-persistent 命令
       FW_CHECK=("iptables" "netfilter-persistent")
-      FW_INSTALL=("iptables" "netfilter-persistent")
+      FW_INSTALL=("iptables" "iptables-persistent")
       ;;
   esac
   for i in "${!FW_CHECK[@]}"; do
@@ -1735,6 +1804,14 @@ install_firewall_deps() {
     [ "$(systemctl is-active firewalld 2>/dev/null)" != 'active' ] && cmd_systemctl enable firewalld >/dev/null 2>&1
     [ "$(firewall-cmd --zone=public --get-target 2>/dev/null)" != 'ACCEPT' ] && firewall-cmd --zone=public --set-target=ACCEPT --permanent >/dev/null 2>&1
     firewall-cmd --reload >/dev/null 2>&1
+  elif [ "$FW_BACKEND" != 'ufw' ] && [ "$FW_BACKEND" != 'alpine-iptables' ]; then
+    # 普通 iptables 后端：
+    # 1) 确保 netfilter-persistent 开机自启（主路径）
+    # 2) 安装 if-pre-up.d / rc.local 恢复钩子（OpenVZ fallback）
+    if command -v netfilter-persistent >/dev/null 2>&1; then
+      systemctl enable netfilter-persistent >/dev/null 2>&1 || true
+    fi
+    install_iptables_restore_hooks
   fi
 }
 
@@ -1765,7 +1842,7 @@ add_port_hopping_nat() {
     * )
       iptables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
       ip6tables --table nat -A PREROUTING -p udp --dport ${HOP_START}:${HOP_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${HOP_TARGET} 2>/dev/null
-      [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save >/dev/null 2>&1 || true
+      save_iptables_rules
       ;;
   esac
 }
@@ -1792,7 +1869,7 @@ del_port_hopping_nat() {
     * )
       iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
       ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
-      [ "$(systemctl is-active netfilter-persistent 2>/dev/null)" = 'active' ] && netfilter-persistent save >/dev/null 2>&1 || true
+      save_iptables_rules
       ;;
   esac
 }
@@ -3068,6 +3145,13 @@ export_list() {
     "ss://$(echo -n "${SS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:${SERVER_PORT_NOW}?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0#${NODE_NAME// /%20}%20ss-ws" \
     "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ss-ws\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" \
     "${NODE_NAME} ss-ws"
+
+  # vless-xhttp (Standard XHTTP over Argo/CDN)，检查是否为临时隧道 (Try Tunnel)，临时隧道不支持 VLESS + XHTTP
+  grep -q 'vless-xhttp' <<< "$PROTOS_NOW" && ! grep -q 'trycloudflare\.com$' <<< "${ARGO_DOMAIN}" && _add \
+    "{name: \"${NODE_NAME} vless-xhttp\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2], servername: ${ARGO_DOMAIN}, client-fingerprint: chrome, encryption: \"\", xhttp-opts: {path: \"/${WS_PATH}-xh\", host: ${ARGO_DOMAIN}} }" \
+    "vless://$(echo -n ":${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?path=/${WS_PATH}-xh&remarks=${NODE_NAME// /%20}%20vless-xhttp&obfsParam=%7B%22Host%22:%22${ARGO_DOMAIN}%22%7D&obfs=xhttp&tls=1&peer=${ARGO_DOMAIN}&alpn=h2,http/1.1&h2=1&mode=auto" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20vless-xhttp" \
+    "" ""
 
   # xhttp-h3-direct (修复跨行问题)
   grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && _add \
