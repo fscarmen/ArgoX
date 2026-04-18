@@ -20,6 +20,8 @@
 
 * * *
 ## 更新信息
+2026.04.18 v2.0.5 1. 将 CDN 下的 XHTTP 从 Nginx 反代链路移出，改为由 cloudflared ingress 直接转发到本地 Xray inbound; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，同时覆盖 HTTP/2 CDN 与 HTTP/3 Direct
+
 2026.04.11 v2.0.4 1. 优选地址支持非 443 端口（IPv4 / IPv6 / 域名）; 2. 移除安装前 UFW 强制校验，inactive 自动回退 iptables; 3. 优选地址 / 带宽 / 端口跳跃修改不再重启 xray
 
 2026.04.10 v2.0.3 1. 自动检测 UFW 并切换规则管理方式; 2. [argox -d] 支持修改起始端口并自动同步防火墙; 3. 新增 Hysteria2 带宽配置入口
@@ -155,11 +157,17 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 详细教程: [群晖套件：Cloudflare Tunnel 内网穿透中文教程 支持DSM6、7](https://imnks.com/5984.html)
 
-<img width="1409" alt="image" src="https://user-images.githubusercontent.com/92626977/218253461-c079cddd-3f4c-4278-a109-95229f1eb299.png">
+xhttp H2 路径 `^/<自定义路径>-xh(?:/|$)`
 
-<img width="1619" alt="image" src="https://user-images.githubusercontent.com/92626977/218253838-aa73b63d-1e8a-430e-b601-0b88730d03b0.png">
+<img width="1198" height="721" alt="image" src="https://github.com/user-attachments/assets/5cd8ef6d-5178-4fdf-a33a-c5ba5ef3d023" />
 
-<img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
+<img width="1139" height="489" alt="image" src="https://github.com/user-attachments/assets/e172facb-5b16-4782-b6a8-9eba56ac3976" />
+
+<img width="906" height="678" alt="image" src="https://github.com/user-attachments/assets/0dce8462-ae3c-43a4-9c2e-8f7f55da83b7" />
+
+<img width="1146" height="660" alt="image" src="https://github.com/user-attachments/assets/5ef7b630-308e-490f-be46-81097afeb45e" />
+
+<img width="777" height="589" alt="image" src="https://github.com/user-attachments/assets/8656d958-09ab-4f4a-a7f1-df2cc5285204" />
 
 
 ## 使用 Cloudflare API 自动创建 Argo
