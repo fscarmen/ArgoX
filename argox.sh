@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.5 (2026.04.18)'
+VERSION='2.0.6 (2026.04.20)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
 
 # 协议列表和对应的节点标签，顺序必须一一对应
-PROTOCOL_LIST=("VLESS + Reality Vision" "Hysteria2" "VLESS + Reality gRPC" "VLESS + WS" "VMess + WS" "Trojan + WS" "Shadowsocks + WS" "XHTTP + H2 CDN" "VLESS + XHTTP Direct" "Trojan Direct" "Shadowsocks 2022 Direct")
-NODE_TAG=(     "reality-vision"         "hysteria2" "reality-grpc"         "vless-ws"   "vmess-ws"   "trojan-ws"   "ss-ws"            "xhttp-h2-cdn"   "xhttp-h3-direct"      "trojan-direct" "ss2022-direct")
+PROTOCOL_LIST=("VLESS + Reality Vision" "Hysteria2" "VLESS + Reality gRPC" "VLESS + WS" "VMess + WS" "Trojan + WS" "Shadowsocks + WS" "VLESS + XHTTP HTTP/1.1 CDN" "VLESS + XHTTP HTTP/3 Direct" "Trojan Direct" "Shadowsocks 2022 Direct")
+NODE_TAG=(     "reality-vision"         "hysteria2" "reality-grpc"         "vless-ws"   "vmess-ws"   "trojan-ws"   "ss-ws"            "xhttp-h1.1-cdn"             "xhttp-h3-direct"             "trojan-direct" "ss2022-direct")
 
 # 端口范围限制
 MIN_PORT=100
@@ -43,8 +43,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Move XHTTP over CDN off the Nginx reverse-proxy path and let cloudflared ingress forward directly to the local Xray inbound; 2. Add Clash Mihomo-compatible XHTTP client output for both HTTP/2 CDN and HTTP/3 direct modes"
-C[1]="1. 将 CDN 下的 XHTTP 从 Nginx 反代链路移出，改为由 cloudflared ingress 直接转发到本地 Xray inbound; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，同时覆盖 HTTP/2 CDN 与 HTTP/3 Direct"
+E[1]="1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes"
+C[1]="1. 保持 CDN 下的 XHTTP 继续走 Nginx 反代链路，并由 Nginx 负责基于路径的分流; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，在固定隧道下覆盖 HTTP/1.1 CDN 与 HTTP/3 Direct"
 E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -243,8 +243,8 @@ E[99]="Invalid Reality privateKey, generating randomly..."
 C[99]="Reality 私钥无效，随机生成中..."
 E[100]=" a. all (default)"
 C[100]=" a. 全部（默认）"
-E[101]="XHTTP + H2 CDN (Temporary tunnel NOT supported)"
-C[101]="XHTTP + H2 CDN（临时隧道不支持）"
+E[101]="${PROTOCOL_LIST[7]} (Temporary tunnel NOT supported)"
+C[101]="${PROTOCOL_LIST[7]}（临时隧道不支持）"
 E[102]="Cannot get quicktunnel domain."
 C[102]="获取临时隧道域名失败"
 E[103]="No change was made."
@@ -556,6 +556,17 @@ cmd_systemctl() {
     else
       systemctl disable --now $APP >/dev/null 2>&1
     fi
+  elif [ "$ENABLE_DISABLE" = 'restart' ]; then
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      rc-service $APP restart >/dev/null 2>&1
+    elif [ "$IS_CENTOS" = 'CentOS7' ]; then
+      systemctl daemon-reload
+      systemctl restart $APP >/dev/null 2>&1
+      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
+    else
+      systemctl daemon-reload
+      systemctl restart $APP >/dev/null 2>&1
+    fi
   elif [ "$ENABLE_DISABLE" = 'status' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
       rc-service $APP status
@@ -782,15 +793,7 @@ xray_variable() {
     for p in "${!PROTOCOL_LIST[@]}"; do
       local letter=$(asc $((p + 98)))
       local p_name="${PROTOCOL_LIST[p]}"
-      if [ "$letter" = "i" ]; then
-        p_name=$(text 101)
-      elif [ "$letter" = "j" ]; then
-        p_name="VLESS + XHTTP Direct (h3)"
-      elif [ "$letter" = "k" ]; then
-        p_name="Trojan Direct"
-      elif [ "$letter" = "l" ]; then
-        p_name="Shadowsocks 2022 Direct"
-      fi
+      [ "$letter" = "i" ] && p_name=$(text 101)
       hint " ${letter}. ${p_name}"
     done
     reading "\n $(text 24) " CHOOSE_PROTOCOLS
@@ -1274,7 +1277,7 @@ fetch_nodes_value() {
   VMESS_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "vmess-ws") | .port] | .[0] // empty' 2>/dev/null)
   TROJAN_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "trojan-ws") | .port] | .[0] // empty' 2>/dev/null)
   SS_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "ss-ws") | .port] | .[0] // empty' 2>/dev/null)
-  VLESS_XHTTP_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h2-cdn") | .port] | .[0] // empty' 2>/dev/null)
+  VLESS_XHTTP_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h1.1-cdn") | .port] | .[0] // empty' 2>/dev/null)
   XHTTP_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h3-direct") | .port] | .[0] // empty' 2>/dev/null)
   [ -z "$TLS_SERVER" ] && TLS_SERVER=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.streamSettings.network=="hysteria") | .streamSettings.tlsSettings.serverNames[0]] | .[0] // empty' 2>/dev/null)
   [ -z "$TLS_SERVER" ] && TLS_SERVER=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "trojan-direct") | .streamSettings.tlsSettings.serverName // .streamSettings.tlsSettings.serverNames[0]] | .[0] // empty' 2>/dev/null)
@@ -1687,7 +1690,7 @@ sync_service_firewall_rules() {
       TAG=${TAG##* }
       case "$TAG" in
         hysteria2) append_unique_port EXPOSED_UDP_PORTS "$PORT" ;;
-        vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h2-cdn) [ "$HAS_NGINX" = false ] && append_unique_port EXPOSED_TCP_PORTS "$PORT" ;;
+        vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h1.1-cdn) [ "$HAS_NGINX" = false ] && append_unique_port EXPOSED_TCP_PORTS "$PORT" ;;
         xhttp-h3-direct) append_unique_port EXPOSED_UDP_PORTS "$PORT" ;;
         ss2022-direct) append_unique_port EXPOSED_TCP_PORTS "$PORT"; append_unique_port EXPOSED_UDP_PORTS "$PORT" ;;
         *) append_unique_port EXPOSED_TCP_PORTS "$PORT" ;;
@@ -2007,7 +2010,7 @@ json_nginx() {
     _PORT_VM=$(echo "$JSON_CLEAN" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "vmess-ws") | .port] | .[0] // empty' 2>/dev/null)
     _PORT_TR=$(echo "$JSON_CLEAN" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "trojan-ws") | .port] | .[0] // empty' 2>/dev/null)
     _PORT_SH=$(echo "$JSON_CLEAN" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "ss-ws") | .port] | .[0] // empty' 2>/dev/null)
-    _PORT_XH=$(echo "$JSON_CLEAN" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h2-cdn") | .port] | .[0] // empty' 2>/dev/null)
+    _PORT_XH=$(echo "$JSON_CLEAN" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h1.1-cdn") | .port] | .[0] // empty' 2>/dev/null)
   fi
   _PORT_VL=${_PORT_VL:-${VLESS_WS_PORT}}
   _PORT_VM=${_PORT_VM:-${VMESS_WS_PORT}}
@@ -2020,7 +2023,7 @@ json_nginx() {
   grep -q 'vmess-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-vm" "$_PORT_VM")"
   grep -q 'trojan-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-tr" "$_PORT_TR")"
   grep -qw 'ss-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-sh" "$_PORT_SH")"
-  grep -q 'xhttp-h2-cdn' <<< "$PROTOCOLS_NOW" && ! use_tunnel_direct_xhttp && _add_location "$(_xhttp_location "/${WS_PATH}-xh" "${_PORT_XH}")"
+  grep -q 'xhttp-h1.1-cdn' <<< "$PROTOCOLS_NOW" && _add_location "$(_xhttp_location "/${WS_PATH}-xh" "${_PORT_XH}")"
   local SUB_BLOCK
   SUB_BLOCK=$(printf '    location ~ ^/%s/auto {
       default_type  text/plain;
@@ -2070,21 +2073,11 @@ ${SERVER_BLOCK}
 EOF
 }
 
-# 判断是否需要将 xhttp-h2-cdn 从 Nginx 下沉到 Tunnel 层
+# xhttp-h1.1-cdn 统一由 Nginx 分流，Tunnel 层不再直连本地 Xray inbound
 use_tunnel_direct_xhttp() {
-  local _DOMAIN="${ARGO_DOMAIN}"
-  [ -z "$_DOMAIN" ] && [ -s "$WORK_DIR/tunnel.yml" ] && _DOMAIN=$(awk '/^[[:space:]]*- hostname:/{print $3; exit}' "$WORK_DIR/tunnel.yml" 2>/dev/null)
-  [ -z "$_DOMAIN" ] && [ -s "$WORK_DIR/list" ] && _DOMAIN=$(grep -m1 '^vless.*host=.*' "$WORK_DIR/list" | sed 's@.*host=\([^&]*\).*@\1@')
-  [ -z "$_DOMAIN" ] && return 1
-  [[ "$_DOMAIN" =~ trycloudflare\.com$ ]] && return 1
-  get_installed_protocols | grep -qw 'xhttp-h2-cdn'
+  return 1
 }
 
-restart_argo_if_needed() {
-  [ ! -s "${ARGO_DAEMON_FILE}" ] && return 0
-  cmd_systemctl disable argo
-  cmd_systemctl enable argo
-}
 
 # Json 生成两个配置文件
 json_argo() {
@@ -2100,36 +2093,11 @@ json_argo() {
   [ -z "$NGINX_PORT" ] && [ -s "$WORK_DIR/nginx.conf" ] && NGINX_PORT=$(awk '/listen[[:space:]]/{gsub(/;/, "", $2); print $2; exit}' "$WORK_DIR/nginx.conf")
   NGINX_PORT="${NGINX_PORT:-$NGINX_PORT_DEFAULT}"
 
-  local _XHTTP_PORT
-  [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ] && _XHTTP_PORT=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h2-cdn") | .port] | .[0] // empty' 2>/dev/null)
-  _XHTTP_PORT="${_XHTTP_PORT:-$VLESS_XHTTP_PORT}"
-  [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ] && WS_PATH=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '[.inbounds[] | select((.tag | split(" ")[-1]) == "xhttp-h2-cdn") | .streamSettings.xhttpSettings.path] | .[0] // empty' 2>/dev/null | sed 's|^/||; s|-xh$||')
-  WS_PATH="${WS_PATH:-$WS_PATH_DEFAULT}"
-  if [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ] && get_installed_protocols | grep -qw 'xhttp-h2-cdn'; then
-    grep -v '^//' "$WORK_DIR/inbound.json"       | $WORK_DIR/jq --arg sn "$ARGO_DOMAIN" --arg cert "${WORK_DIR}/cert/cert.pem" --arg key "${WORK_DIR}/cert/private.key"         '.inbounds |= map(if ((.tag | split(" ")[-1]) == "xhttp-h2-cdn") then (.streamSettings.security = "tls" | .streamSettings.tlsSettings.serverName = $sn | .streamSettings.tlsSettings.certificates = [{"certificateFile":$cert,"keyFile":$key}]) else . end)'       > "$TEMP_DIR/inbound_tmp.json" && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json"
-  fi
-
   cat > $WORK_DIR/tunnel.yml << EOF
 tunnel: $(cut -d\" -f12 <<< $ARGO_JSON)
 credentials-file: $WORK_DIR/tunnel.json
 
 ingress:
-EOF
-  if use_tunnel_direct_xhttp && [ -n "$_XHTTP_PORT" ]; then
-    cat >> $WORK_DIR/tunnel.yml << EOF
-  - hostname: ${ARGO_DOMAIN}
-    path: ^/${WS_PATH}-xh(?:/|$)
-    service: https://localhost:${_XHTTP_PORT}
-    originRequest:
-      noTLSVerify: true
-      http2Origin: true
-      originServerName: ${ARGO_DOMAIN}
-      httpHostHeader: ${ARGO_DOMAIN}
-
-
-EOF
-  fi
-  cat >> $WORK_DIR/tunnel.yml << EOF
   - hostname: ${ARGO_DOMAIN}
     service: http://localhost:${NGINX_PORT}
 
@@ -2138,7 +2106,7 @@ EOF
 }
 # 创建 Argo Tunnel API
 create_argo_tunnel() {
-  [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ] && WS_PATH=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '[.inbounds[] | select((.tag | split(" ")[-1]) == "xhttp-h2-cdn") | .streamSettings.xhttpSettings.path] | .[0] // empty' 2>/dev/null | sed 's|^/||; s|-xh$||')
+  [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ] && WS_PATH=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '[.inbounds[] | select((.tag | split(" ")[-1]) == "xhttp-h1.1-cdn") | .streamSettings.xhttpSettings.path] | .[0] // empty' 2>/dev/null | sed 's|^/||; s|-xh$||')
   WS_PATH="${WS_PATH:-$WS_PATH_DEFAULT}"
   local CLOUDFLARE_API_TOKEN="$1"
   local ARGO_DOMAIN="$2"
@@ -2238,64 +2206,26 @@ create_argo_tunnel() {
     return 5
   fi
 
-  local _XHTTP_PORT=''
-  [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ] && _XHTTP_PORT=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "xhttp-h2-cdn") | .port] | .[0] // empty' 2>/dev/null)
-  _XHTTP_PORT="${_XHTTP_PORT:-$VLESS_XHTTP_PORT}"
-
-  local INGRESS_JSON=''
-  if use_tunnel_direct_xhttp && [ -n "$_XHTTP_PORT" ]; then
-    # 这里保持干净的 JSON 格式，不要加反斜杠
-    INGRESS_JSON=$(cat <<EOF
-        {
-          "hostname": "${ARGO_DOMAIN}",
-          "path": "^/${WS_PATH}-xh(?:/|$)",
-          "service": "https://localhost:${_XHTTP_PORT}",
-          "originRequest": {
-            "noTLSVerify": true,
-            "http2Origin": true,
-            "originServerName": "${ARGO_DOMAIN}",
-            "httpHostHeader": "${ARGO_DOMAIN}"
-          }
-        },
-        {
-          "service": "http://localhost:${SERVICE_PORT}",
-          "hostname": "${ARGO_DOMAIN}"
-        },
-        {
-          "service": "http_status:404"
-        }
-EOF
-)
-  else
-    INGRESS_JSON=$(cat <<EOF
-        {
-          "service": "http://localhost:${SERVICE_PORT}",
-          "hostname": "${ARGO_DOMAIN}"
-        },
-        {
-          "service": "http_status:404"
-        }
-EOF
-)
-  fi
-
-  # 使用拼接方式构建 BODY，确保变量被正确展开且引号不冲突
-  local BODY_DATA="{
-    \"config\": {
-      \"ingress\": [
-        ${INGRESS_JSON}
-      ],
-      \"warp-routing\": {
-        \"enabled\": false
-      }
-    }
-  }"
-
   local CONFIG_RESPONSE=$(wget --no-check-certificate -qO- --content-on-error \
     --method=PUT \
     --header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
     --header="Content-Type: application/json" \
-    --body-data="$BODY_DATA" \
+    --body-data="{
+      \"config\": {
+        \"ingress\": [
+          {
+            \"service\": \"http://localhost:${SERVICE_PORT}\",
+            \"hostname\": \"${ARGO_DOMAIN}\"
+          },
+          {
+            \"service\": \"http_status:404\"
+          }
+        ],
+        \"warp-routing\": {
+          \"enabled\": false
+        }
+      }
+    }" \
     "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}/configurations")
 
   api_error "$CONFIG_RESPONSE" || return $?
@@ -2829,20 +2759,20 @@ JSONEOF
       },
       "streamSettings": {
         "network": "xhttp",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "${ARGO_DOMAIN:-argox.trycloudflare.com}",
-          "certificates": [
-            {
-              "certificateFile": "${WORK_DIR}/cert/cert.pem",
-              "keyFile": "${WORK_DIR}/cert/private.key"
-            }
-          ]
-        },
+        "security": "none",
         "xhttpSettings": {
           "mode": "auto",
           "path": "/${WS_PATH}-xh"
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
+        "metadataOnly": false
       }
     }
 JSONEOF
@@ -3156,7 +3086,6 @@ export_list() {
 
   if grep -qs "^${DAEMON_RUN_PATTERN}.*--url" ${ARGO_DAEMON_FILE}; then
     fetch_tunnel_domain quick || true
-    [ -s ${WORK_DIR}/inbound.json ] && grep -q 'argox\.trycloudflare\.com' ${WORK_DIR}/inbound.json && sed -i "s/argox.trycloudflare.com/${ARGO_DOMAIN}/g" ${WORK_DIR}/inbound.json
   else
     fetch_tunnel_domain config >/dev/null 2>&1 || true
     [ -z "$ARGO_DOMAIN" ] && [ -s "$WORK_DIR/tunnel.yml" ] && ARGO_DOMAIN=$(awk '/^[[:space:]]*-[[:space:]]*hostname:/{print $3; exit}' "$WORK_DIR/tunnel.yml" 2>/dev/null)
@@ -3167,7 +3096,8 @@ export_list() {
   local _SUB_SCHEME='https'
 
   local PROTOS_NOW
-  PROTOS_NOW=$(get_installed_protocols | tr '\n' ' ')
+  PROTOS_NOW=$(get_installed_protocols | tr '
+' ' ')
 
   local FP_SHA256='' FP_BASE64='' CERT_SNI="${TLS_SERVER:-addons.mozilla.org}"
   if grep -Eq 'hysteria2|xhttp-h3-direct|trojan-direct' <<< "$PROTOS_NOW" && [ -s ${WORK_DIR}/cert/cert.pem ]; then
@@ -3258,11 +3188,11 @@ export_list() {
     "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ${NODE_TAG[6]}\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"method\": \"chacha20-ietf-poly1305\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" \
     "${NODE_NAME} ${NODE_TAG[6]}"
 
-  # xhttp-h2-cdn (Standard XHTTP over Argo/CDN)，检查是否为临时隧道 (Try Tunnel)，临时隧道不支持 XHTTP + H2 CDN
-  grep -q 'xhttp-h2-cdn' <<< "$PROTOS_NOW" && ! grep -q 'trycloudflare\.com$' <<< "${ARGO_DOMAIN}" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[7]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2], servername: ${ARGO_DOMAIN}, client-fingerprint: chrome, encryption: \"\", xhttp-opts: {path: \"/${WS_PATH}-xh\", host: ${ARGO_DOMAIN}, mode: auto} }" \
+  # xhttp-h1.1-cdn（固定隧道下输出，使用 HTTP/1.1）
+  grep -q 'xhttp-h1.1-cdn' <<< "$PROTOS_NOW" && ! grep -q 'trycloudflare\.com$' <<< "${ARGO_DOMAIN}" && _add \
+    "{name: \"${NODE_NAME} ${NODE_TAG[7]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2,http/1.1], servername: ${ARGO_DOMAIN}, client-fingerprint: chrome, encryption: \"\", xhttp-opts: {path: \"/${WS_PATH}-xh\", host: ${ARGO_DOMAIN}, mode: auto} }" \
     "vless://$(echo -n ":${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?path=/${WS_PATH}-xh&remarks=${NODE_NAME// /%20}%20${NODE_TAG[7]}&obfsParam=%7B%22Host%22:%22${ARGO_DOMAIN}%22%7D&obfs=xhttp&tls=1&peer=${ARGO_DOMAIN}&alpn=h2,http/1.1&h2=1&mode=auto" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=chrome&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
     "" ""
 
   # xhttp-h3-direct
@@ -3294,13 +3224,38 @@ export_list() {
   echo -n "$SR_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
   echo -n "$V2N_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/base64
 
-  # sing-box 订阅
-  local SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
-  echo "$SING_BOX_JSON" | sed "s#\"<OUTBOUND_REPLACE>\"#${SB_OUTBOUNDS}#; s#\"<NODE_REPLACE>\"#${SB_TAGS}#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box
+  # sing-box 订阅：纯 xhttp 场景直接跳过；其余场景仅在确实生成了 sing-box outbound 时才处理
+  local SB_DISPLAY='' SB_BLOCK='' SB_LINK_BLOCK=''
+  if ! grep -Eq '^[[:space:]]*(xhttp-h1\.1-cdn|xhttp-h3-direct)[[:space:]]*$' <<< "$PROTOS_NOW" || grep -Eq '(^|[[:space:]])(reality-vision|hysteria2|reality-grpc|vless-ws|vmess-ws|trojan-ws|ss-ws|trojan-direct|ss2022-direct)([[:space:]]|$)' <<< "$PROTOS_NOW"; then
+    if [ -n "$SB_OUTBOUNDS" ]; then
+    local SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
+    echo "$SING_BOX_JSON" | sed "s#\"<OUTBOUND_REPLACE>\"#${SB_OUTBOUNDS}#; s#\"<NODE_REPLACE>\"#${SB_TAGS}#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box
+    SB_DISPLAY=$(echo "{ \"outbounds\":[ ${SB_OUTBOUNDS} ] }" | $WORK_DIR/jq 2>/dev/null)
+    SB_BLOCK="
+*******************************************
+┌────────────────┐
+│                │
+│    $(warning "Sing-box")    │
+│                │
+└────────────────┘
+----------------------------
+
+$(hint "${SB_DISPLAY}")
+
+$(info "$(text 63)")"
+    SB_LINK_BLOCK="
+
+sing-box $(text 66):
+${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/sing-box"
+    else
+      rm -f $WORK_DIR/subscribe/sing-box >/dev/null 2>&1 || true
+    fi
+  else
+    rm -f $WORK_DIR/subscribe/sing-box >/dev/null 2>&1 || true
+  fi
 
   # 显示用变量
   local CLASH_DISPLAY=$(echo -e "$CLASH" | sed '1d')
-  local SB_DISPLAY=$(echo "{ \"outbounds\":[ ${SB_OUTBOUNDS} ] }" | $WORK_DIR/jq 2>/dev/null)
 
   check_system_info
   local ARGO_V=$($WORK_DIR/cloudflared -v | awk '{print $3}')
@@ -3339,17 +3294,7 @@ $(hint "$(echo -e "${SR_DISPLAY}")")
 
 $(info "${CLASH_DISPLAY}")
 
-*******************************************
-┌────────────────┐
-│                │
-│    $(warning "Sing-box")    │
-│                │
-└────────────────┘
-----------------------------
-
-$(hint "${SB_DISPLAY}")
-
-$(info "$(text 63)")
+${SB_BLOCK}
 
 *******************************************
 
@@ -3363,10 +3308,7 @@ V2rayN / Nekoray $(text 66):
 ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/base64")
 
 $(hint "Clash $(text 66):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/clash
-
-sing-box $(text 66):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/sing-box
+${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/clash${SB_LINK_BLOCK}
 
 Shadowrocket $(text 66):
 ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/shadowrocket")
@@ -3401,10 +3343,7 @@ change_protocols() {
     for idx in "${!NODE_TAG[@]}"; do
       if [ "${NODE_TAG[$idx]}" = "$tag" ]; then
         local p_name="${PROTOCOL_LIST[$idx]}"
-        [ "${NODE_TAG[$idx]}" = "xhttp-h2-cdn" ] && p_name=$(text 101)
-        [ "${NODE_TAG[$idx]}" = "xhttp-h3-direct" ] && p_name="VLESS + XHTTP Direct (h3)"
-        [ "${NODE_TAG[$idx]}" = "trojan-direct" ] && p_name="Trojan Direct"
-        [ "${NODE_TAG[$idx]}" = "ss2022-direct" ] && p_name="Shadowsocks 2022 Direct"
+        [ "$idx" = '7' ] && p_name=$(text 101)
         EXISTED_PROTOCOLS+=("${p_name}")
         break
       fi
@@ -3417,10 +3356,7 @@ change_protocols() {
     done
     if ! $found; then
       local p_name="${PROTOCOL_LIST[$idx]}"
-      [ "${NODE_TAG[$idx]}" = "xhttp-h2-cdn" ] && p_name=$(text 101)
-      [ "${NODE_TAG[$idx]}" = "xhttp-h3-direct" ] && p_name="VLESS + XHTTP Direct (h3)"
-      [ "${NODE_TAG[$idx]}" = "trojan-direct" ] && p_name="Trojan Direct"
-      [ "${NODE_TAG[$idx]}" = "ss2022-direct" ] && p_name="Shadowsocks 2022 Direct"
+      [ "$idx" = '7' ] && p_name=$(text 101)
       NOT_EXISTED_PROTOCOLS+=("${p_name}")
     fi
   done
@@ -3475,7 +3411,7 @@ change_protocols() {
     local tag="${NODE_TAG[$idx]}"
     local pname="${PROTOCOL_LIST[$idx]}"
     for p in "${REINSTALL_PROTOCOLS[@]}"; do
-      if [ "$p" = "$pname" ] || [ "$tag" = "xhttp-h2-cdn" -a "$p" = "$(text 101)" ] || [ "$tag" = "xhttp-h3-direct" -a "$p" = "VLESS + XHTTP Direct (h3)" ] || [ "$tag" = "trojan-direct" -a "$p" = "Trojan Direct" ] || [ "$tag" = "ss2022-direct" -a "$p" = "Shadowsocks 2022 Direct" ]; then
+      if [ "$p" = "$pname" ] || [ "$tag" = "${NODE_TAG[7]}" -a "$p" = "$(text 101)" ]; then
         REINSTALL_TAGS+=("$tag")
         break
       fi
@@ -3484,12 +3420,12 @@ change_protocols() {
 
   for pname in "${REMOVE_PROTOCOLS[@]}"; do
     for idx in "${!PROTOCOL_LIST[@]}"; do
-      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "${NODE_TAG[$idx]}" = "xhttp-h2-cdn" && "$pname" = "$(text 101)" ) || ( "${NODE_TAG[$idx]}" = "xhttp-h3-direct" && "$pname" = "VLESS + XHTTP Direct (h3)" ) || ( "${NODE_TAG[$idx]}" = "trojan-direct" && "$pname" = "Trojan Direct" ) || ( "${NODE_TAG[$idx]}" = "ss2022-direct" && "$pname" = "Shadowsocks 2022 Direct" ) ]] && REMOVE_TAGS+=("${NODE_TAG[$idx]}") && break
+      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "$idx" = '7' && "$pname" = "$(text 101)" ) ]] && REMOVE_TAGS+=("${NODE_TAG[$idx]}") && break
     done
   done
   for pname in "${ADD_PROTOCOLS[@]}"; do
     for idx in "${!PROTOCOL_LIST[@]}"; do
-      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "${NODE_TAG[$idx]}" = "xhttp-h2-cdn" && "$pname" = "$(text 101)" ) || ( "${NODE_TAG[$idx]}" = "xhttp-h3-direct" && "$pname" = "VLESS + XHTTP Direct (h3)" ) || ( "${NODE_TAG[$idx]}" = "trojan-direct" && "$pname" = "Trojan Direct" ) || ( "${NODE_TAG[$idx]}" = "ss2022-direct" && "$pname" = "Shadowsocks 2022 Direct" ) ]] && ADD_TAGS+=("${NODE_TAG[$idx]}") && break
+      [[ "${PROTOCOL_LIST[$idx]}" = "$pname" || ( "$idx" = '7' && "$pname" = "$(text 101)" ) ]] && ADD_TAGS+=("${NODE_TAG[$idx]}") && break
     done
   done
 
@@ -3585,7 +3521,7 @@ change_protocols() {
         vmess-ws) VMESS_WS_PORT=$_EXIST_PORT ;;
         trojan-ws) TROJAN_WS_PORT=$_EXIST_PORT ;;
         ss-ws) SS_WS_PORT=$_EXIST_PORT ;;
-        xhttp-h2-cdn) VLESS_XHTTP_PORT=$_EXIST_PORT ;;
+        xhttp-h1.1-cdn) VLESS_XHTTP_PORT=$_EXIST_PORT ;;
         xhttp-h3-direct) XHTTP_PORT=$_EXIST_PORT ;;
         trojan-direct) TROJAN_PORT=$_EXIST_PORT ;;
         ss2022-direct) SS2022_PORT=$_EXIST_PORT ;;
@@ -3615,7 +3551,7 @@ change_protocols() {
         vmess-ws) VMESS_WS_PORT=$_NEW_PORT ;;
         trojan-ws) TROJAN_WS_PORT=$_NEW_PORT ;;
         ss-ws) SS_WS_PORT=$_NEW_PORT ;;
-        xhttp-h2-cdn) VLESS_XHTTP_PORT=$_NEW_PORT ;;
+        xhttp-h1.1-cdn) VLESS_XHTTP_PORT=$_NEW_PORT ;;
         xhttp-h3-direct) XHTTP_PORT=$_NEW_PORT ;;
         trojan-direct) TROJAN_PORT=$_NEW_PORT ;;
         ss2022-direct) SS2022_PORT=$_NEW_PORT ;;
@@ -3633,7 +3569,7 @@ change_protocols() {
 
   local _HAS_WS_XHTTP_ADD=false
   for _t in "${ADD_TAGS[@]}"; do
-    [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h2-cdn)$ ]] && _HAS_WS_XHTTP_ADD=true && break
+    [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h1.1-cdn)$ ]] && _HAS_WS_XHTTP_ADD=true && break
   done
 
   if $_HAS_WS_XHTTP_ADD && [[ -z "$SERVER" || "$SERVER" == '__CDN_UNSET__' ]]; then
@@ -3668,13 +3604,13 @@ change_protocols() {
   # 若最终协议列表中不含任何 WS/XHTTP 协议，清除 CDN
   local _HAS_WS_XHTTP_FINAL=false
   for _t in "${REINSTALL_TAGS[@]}"; do
-    [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h2-cdn)$ ]] && _HAS_WS_XHTTP_FINAL=true && break
+    [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h1.1-cdn)$ ]] && _HAS_WS_XHTTP_FINAL=true && break
   done
   $_HAS_WS_XHTTP_FINAL || SERVER='__CDN_UNSET__'
 
   local _XHTTP_TLS_SERVER_NAME="$ARGO_DOMAIN"
   if printf '%s
-' "${REINSTALL_TAGS[@]}" | grep -qx 'xhttp-h2-cdn'; then
+' "${REINSTALL_TAGS[@]}" | grep -qx 'xhttp-h1.1-cdn'; then
     if [ -z "$_XHTTP_TLS_SERVER_NAME" ]; then
       case $(grep "${DAEMON_RUN_PATTERN}" ${ARGO_DAEMON_FILE} 2>/dev/null) in
         *--config* ) fetch_tunnel_domain config >/dev/null 2>&1 || true ;;
@@ -3716,7 +3652,7 @@ EOF
       vmess-ws) NEW_BLOCK="{\"port\":${VMESS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vmess\",\"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"alterId\":0}]},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vm\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       trojan-ws) NEW_BLOCK="{\"port\":${TROJAN_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[5]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-tr\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       ss-ws) NEW_BLOCK="{\"port\":${SS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"settings\":{\"clients\":[{\"method\":\"chacha20-ietf-poly1305\",\"password\":\"${UUID}\"}],\"network\":\"tcp,udp\"},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-sh\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      xhttp-h2-cdn) NEW_BLOCK="{\"port\":${VLESS_XHTTP_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[7]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"${_XHTTP_TLS_SERVER_NAME}\",\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]},\"xhttpSettings\":{\"path\":\"/${WS_PATH}-xh\",\"mode\":\"auto\"}}}" ;;
+      xhttp-h1.1-cdn) NEW_BLOCK="{\"port\":${VLESS_XHTTP_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[7]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"none\",\"xhttpSettings\":{\"path\":\"/${WS_PATH}-xh\",\"mode\":\"auto\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       xhttp-h3-direct) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"port\":${XHTTP_PORT},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"xhttpSettings\":{\"mode\":\"stream-up\",\"extra\":{\"alpn\":[\"h3\"]},\"path\":\"/${WS_PATH}-xh3\"},\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       trojan-direct) NEW_BLOCK="{\"port\":${TROJAN_PORT},\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       ss2022-direct) NEW_BLOCK="{\"port\":${SS2022_PORT},\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[10]}\",\"settings\":{\"method\":\"2022-blake3-aes-128-gcm\",\"password\":\"${SS2022_PASSWORD}\",\"network\":\"tcp,udp\"},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
@@ -3745,7 +3681,7 @@ EOF
   if [ ! -s "${ARGO_DAEMON_FILE}" ]; then
     argo_variable
   elif [ -s "$WORK_DIR/tunnel.json" ]; then
-    restart_argo_if_needed
+    cmd_systemctl restart argo
   fi
 
   cmd_systemctl enable xray
@@ -3775,9 +3711,9 @@ change_argo() {
       cmd_systemctl enable argo && sleep 2 && cmd_systemctl status argo &>/dev/null && fetch_tunnel_domain quick
   esac
 
-  # 若 Try 隧道且已安装 xhttp-h2-cdn，在类型后附加提示
+  # 若 Try 隧道且已安装 xhttp-h1.1-cdn，在类型后附加提示
   local ARGO_TYPE="$ARGO_TYPE"
-  if [ "$ARGO_TYPE" = 'Try' ] && get_installed_protocols | grep -q 'xhttp-h2-cdn'; then
+  if [ "$ARGO_TYPE" = 'Try' ] && get_installed_protocols | grep -q 'xhttp-h1.1-cdn'; then
     ARGO_TYPE="Try $(text 113)"
   fi
 
@@ -3833,16 +3769,8 @@ change_argo() {
   esac
 
   [ "$IS_NGINX" = 'is_nginx' ] && json_nginx
+  [ -s "$WORK_DIR/tunnel.json" ] && json_argo
   cmd_systemctl enable argo
-  if get_installed_protocols | grep -qw 'xhttp-h2-cdn' && [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ]; then
-    unset ARGO_DOMAIN
-    case $(grep "${DAEMON_RUN_PATTERN}" ${ARGO_DAEMON_FILE} 2>/dev/null) in
-      *--config* ) fetch_tunnel_domain config >/dev/null 2>&1 || true ;;
-      *--token* ) fetch_tunnel_domain config >/dev/null 2>&1 || true ;;
-      * ) fetch_tunnel_domain quick >/dev/null 2>&1 || true ;;
-    esac
-    [ -n "$ARGO_DOMAIN" ] && grep -v '^//' "$WORK_DIR/inbound.json"       | $WORK_DIR/jq --arg sn "$ARGO_DOMAIN" --arg cert "${WORK_DIR}/cert/cert.pem" --arg key "${WORK_DIR}/cert/private.key"         '.inbounds |= map(if ((.tag | split(" ")[-1]) == "xhttp-h2-cdn") then (.streamSettings.security = "tls" | .streamSettings.tlsSettings.serverName = $sn | .streamSettings.tlsSettings.certificates = [{"certificateFile":$cert,"keyFile":$key}]) else . end)'       > "$TEMP_DIR/inbound_tmp.json" && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json"
-  fi
   export_list
 }
 
@@ -3868,10 +3796,9 @@ change_start_port() {
   fetch_nodes_value
   [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
   [ -s "$WORK_DIR/tunnel.json" ] && json_argo
-  cmd_systemctl disable xray
-  cmd_systemctl enable xray
+  cmd_systemctl restart xray
   FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
-  [ -s "$WORK_DIR/tunnel.json" ] && restart_argo_if_needed
+  [ -s "$WORK_DIR/tunnel.json" ] && cmd_systemctl restart argo
   sleep 2
   export_list
   cmd_systemctl status xray &>/dev/null && info "
@@ -4082,8 +4009,7 @@ change_config() {
       ;;
   esac
 
-  cmd_systemctl disable xray
-  cmd_systemctl enable xray
+  cmd_systemctl restart xray
   sleep 2
   cmd_systemctl status xray &>/dev/null && \
     info "\n Xray $(text 28) $(text 37) \n" || \
@@ -4279,7 +4205,7 @@ menu() {
 check_cdn
 statistics_of_run-times update argox.sh 2>/dev/null
 
-# 为了把 tag 后缀从 vless-xhttp 改为 xhttp-h2-cdn 做的处理，将于 2026年9月30日移除
+# 为了把 tag 后缀从 vless-xhttp 改为 xhttp-h1.1-cdn 做的处理，将于 2026年9月30日移除
 if ls $WORK_DIR/inbound.json >/dev/null 2>&1 && grep -q 'vless-xhttp",' $WORK_DIR/inbound.json && [[ "$(date +%Y%m%d)" < "20260930" ]]; then
   sed -i "s/vless-xhttp\",$/${NODE_TAG[7]}\",/g" $WORK_DIR/inbound.json
   base64 -d $WORK_DIR/subscribe/base64 | sed "s/vless-xhttp$/${NODE_TAG[7]}/g" | base64 -w0 > $WORK_DIR/subscribe/base64

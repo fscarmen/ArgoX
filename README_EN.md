@@ -21,7 +21,9 @@
 * * *
 
 ## Update Information
-2026.04.11 v2.0.5 1. Move XHTTP over CDN off the Nginx reverse-proxy path and let cloudflared ingress forward directly to the local Xray inbound; 2. Add Clash Mihomo-compatible XHTTP client output for both HTTP/2 CDN and HTTP/3 direct modes
+2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes
+
+2026.04.18 v2.0.5 1. Move XHTTP over CDN off the Nginx reverse-proxy path and let cloudflared ingress forward directly to the local Xray inbound; 2. Add Clash Mihomo-compatible XHTTP client output for both HTTP/2 CDN and HTTP/3 direct modes
 
 2026.04.11 v2.0.4 1. support non-443 ports for CDN address (IPv4 / IPv6 / domain); 2. remove pre-install UFW blocking logic, fallback to iptables when inactive; 3. avoid unnecessary xray restart for CDN / bandwidth / port hopping changes
 
@@ -156,17 +158,12 @@ If you want to do it manually, you can refer to the commands needed for Debian a
 
 Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penetration Support DSM6, 7](https://imnks.com/5984.html)
 
-xhttp H2 path `^/<CUSTOM PATH>-xh(?:/|$)`
+<img width="1409" alt="image" src="https://user-images.githubusercontent.com/92626977/218253461-c079cddd-3f4c-4278-a109-95229f1eb299.png">
 
-<img width="1192" height="687" alt="image" src="https://github.com/user-attachments/assets/e9fdaf59-efd8-4858-862a-4a831fafad62" />
+<img width="1619" alt="image" src="https://user-images.githubusercontent.com/92626977/218253838-aa73b63d-1e8a-430e-b601-0b88730d03b0.png">
 
-<img width="1178" height="458" alt="image" src="https://github.com/user-attachments/assets/2a8cafe1-194e-41e0-a7d2-c8e902f87262" />
+<img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
 
-<img width="827" height="652" alt="image" src="https://github.com/user-attachments/assets/6a035120-ba82-4c11-a1f6-0a5084f0ca70" />
-
-<img width="1149" height="667" alt="image" src="https://github.com/user-attachments/assets/33490485-63d1-40e9-aa8f-dddc7fe8d088" />
-
-<img width="911" height="571" alt="image" src="https://github.com/user-attachments/assets/f08ac333-7998-49d1-a385-1d22a245d029" />
 
 ## Use Cloudflare API to automatically create Argo
 
