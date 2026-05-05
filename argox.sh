@@ -1802,25 +1802,23 @@ install_firewall_deps() {
       return 0
       ;;
     alpine-iptables )
-      FW_CHECK=("iptables")
-      FW_INSTALL=("iptables")
+      command -v iptables >/dev/null 2>&1 || FW_TO_INSTALL+=("iptables")
       ;;
     firewalld )
-      FW_CHECK=("firewall-cmd")
-      FW_INSTALL=("firewalld")
+      command -v firewall-cmd >/dev/null 2>&1 || FW_TO_INSTALL+=("firewalld")
       ;;
     * )
-      # FW_CHECK 检查命令是否存在；FW_INSTALL 是对应的 apt 包名
-      # iptables-persistent 安装后会自动提供 netfilter-persistent 命令
-      FW_CHECK=("iptables" "netfilter-persistent")
-      FW_INSTALL=("iptables" "iptables-persistent")
+      command -v iptables >/dev/null 2>&1 || FW_TO_INSTALL+=("iptables")
+      if ! command -v netfilter-persistent >/dev/null 2>&1 ||
+         ! dpkg -s iptables-persistent >/dev/null 2>&1; then
+        FW_TO_INSTALL+=("iptables-persistent")
+      fi
       ;;
   esac
-  for i in "${!FW_CHECK[@]}"; do
-    ! command -v "${FW_CHECK[i]}" >/dev/null 2>&1 && FW_TO_INSTALL+=("${FW_INSTALL[i]}")
-  done
+
   if [ "${#FW_TO_INSTALL[@]}" -gt 0 ]; then
     FW_TO_INSTALL=($(printf "%s\n" "${FW_TO_INSTALL[@]}" | sort -u))
+    info "\n $(text 7) $(sed "s/ /,&/g" <<< "${FW_TO_INSTALL[*]}") \n"
     [ "$SYSTEM" != 'CentOS' ] && ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
     ${PACKAGE_INSTALL[int]} "${FW_TO_INSTALL[@]}" >/dev/null 2>&1
   fi
