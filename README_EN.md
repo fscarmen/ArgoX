@@ -21,24 +21,26 @@
 * * *
 
 ## Update Information
+2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
+
 2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes
 
 2026.04.18 v2.0.5 1. Move XHTTP over CDN off the Nginx reverse-proxy path and let cloudflared ingress forward directly to the local Xray inbound; 2. Add Clash Mihomo-compatible XHTTP client output for both HTTP/2 CDN and HTTP/3 direct modes
-
-2026.04.11 v2.0.4 1. support non-443 ports for CDN address (IPv4 / IPv6 / domain); 2. remove pre-install UFW blocking logic, fallback to iptables when inactive; 3. avoid unnecessary xray restart for CDN / bandwidth / port hopping changes
-
-2026.04.10 v2.0.3 1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry
-
-2026.04.04 v2.0.2 Added Trojan Direct and Shadowsocks 2022 Direct, and regenerate the self-signed certificate when changing the TLS domain
-
-2026.04.01 v2.0.1 Added VLESS/XHTTP over CDN and XHTTP HTTP/3 direct connection support
-
-2026.03.30 v2.0.0 Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation and management.
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.04.11 v2.0.4 1. support non-443 ports for CDN address (IPv4 / IPv6 / domain); 2. remove pre-install UFW blocking logic, fallback to iptables when inactive; 3. avoid unnecessary xray restart for CDN / bandwidth / port hopping changes
+>
+>2026.04.10 v2.0.3 1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry
+>
+>2026.04.04 v2.0.2 Added Trojan Direct and Shadowsocks 2022 Direct, and regenerate the self-signed certificate when changing the TLS domain
+>
+>2026.04.01 v2.0.1 Added VLESS/XHTTP over CDN and XHTTP HTTP/3 direct connection support
+>
+>2026.03.30 v2.0.0 Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation and management.
+>
 >2025.12.15 v1.6.13 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
 >
 >2025.12.09 v1.6.12 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use `-l` or `-L`; English users can use `-k` or `-K`. Case-insensitive support makes operations more flexible.
@@ -65,7 +67,7 @@
 >
 >2024.3.10 v1.6.1 1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
 >
->2024.3.2 v1.6 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
+>2024.3.2 v1.6 1. Support V2rayN / Throne / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
 >
 >2024.2.6 V1.5 Argo run protocol uses default instead of http2. The default value is auto, which will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol.
 >
@@ -105,7 +107,7 @@
 * Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
 * Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
 * Built-in warp chained proxy to unlock chatGPT;
-* Node information output to V2rayN / Clash Meta / Shadowrocket / Nekobox / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
+* Node information output to V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
 * Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
 
 
@@ -195,7 +197,8 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 ```
 /etc/argox                    # Project main directory
 ├── subscribe                 # Subscription files directory
-│   ├── base64                # V2rayN / Nekobox subscription files
+│   ├── v2rayn                # V2rayN subscription files
+│   ├── throne                # Throne subscription files
 │   ├── clash                 # Clash subscription files
 │   ├── proxies               # Clash proxy provider subscription files
 │   ├── shadowrocket          # Shadowrocket subscription files
