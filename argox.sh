@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.7 (2026.06.04)'
+VERSION='2.0.8 (2026.07.18)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -28,7 +28,7 @@ START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此�
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='26.2.6'
+DEFAULT_XRAY_VERSION='26.7.11'
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -43,10 +43,10 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification"
-C[1]="1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验"
-E[2]="Project to create Argo tunnels and Xray specifically for VPS, detailed:[https://github.com/fscarmen/argox]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
-C[2]="本项目专为 VPS 添加 Argo 隧道及 Xray,详细说明: [https://github.com/fscarmen/argox]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
+E[1]="1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers"
+C[1]="1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器"
+E[2]="No network interfaces found."
+C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次,脚本退出"
 E[4]="UUID should be 36 characters, please re-enter (\${a} times remaining)"
@@ -131,8 +131,8 @@ E[43]="\${APP} local version: \${LOCAL}.\\\t The newest version: \${ONLINE}"
 C[43]="\${APP} 本地版本: \${LOCAL}.\\\t 最新版本: \${ONLINE}"
 E[44]="No upgrade required."
 C[44]="不需要升级"
-E[45]="Argo authentication message does not match the rules, neither Token nor Json, script exits. Feedback:[https://github.com/fscarmen/argox/issues]"
-C[45]="Argo 认证信息不符合规则，既不是 Token，也是不是 Json，脚本退出，问题反馈:[https://github.com/fscarmen/argox/issues]"
+E[45]="Bound interface updated to: "
+C[45]="绑定接口已更新为: "
 E[46]="Connect"
 C[46]="连接"
 E[47]="The script must be run as root, you can enter sudo -i and then download and run again. Feedback:[https://github.com/fscarmen/argox/issues]"
@@ -179,22 +179,22 @@ E[67]="not set"
 C[67]="未设置"
 E[68]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Nginx is used for subscription, QR code output, and WS/XHTTP protocol proxying. Please enter the port number, must be \${MIN_PORT}-\${MAX_PORT} (Default: \${NGINX_PORT_DEFAULT}):"
 C[68]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Nginx 用于订阅输出、二维码生成以及 WS/XHTTP 协议的反代分流，请输入端口号，必须是 \${MIN_PORT}-\${MAX_PORT}(默认为 \${NGINX_PORT_DEFAULT}):"
-E[69]="Set SElinux: enforcing --> disabled"
-C[69]="设置 SElinux: enforcing --> disabled"
+E[69]="1. Default (not specified)"
+C[69]="1. 默认（不指定）"
 E[70]="ArgoX is not installed and cannot change the CDN."
 C[70]="ArgoX 未安装，不能更换 CDN"
 E[71]="Current CDN is: \${CDN_NOW}"
 C[71]="当前 CDN 为: \${CDN_NOW}"
 E[72]="Please select or enter a new preferred address (domain / IPv4 / [IPv6], optional :port; press Enter to keep the current one):"
 C[72]="请选择或输入新的优选地址（域名 / IPv4 / [IPv6]，可选 :端口；回车保持当前值）:"
-E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
-C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
+E[73]="Please select network interface:"
+C[73]="请选择网络接口:"
 E[74]="Unable to access api.github.com. This may be due to IP restrictions (HTTP/1.1 403 Rate Limit Exceeded). Please try again later"
 C[74]="无法访问 api.github.com，可能是由于 IP 限制导致的（HTTP/1.1 403 Rate Limit Exceeded），请稍后重试"
-E[75]=""
-C[75]=""
-E[76]="Change preferred domain / SNI (Reality & Hysteria2 TLS) / node info (argox -d)"
-C[76]="更换优选域名 / SNI（Reality 和 Hysteria2 TLS 共用）/ 节点信息 (argox -d)"
+E[75]="Bind network interface  (current: \${_val:-default})"
+C[75]="指定网络出口  (当前: \${_val:-默认})"
+E[76]="Change node configuration (argox -d)"
+C[76]="修改节点配置 (argox -d)"
 E[77]="Quick install mode (argox -k)"
 C[77]="极速安装模式 (argox -l)"
 E[78]="Using Cloudflare API to create Tunnel and handle DNS config..."
@@ -291,6 +291,48 @@ E[123]="Invalid input, please enter a positive integer."
 C[123]="输入无效，请输入正整数。"
 E[124]="The order of the selected protocols and ports is as follows:"
 C[124]="选择的协议及端口次序如下:"
+E[125]="Hysteria2 Realm is suitable for NAT VPS or machines without public inbound. It is NOT recommended when the machine has a public IP. Enable? [y/N] (default N):"
+C[125]="Hysteria2 Realm 适用于回国或者没有公网入口的机器；有公网入口时不建议使用。是否启用？[y/N] (默认为 N):"
+E[126]="Hysteria2 WARP-assisted hole punching (for strict NAT environments). Enable? [y/N] (default N):"
+C[126]="Hysteria2 WARP 辅助打洞（适用于 NAT 严格环境）。是否启用？[y/N] (默认为 N):"
+E[127]="Close Realm"
+C[127]="关闭 Realm"
+E[128]="Hysteria2 Realm is only available for hysteria2 protocol. Skipping."
+C[128]="Hysteria2 Realm 仅支持 Hysteria2 协议，跳过。"
+E[129]="Open Realm"
+C[129]="开启 Realm"
+E[130]="No change was made."
+C[130]="未做任何修改"
+E[131]="Custom warp outbound routing rules  (rules: \${CUSTOM_ROUTE_COUNT:-0})"
+C[131]="自定义 warp 出站路由规则  (规则数: \${CUSTOM_ROUTE_COUNT:-0})"
+E[132]="1. Add rule\n 2. View rules\n 3. Delete rule\n 0. Back"
+C[132]="1. 添加规则\n 2. 查看规则\n 3. 删除规则\n 0. 返回"
+E[133]="Select rule type:\n 1. domain (domain suffix match)\n 2. geosite (site category)"
+C[133]="选择规则类型:\n 1. domain (域名匹配)\n 2. geosite (站点分类)"
+E[134]="Enter domain suffix (comma-separated, e.g. google.com,telegram.org):"
+C[134]="输入域名后缀 (逗号分隔，如 google.com,telegram.org):"
+E[135]="Enter geosite name (comma-separated, e.g. google,telegram):"
+C[135]="输入 geosite 分类名称 (逗号分隔，如 google,telegram):"
+E[136]="Select outbound:\n 1. warp-IPv4\n 2. warp-IPv6"
+C[136]="选择出站:\n 1. warp-IPv4\n 2. warp-IPv6"
+E[137]="Custom route rule added successfully."
+C[137]="自定义路由规则添加成功。"
+E[138]="No custom route rules configured."
+C[138]="未配置自定义路由规则。"
+E[139]="Enter custom route rule number(s) to delete (comma-separated):"
+C[139]="输入要删除的自定义路由规则编号 (逗号分隔):"
+E[140]="Custom route rule(s) deleted."
+C[140]="自定义路由规则已删除。"
+E[141]="Invalid domain format."
+C[141]="无效的域名格式"
+E[142]="Current custom route rules:"
+C[142]="当前自定义路由规则:"
+E[143]="Client Fingerprint  (current: \${_val})"
+C[143]="客户端指纹  (当前: \${_val})"
+E[144]="Please select or input client fingerprint:\n 1. chrome (default)\n 2. firefox\n Or input custom value:"
+C[144]="请选择或输入客户端指纹:\n 1. chrome (默认)\n 2. firefox\n 或直接输入自定义值:"
+E[145]="Invalid fingerprint format."
+C[145]="无效的指纹格式"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -490,7 +532,6 @@ check_arch() {
 
 # 查安装及运行状态，下标0: argo，下标1: xray，下标2: nginx；状态码: 26 未安装， 27 已安装未运行， 28 运行中
 check_install() {
-  [ -s $WORK_DIR/nginx.conf ] && IS_NGINX=is_nginx || IS_NGINX=no_nginx
   STATUS[0]=$(text 26)
 
   [ -s ${ARGO_DAEMON_FILE} ] && STATUS[0]=$(text 27) && cmd_systemctl status argo &>/dev/null && STATUS[0]=$(text 28)
@@ -500,7 +541,7 @@ check_install() {
     STATUS[1]=$(text 27) && cmd_systemctl status xray &>/dev/null && STATUS[1]=$(text 28)
   fi
   STATUS[2]=$(text 26)
-  if [ "$IS_NGINX" = 'is_nginx' ]; then
+  if [ -s $WORK_DIR/nginx.conf ]; then
     local _NGINX_PID=$(pgrep -f "nginx: master process" 2>/dev/null)
     [ -n "$_NGINX_PID" ] && STATUS[2]=$(text 28) || STATUS[2]=$(text 27)
   fi
@@ -514,7 +555,12 @@ check_install() {
   mapfile -t CURRENT_PROTOCOLS < <(get_installed_protocols)
 
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] && { wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1; }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/xray ] && { wget --no-check-certificate -qO $TEMP_DIR/Xray.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip >/dev/null 2>&1; unzip -qo $TEMP_DIR/Xray.zip xray *.dat -d $TEMP_DIR >/dev/null 2>&1; }&
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/xray ] && {
+    local XRAY_LATEST=$(wget --no-check-certificate -qO- "${GH_PROXY}https://api.github.com/repos/XTLS/Xray-core/releases" | awk -F '["v]' '/tag_name/{print $5}' | sort -rV | sed -n 1p)
+    XRAY_LATEST=${XRAY_LATEST:-$DEFAULT_XRAY_VERSION}
+    wget --no-check-certificate -qO $TEMP_DIR/Xray.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/download/v${XRAY_LATEST}/Xray-linux-${XRAY_ARCH}.zip >/dev/null 2>&1
+    unzip -qo $TEMP_DIR/Xray.zip xray *.dat -d $TEMP_DIR >/dev/null 2>&1
+  }&
   [ ! -s $WORK_DIR/jq ] && { wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1; }&
   [ ! -s $WORK_DIR/qrencode ] && { wget --no-check-certificate --continue -qO $TEMP_DIR/qrencode ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/qrencode >/dev/null 2>&1; }&
 }
@@ -530,7 +576,6 @@ cmd_systemctl() {
     ss -nltp | awk -v p="$NGINX_PID" '$0 ~ "pid=" p "," {print $6}' | tr ',' '\n' | awk -F= '/^pid=/{print $2}' | sort -u | xargs -r kill -9 >/dev/null 2>&1
   }
 
-  [ -s $WORK_DIR/nginx.conf ] && local IS_NGINX=is_nginx || local IS_NGINX=no_nginx
   local ENABLE_DISABLE=$1
   local APP=$2
   if [ "$ENABLE_DISABLE" = 'enable' ]; then
@@ -540,7 +585,7 @@ cmd_systemctl() {
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl daemon-reload
       systemctl enable --now $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
+      [[ "$APP" = 'xray' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
     else
       systemctl daemon-reload
       systemctl enable --now $APP >/dev/null 2>&1
@@ -552,7 +597,7 @@ cmd_systemctl() {
       rc-update del $APP default >/dev/null 2>&1
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl disable --now $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_stop
+      [[ "$APP" = 'xray' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_stop
     else
       systemctl disable --now $APP >/dev/null 2>&1
     fi
@@ -562,7 +607,7 @@ cmd_systemctl() {
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl daemon-reload
       systemctl restart $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
+      [[ "$APP" = 'xray' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
     else
       systemctl daemon-reload
       systemctl restart $APP >/dev/null 2>&1
@@ -646,18 +691,18 @@ check_system_ip() {
 
   {
     local IP4_JSON=$(wget $BIND_ADDRESS4 -4 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.now.cc${IS_CHINESE})
-    [ -n "$IP4_JSON" ] && echo "$IP4_JSON" > $TEMP_DIR/ip4.json
+    grep -q '"ip"' <<< "$IP4_JSON" && echo "$IP4_JSON" > $TEMP_DIR/ip4.json
   }&
 
   {
     local IP6_JSON=$(wget $BIND_ADDRESS6 -6 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.now.cc${IS_CHINESE})
-    [ -n "$IP6_JSON" ] && echo "$IP6_JSON" > $TEMP_DIR/ip6.json
+    grep -q '"ip"' <<< "$IP6_JSON" && echo "$IP6_JSON" > $TEMP_DIR/ip6.json
   }&
 
   wait
 
   if [ -s $TEMP_DIR/ip4.json ]; then
-    local IP4_DATA=$(cat $TEMP_DIR/ip4.json)
+    local IP4_DATA=$(< "$TEMP_DIR/ip4.json")
     WAN4=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP4_DATA")
     COUNTRY4=$(awk -F '"' '/"country"/{print $4}' <<< "$IP4_DATA")
     EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_DATA")
@@ -666,7 +711,7 @@ check_system_ip() {
   fi
 
   if [ -s $TEMP_DIR/ip6.json ]; then
-    local IP6_DATA=$(cat $TEMP_DIR/ip6.json)
+    local IP6_DATA=$(< "$TEMP_DIR/ip6.json")
     WAN6=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP6_DATA")
     COUNTRY6=$(awk -F '"' '/"country"/{print $4}' <<< "$IP6_DATA")
     EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_DATA")
@@ -739,18 +784,17 @@ argo_variable() {
 
 # 定义 Xray 变量（含协议选择交互）
 # 根据 INSTALL_PROTOCOLS 计算安装流程总步骤数
+# Hysteria2 Realm / WARP / Port Hopping 属于协议子选项，不计入安装步骤（参照 sing-box.sh）
 calc_install_steps() {
   local _total=7  # 固定步骤：协议选择、起始端口、Nginx端口、VPS IP、Argo域名、UUID、节点名
-  local _has_reality=false _has_ws_xhttp=false _has_hy2=false
+  local _has_reality=false _has_ws_xhttp=false
   for _p in "${INSTALL_PROTOCOLS[@]}"; do
     [[ "$_p" =~ ^[bd]$ ]] && _has_reality=true
     [[ "$_p" =~ ^[efghi]$ ]] && _has_ws_xhttp=true
-    [[ "$_p" == 'c' ]] && _has_hy2=true
   done
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && (( _total-- ))  # 非交互安装时不单独询问 VPS IP
   $_has_reality && (( _total++ ))      # Reality 密钥
   $_has_ws_xhttp && (( _total += 2 ))  # CDN 域名 + WS 路径
-  $_has_hy2 && (( _total++ ))          # 端口跳跃
   TOTAL_STEPS=$_total
 }
 
@@ -1000,8 +1044,13 @@ xray_variable() {
   fi
 
   if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
+    # Hysteria2 Realm 交互（在端口跳跃之前询问，需要先 Realm 再端口跳跃）
+    input_hy2_realm
+    input_hy2_warp
+    # Realm ID 默认使用 UUID
+    [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="$UUID"
+
     if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-      (( STEP_NUM++ )) || true
       input_hopping_port
     elif [ -n "$PORT_HOPPING_RANGE" ]; then
       # 非交互模式：config.conf 填了 PORT_HOPPING_RANGE，直接解析
@@ -1088,6 +1137,15 @@ fast_install_variables() {
     IS_HOPPING=is_hopping
   fi
   IS_HOPPING=${IS_HOPPING:-no_hopping}
+
+  # 非交互模式：从环境变量读取 Realm 设置
+  if [[ "${HY2_REALM,,}" =~ ^(true|yes|y)$ ]] || [[ "${IS_HY2_REALM,,}" =~ ^(true|yes|y|is_hy2_realm)$ ]]; then
+    IS_HY2_REALM=is_hy2_realm
+  fi
+  if [[ "${HY2_WARP,,}" =~ ^(true|yes|y)$ ]] || [[ "${IS_HY2_WARP,,}" =~ ^(true|yes|y|is_hy2_warp)$ ]]; then
+    IS_HY2_WARP=is_hy2_warp
+  fi
+  [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="${HY2_REALM_ID:-$UUID}"
 
   SERVER=${SERVER:-"${CDN_DOMAIN[0]}"}
   SERVER_PORT=${SERVER_PORT:-${cdnPort:-443}}
@@ -1272,7 +1330,9 @@ fetch_nodes_value() {
   REALITY_PUBLIC="${publicKey:-}"
   SERVER="${cdn:-}"
   SERVER_PORT="${cdnPort:-443}"
-  unset serverIp privateKey publicKey cdn cdnPort language
+  FINGER_PRINT="${fingerprint:-chrome}"
+  BIND_IFACE="${bind_interface:-}"
+  unset serverIp privateKey publicKey cdn cdnPort language fingerprint bind_interface
 
   local JSON
   JSON=$(grep -v '^//' $WORK_DIR/inbound.json 2>/dev/null)
@@ -1290,6 +1350,30 @@ fetch_nodes_value() {
   SS_DIRECT_METHOD=$(echo "$JSON" | $WORK_DIR/jq -r --arg tag "${NODE_TAG[10]}" '.inbounds[] | select(.tag | endswith($tag)) | .settings.method | select(. != null)')
   GRPC_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.streamSettings.network=="grpc") | .port] | .[0] // empty' 2>/dev/null)
   HY2_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' 2>/dev/null)
+  # 检测 Hysteria2 Realm 状态
+  if [ -n "$HY2_PORT" ]; then
+    local _hy2_fm
+    _hy2_fm=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .streamSettings.finalmask // empty' 2>/dev/null)
+    if [ -n "$_hy2_fm" ]; then
+      IS_HY2_REALM=is_hy2_realm
+      HY2_REALM_ID=$(echo "$_hy2_fm" | $WORK_DIR/jq -r '.udp[0].settings.url' 2>/dev/null | sed 's|realm://public@realm.hy2.io:443/||')
+      [ -z "$HY2_REALM_ID" ] && HY2_REALM_ID="$UUID"
+      # 检测 WARP 路由规则（从 outbound.json 读取，因为 Xray 多配置合并时
+      # outbound.json 的 routing 覆盖 inbound.json 的 routing）
+      # WARP 打洞需要同时存在 v4 和 v6 两条规则，检测时匹配任一即可
+      local _warp_rule
+      if [ -s "$WORK_DIR/outbound.json" ]; then
+        local _ob_json
+        _ob_json=$(grep -v '^//' "$WORK_DIR/outbound.json" 2>/dev/null)
+        _warp_rule=$(echo "$_ob_json" | $WORK_DIR/jq -r '.routing.rules // [] | any((.inboundTag // [] | any(endswith("hysteria2"))) and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))' 2>/dev/null)
+      fi
+      [ "$_warp_rule" = 'true' ] && IS_HY2_WARP=is_hy2_warp
+    else
+      unset IS_HY2_REALM IS_HY2_WARP HY2_REALM_ID
+    fi
+  else
+    unset IS_HY2_REALM IS_HY2_WARP HY2_REALM_ID
+  fi
   VLESS_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "vless-ws") | .port] | .[0] // empty' 2>/dev/null)
   VMESS_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "vmess-ws") | .port] | .[0] // empty' 2>/dev/null)
   TROJAN_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "trojan-ws") | .port] | .[0] // empty' 2>/dev/null)
@@ -1972,6 +2056,182 @@ input_hopping_port() {
   done
 }
 
+# ===== Hysteria2 Realm 函数 =====
+
+# 检测当前 Hysteria2 Realm 状态
+# 通过检查 inbound.json 中 hysteria2 inbound 的 streamSettings 是否包含 finalmask
+detect_hy2_realm_status() {
+  [ -s "$WORK_DIR/inbound.json" ] || return 1
+  local _json
+  _json=$(grep -v '^//' "$WORK_DIR/inbound.json" 2>/dev/null)
+  [ -z "$_json" ] && return 1
+  local _has_finalmask
+  _has_finalmask=$(echo "$_json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .streamSettings.finalmask // empty' 2>/dev/null)
+  [ -n "$_has_finalmask" ] && return 0 || return 1
+}
+
+# 构造 finalmask JSON 块（不带逗号前缀，用于 cat << JSONEOF 嵌入）
+# 参数 $1: realm_id（UUID）
+# 输出到 stdout
+build_finalmask_block() {
+  local _realm_id="$1"
+  cat << JSONEOF
+,
+        "finalmask": {
+          "udp": [
+            {
+              "type": "realm",
+              "settings": {
+                "url": "realm://public@realm.hy2.io:443/${_realm_id}",
+                "stunServers": [
+                  "stun.nextcloud.com:3478",
+                  "stun.sip.us:3478",
+                  "turn.cloudflare.com:3478",
+                  "global.stun.twilio.com:3478"
+                ]
+              }
+            }
+          ],
+          "quicParams": {
+            "congestion": "bbr"
+          }
+        }
+JSONEOF
+}
+
+# 构造 finalmask JSON 字符串（紧凑格式，用于 change_protocols 的 jq --argjson 注入）
+# 参数 $1: realm_id（UUID）
+# 输出 finalmask 对象的 JSON 字符串
+build_finalmask_json_str() {
+  local _realm_id="$1"
+  printf '{"udp":[{"type":"realm","settings":{"url":"realm://public@realm.hy2.io:443/%s","stunServers":["stun.nextcloud.com:3478","stun.sip.us:3478","turn.cloudflare.com:3478","global.stun.twilio.com:3478"]}}],"quicParams":{"congestion":"bbr"}}' "$_realm_id"
+}
+
+# 构造 Realm 连接 URL（用于客户端输出）
+build_realm_url() {
+  local _realm_id="$1"
+  printf 'realm://public@realm.hy2.io:443/%s?stun=stun.nextcloud.com:3478&stun=stun.sip.us:3478&stun=turn.cloudflare.com:3478&stun=global.stun.twilio.com:3478' "$_realm_id"
+}
+
+# 交互输入是否启用 Hysteria2 Realm
+input_hy2_realm() {
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+    reading "\n $(text 125) " HY2_REALM_ANSWER
+  fi
+  if [[ "${HY2_REALM_ANSWER,,}" =~ ^(y|yes)$ ]]; then
+    IS_HY2_REALM=is_hy2_realm
+  else
+    unset IS_HY2_REALM
+  fi
+}
+
+# 交互输入是否启用 WARP 辅助打洞
+input_hy2_warp() {
+  # 仅在 Realm 已启用且非交互模式下询问
+  [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && return
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+    reading "\n $(text 126) " HY2_WARP_ANSWER
+  fi
+  if [[ "${HY2_WARP_ANSWER,,}" =~ ^(y|yes)$ ]]; then
+    IS_HY2_WARP=is_hy2_warp
+  else
+    unset IS_HY2_WARP
+  fi
+}
+
+# 注入/删除 finalmask（服务端配置）
+# 参数 $1: enable 或 disable
+set_hy2_realm_config() {
+  local _action="$1"
+  local _json _ib="$WORK_DIR/inbound.json" _ib_tmp="$TEMP_DIR/inbound_tmp.json"
+  [ -s "$_ib" ] || return 1
+  _json=$(grep -v '^//' "$_ib" 2>/dev/null) || return 1
+
+  if [ "$_action" = 'enable' ]; then
+    # 注入 finalmask
+    local _realm_id="${HY2_REALM_ID:-$UUID}"
+    local _finalmask_json
+    _finalmask_json=$(build_finalmask_json_str "$_realm_id")
+    echo "$_json" | $WORK_DIR/jq --argjson fm "$_finalmask_json" \
+      '(.inbounds[] | select(.tag | endswith("hysteria2")) | .streamSettings.finalmask) |= $fm' \
+      > "$_ib_tmp" && mv "$_ib_tmp" "$_ib"
+  elif [ "$_action" = 'disable' ]; then
+    # 删除 finalmask
+    echo "$_json" | $WORK_DIR/jq \
+      'del(.inbounds[] | select(.tag | endswith("hysteria2")) | .streamSettings.finalmask)' \
+      > "$_ib_tmp" && mv "$_ib_tmp" "$_ib"
+  fi
+}
+
+# 增删 WARP 路由规则
+# 参数 $1: enable 或 disable
+# WARP 规则格式：{"type":"field","inboundTag":["MyNode hysteria2"],"outboundTag":"warp-IPv4"}
+# 注意 1：WARP 路由规则写入 outbound.json 而非 inbound.json，原因：
+# Xray 以 xray run -c inbound.json -c outbound.json 启动时，对于 object 类型顶级键（如 routing），
+# 后加载的 outbound.json 会覆盖 inbound.json。若 WARP 规则写入 inbound.json，会被 outbound.json
+# 的 routing（ChatGPT 规则）覆盖，导致 WARP 路由永不生效。
+# 注意 2：WARP 打洞需要同时添加 warp-IPv4 和 warp-IPv6 两条规则，否则 UDP 打洞可能失败
+sync_hy2_warp_route() {
+  local _action="$1"
+  # inbound.json 用于获取 hysteria2 的 inboundTag 名称
+  local _ib="$WORK_DIR/inbound.json"
+  # outbound.json 用于读写 WARP 路由规则
+  local _ob="$WORK_DIR/outbound.json" _ob_tmp="$TEMP_DIR/outbound_tmp.json"
+  [ -s "$_ob" ] || return 1
+  local _json
+  _json=$(grep -v '^//' "$_ob" 2>/dev/null) || return 1
+
+  if [ "$_action" = 'enable' ]; then
+    # 从 inbound.json 获取 inboundTag 名称
+    [ -s "$_ib" ] || return 1
+    local _ib_json
+    _ib_json=$(grep -v '^//' "$_ib" 2>/dev/null) || return 1
+    local _hy2_tag
+    _hy2_tag=$(echo "$_ib_json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
+    [ -z "$_hy2_tag" ] && return 1
+
+    # 检查是否已存在 v4 或 v6 规则（注意：| 比 and 优先级高，需用括号包裹 pipe 表达式）
+    local _exists
+    _exists=$(echo "$_json" | $WORK_DIR/jq -r --arg tag "$_hy2_tag" \
+      '.routing.rules // [] | any((.inboundTag // [] | contains([$tag])) and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))' 2>/dev/null)
+    [ "$_exists" = 'true' ] && return 0
+
+    # 构建 v4 + v6 两条规则
+    local _warp_rules
+    _warp_rules=$(printf '[{"type":"field","inboundTag":["%s"],"outboundTag":"warp-IPv4"},{"type":"field","inboundTag":["%s"],"outboundTag":"warp-IPv6"}]' "$_hy2_tag" "$_hy2_tag")
+
+    # 追加两条路由规则到 outbound.json
+    echo "$_json" | $WORK_DIR/jq --argjson rules "$_warp_rules" \
+      '.routing.rules += $rules' \
+      > "$_ob_tmp" && mv "$_ob_tmp" "$_ob"
+  elif [ "$_action" = 'disable' ]; then
+    # 删除匹配 inboundTag 的 WARP v4 和 v6 路由规则（从 outbound.json 操作）
+    echo "$_json" | $WORK_DIR/jq \
+      'if .routing then del(.routing.rules[] | select((.inboundTag // [] | any(endswith("hysteria2"))) and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))) else . end' \
+      > "$_ob_tmp" && mv "$_ob_tmp" "$_ob"
+  fi
+}
+
+# 处理 Hysteria2 Realm 开关（统一入口，被菜单和安装流程调用）
+# 参数 $1: enable 或 disable
+# 无参数时根据 IS_HY2_REALM 和 IS_HY2_WARP 自动执行
+handle_hy2_realm() {
+  local _action="${1:-}"
+  [ -z "$_action" ] && _action="$([ "$IS_HY2_REALM" = 'is_hy2_realm' ] && echo 'enable' || echo 'disable')"
+
+  if [ "$_action" = 'enable' ]; then
+    set_hy2_realm_config enable
+    [ "$IS_HY2_WARP" = 'is_hy2_warp' ] && sync_hy2_warp_route enable
+  else
+    set_hy2_realm_config disable
+    sync_hy2_warp_route disable
+  fi
+
+  cmd_systemctl restart xray
+  sleep 1
+  export_list
+}
+
 # 处理防火墙规则
 
 # Nginx 配置文件（新架构：Nginx 作为唯一对外分流入口，按已安装协议动态生成 location）
@@ -2505,6 +2765,12 @@ WantedBy=multi-user.target"
   local INBOUNDS_JSON=''
   local FIRST=true
 
+  # Hysteria2 Realm: 预生成 finalmask JSON 块（用于 HERE-doc 注入）
+  local HY2_FINALMASK_BLOCK=''
+  if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]] && [ "$IS_HY2_REALM" = 'is_hy2_realm' ]; then
+    HY2_FINALMASK_BLOCK=$(build_finalmask_block "${HY2_REALM_ID:-$UUID}")
+  fi
+
   local SS2022_PASSWORD=${SS2022_PASSWORD:-"$(openssl rand -base64 16)"}
   for proto in "${INSTALL_PROTOCOLS[@]}"; do
     local BLOCK=''
@@ -2581,7 +2847,7 @@ JSONEOF
               "keyFile": "${WORK_DIR}/cert/private.key"
             }
           ]
-        }
+        }${HY2_FINALMASK_BLOCK}
       }
     }
 JSONEOF
@@ -3091,7 +3357,7 @@ export_list() {
   [ -n "$ARGO_PID" ] && ARGO_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
   local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
   [ -n "$XRAY_PID" ] && XRAY_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
-  if [ "$IS_NGINX" = 'is_nginx' ]; then
+  if [ -s $WORK_DIR/nginx.conf ]; then
     local NGINX_PID=$(pgrep -f "nginx: master process")
     [ -n "$NGINX_PID" ] && NGINX_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
   fi
@@ -3156,10 +3422,10 @@ export_list() {
 
   # reality-vision
   grep -q 'reality-vision' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[0]}\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[0]}\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }" \
     "vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[0]}&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}" \
-    "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
-    "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }" \
+    "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
+    "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }" \
     "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=firefox&pbk=${REALITY_PUBLIC}&type=tcp&flow=xtls-rprx-vision&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
     "${NODE_NAME} ${NODE_TAG[0]}"
 
@@ -3176,22 +3442,31 @@ export_list() {
     # 使用动态带宽参数，默认为 200/1000
     local _hy2_up="${HY2_UP_NOW:-200}"
     local _hy2_down="${HY2_DOWN_NOW:-1000}"
+    # Hysteria2 Realm 客户端输出参数
+    local _clash_realm='' _v2realm='' _sbrealm=''
+    if [ "$IS_HY2_REALM" = 'is_hy2_realm' ]; then
+      local _realm_id="${HY2_REALM_ID:-$UUID}"
+      local _realm_url="realm://public@realm.hy2.io:443/${_realm_id}?stun=stun.nextcloud.com:3478&stun=stun.sip.us:3478&stun=turn.cloudflare.com:3478&stun=global.stun.twilio.com:3478"
+      _clash_realm=", realm-opts: {enable: true, server-url: \"https://realm.hy2.io\", token: public, realm-id: \"${_realm_id}\", stun-servers: [turn.cloudflare.com:3478, stun.nextcloud.com:3478, stun.sip.us:3478, global.stun.twilio.com:3478]}"
+      _v2realm="\"Hy2RealmUrl\":\"${_realm_url}\","
+      _sbrealm=", \"realm\": { \"server_url\": \"https://realm.hy2.io\", \"token\": \"public\", \"realm_id\": \"${_realm_id}\", \"stun_servers\": [ \"turn.cloudflare.com:3478\", \"stun.nextcloud.com:3478\", \"stun.sip.us:3478\", \"global.stun.twilio.com:3478\" ] }"
+    fi
     _add \
-      "{name: \"${NODE_NAME} ${NODE_TAG[1]}\", type: hysteria2, server: ${SERVER_IP}, port: ${HY2_PORT}, ${_chop}up: \"${_hy2_up} Mbps\", down: \"${_hy2_down} Mbps\", password: ${UUID}, sni: ${CERT_SNI}, skip-cert-verify: false, fingerprint: ${FP_SHA256}}" \
+      "{name: \"${NODE_NAME} ${NODE_TAG[1]}\", type: hysteria2, server: ${SERVER_IP}, port: ${HY2_PORT}, ${_chop}up: \"${_hy2_up} Mbps\", down: \"${_hy2_down} Mbps\", password: ${UUID}, sni: ${CERT_SNI}, skip-cert-verify: false, fingerprint: ${FP_SHA256}${_clash_realm}}" \
       "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?peer=${CERT_SNI}&hpkp=${FP_SHA256}&obfs=none&upmbps=${_hy2_up}&downmbps=${_hy2_down}${_srhop}#${NODE_NAME// /%20}%20${NODE_TAG[1]}" \
-      "v2rayn://hysteria2/$(echo -n "{\"ConfigType\":7,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[1]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${HY2_PORT},\"Password\":\"${UUID}\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${TLS_SERVER}\",\"Cert\":\"${CERT_URL_2}\",\"ProtoExtraObj\":{\"UpMbps\":${_hy2_up},\"DownMbps\":${_hy2_down}${_v2hop}}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
-      "{ \"type\": \"hysteria2\", \"tag\": \"${NODE_NAME} ${NODE_TAG[1]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${HY2_PORT}${_sbhp}, \"up_mbps\": ${_hy2_up}, \"down_mbps\": ${_hy2_down}, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${FP_BASE64}\"], \"alpn\": [ \"h3\" ] } }" \
-      "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?allowInsecure=false&alpn&security=tls&sni=${TLS_SERVER}&upmbps=${_hy2_up}&downmbps=${_hy2_down}&security=tls&tls_certificate=${CERT_URL_1}${_thop}&fp=chrome#${NODE_NAME// /%20}%20${NODE_TAG[1]}" \
+      "v2rayn://hysteria2/$(echo -n "{\"ConfigType\":7,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[1]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${HY2_PORT},\"Password\":\"${UUID}\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${TLS_SERVER}\",\"Cert\":\"${CERT_URL_2}\",\"ProtoExtraObj\":{${_v2realm}\"UpMbps\":${_hy2_up},\"DownMbps\":${_hy2_down}${_v2hop}}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
+      "{ \"type\": \"hysteria2\", \"tag\": \"${NODE_NAME} ${NODE_TAG[1]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${HY2_PORT}${_sbhp}, \"up_mbps\": ${_hy2_up}, \"down_mbps\": ${_hy2_down}, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${FP_BASE64}\"], \"alpn\": [ \"h3\" ] }${_sbrealm} }" \
+      "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?allowInsecure=false&alpn&security=tls&sni=${TLS_SERVER}&upmbps=${_hy2_up}&downmbps=${_hy2_down}&security=tls&tls_certificate=${CERT_URL_1}${_thop}&fp=${FINGER_PRINT:-chrome}#${NODE_NAME// /%20}%20${NODE_TAG[1]}" \
       "${NODE_NAME} ${NODE_TAG[1]}"
   fi
 
   # reality-grpc
   grep -q 'reality-grpc' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[2]}\", type: vless, server: ${SERVER_IP}, port: ${GRPC_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[2]}\", type: vless, server: ${SERVER_IP}, port: ${GRPC_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }" \
     "vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[2]}&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}" \
-    "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
-    "{ \"type\": \"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${GRPC_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"chrome\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }" \
-    "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&sid&type=grpc&serviceName=grpc&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
+    "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
+    "{ \"type\": \"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${GRPC_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"${FINGER_PRINT:-chrome}\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }" \
+    "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&sid&type=grpc&serviceName=grpc&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
     "${NODE_NAME} ${NODE_TAG[2]}"
 
   # vless-ws
@@ -3199,8 +3474,8 @@ export_list() {
     "{name: \"${NODE_NAME} ${NODE_TAG[3]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }" \
     "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
     "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
-    "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[3]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&alpn&fp=chrome&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
+    "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[3]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&alpn&fp=${FINGER_PRINT:-chrome}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
     "${NODE_NAME} ${NODE_TAG[3]}"
 
   # vmess-ws
@@ -3208,7 +3483,7 @@ export_list() {
     "{name: \"${NODE_NAME} ${NODE_TAG[4]}\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
     "vmess://$(echo -n "none:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
     "vmess://$(echo -n "{ \"v\": \"2\", \"ps\": \"${NODE_NAME} ${NODE_TAG[4]}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }" | base64 -w0)" \
-    "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
     "vmess://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol#${NODE_NAME// /%20}%20${NODE_TAG[4]}" \
     "${NODE_NAME} ${NODE_TAG[4]}"
 
@@ -3216,45 +3491,45 @@ export_list() {
   grep -q 'trojan-ws' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[5]}\", type: trojan, server: ${SERVER}, port: ${SERVER_PORT_NOW}, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
     "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
-    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&fp=chrome&insecure=0&allowInsecure=0&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
-    "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} ${NODE_TAG[5]}\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&alpn&fp=chrome&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
+    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&insecure=0&allowInsecure=0&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
+    "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} ${NODE_TAG[5]}\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&alpn&fp=${FINGER_PRINT:-chrome}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
     "${NODE_NAME} ${NODE_TAG[5]}"
 
   # ss-ws
   grep -qw 'ss-ws' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[6]}\", type: ss, server: ${SERVER}, port: ${SERVER_PORT_NOW}, cipher: ${SS_WS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }" \
     "ss://$(echo -n "${SS_WS_METHOD}:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20${NODE_TAG[6]}" \
-    "v2rayn://shadowsocks/$(echo -n "{\"ConfigType\":3,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"Address\":\"${SERVER}\",\"Port\":${SERVER_PORT_NOW},\"Password\":\"${UUID}\",\"Network\":\"ws\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${ARGO_DOMAIN}\",\"Fingerprint\":\"chrome\",\"AlterId\":0,\"ProtoExtraObj\":{\"SsMethod\":\"${SS_WS_METHOD}\"},\"TransportExtraObj\":{\"Host\":\"${ARGO_DOMAIN}\",\"Path\":\"/${WS_PATH}-sh\"}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
+    "v2rayn://shadowsocks/$(echo -n "{\"ConfigType\":3,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"Address\":\"${SERVER}\",\"Port\":${SERVER_PORT_NOW},\"Password\":\"${UUID}\",\"Network\":\"ws\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${ARGO_DOMAIN}\",\"Fingerprint\":\"${FINGER_PRINT:-chrome}\",\"AlterId\":0,\"ProtoExtraObj\":{\"SsMethod\":\"${SS_WS_METHOD}\"},\"TransportExtraObj\":{\"Host\":\"${ARGO_DOMAIN}\",\"Path\":\"/${WS_PATH}-sh\"}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
     "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ${NODE_TAG[6]}\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"method\": \"${SS_WS_METHOD}\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" \
     "ss://$(echo -n "${SS_WS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:${SERVER_PORT_NOW}?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0&uot=1#${NODE_NAME// /%20}%20${NODE_TAG[6]}" \
     "${NODE_NAME} ${NODE_TAG[6]}"
 
   # xhttp-h1.1-cdn（固定隧道下输出，使用 HTTP/1.1）
   grep -q 'xhttp-h1.1-cdn' <<< "$PROTOS_NOW" && ! grep -q 'trycloudflare\.com$' <<< "${ARGO_DOMAIN}" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[7]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2,http/1.1], servername: ${ARGO_DOMAIN}, client-fingerprint: chrome, encryption: \"\", xhttp-opts: {path: \"/${WS_PATH}-xh\", host: ${ARGO_DOMAIN}, mode: auto} }" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[7]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2,http/1.1], servername: ${ARGO_DOMAIN}, client-fingerprint: ${FINGER_PRINT:-chrome}, encryption: \"\", xhttp-opts: {path: \"/${WS_PATH}-xh\", host: ${ARGO_DOMAIN}, mode: auto} }" \
     "vless://$(echo -n ":${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?path=/${WS_PATH}-xh&remarks=${NODE_NAME// /%20}%20${NODE_TAG[7]}&obfsParam=%7B%22Host%22:%22${ARGO_DOMAIN}%22%7D&obfs=xhttp&tls=1&peer=${ARGO_DOMAIN}&alpn=h2,http/1.1&h2=1&mode=auto" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=chrome&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
     "" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=chrome&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
+    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
     ""
 
   # xhttp-h3-direct
   grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[8]}\", type: vless, server: ${SERVER_IP}, port: ${XHTTP_PORT}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h3], servername: ${CERT_SNI}, client-fingerprint: chrome, skip-cert-verify: false, fingerprint: ${FP_SHA256}, xhttp-opts: {path: \"/${WS_PATH}-xh3\", mode: stream-up} }" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[8]}\", type: vless, server: ${SERVER_IP}, port: ${XHTTP_PORT}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h3], servername: ${CERT_SNI}, client-fingerprint: ${FINGER_PRINT:-chrome}, skip-cert-verify: false, fingerprint: ${FP_SHA256}, xhttp-opts: {path: \"/${WS_PATH}-xh3\", mode: stream-up} }" \
     "vless://$(echo -n \"auto:${UUID}@${SERVER_IP_1}:${XHTTP_PORT}\" | base64 -w0)?path=/${WS_PATH}-xh3&remarks=${NODE_NAME// /%20}%20${NODE_TAG[8]}&obfs=xhttp&tls=1&peer=${CERT_SNI}&alpn=h3&mode=stream-up&hpkp=${FP_SHA256}" \
-    "v2rayn://vless/$(echo -n "{\"ConfigType\":5,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${XHTTP_PORT},\"Password\":\"${UUID}\",\"Network\":\"xhttp\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${CERT_SNI}\",\"Alpn\":\"h3\",\"Fingerprint\":\"chrome\",\"Cert\":\"${CERT_URL_2}\",\"TransportExtraObj\":{\"Path\":\"/${WS_PATH}-xh3\",\"XhttpMode\":\"stream-up\"}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
+    "v2rayn://vless/$(echo -n "{\"ConfigType\":5,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${XHTTP_PORT},\"Password\":\"${UUID}\",\"Network\":\"xhttp\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${CERT_SNI}\",\"Alpn\":\"h3\",\"Fingerprint\":\"${FINGER_PRINT:-chrome}\",\"Cert\":\"${CERT_URL_2}\",\"TransportExtraObj\":{\"Path\":\"/${WS_PATH}-xh3\",\"XhttpMode\":\"stream-up\"}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
     "" \
-    "vless://${UUID}@${SERVER_IP_1}:${XHTTP_PORT}?encryption=none&security=tls&sni=${CERT_SNI}&fp=chrome&alpn=h3&pcs=${FP_SHA256//:/}&type=xhttp&path=%2F${WS_PATH}-xh3&mode=stream-up#${NODE_NAME// /%20}%20${NODE_TAG[8]}" \
+    "vless://${UUID}@${SERVER_IP_1}:${XHTTP_PORT}?encryption=none&security=tls&sni=${CERT_SNI}&fp=${FINGER_PRINT:-chrome}&alpn=h3&pcs=${FP_SHA256//:/}&type=xhttp&path=%2F${WS_PATH}-xh3&mode=stream-up#${NODE_NAME// /%20}%20${NODE_TAG[8]}" \
     ""
 
   # trojan-direct
   grep -q 'trojan-direct' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[9]}\", type: trojan, server: ${SERVER_IP}, port: ${TROJAN_PORT}, password: ${UUID}, udp: true, tls: true, sni: ${CERT_SNI}, servername: ${CERT_SNI}, skip-cert-verify: false, fingerprint: ${FP_SHA256} }" \
     "trojan://${UUID}@${SERVER_IP_1}:${TROJAN_PORT}?peer=${CERT_SNI}&tls=1&allowInsecure=0&sni=${CERT_SNI}&hpkp=${FP_SHA256}#${NODE_NAME// /%20}%20${NODE_TAG[9]}" \
-    "v2rayn://trojan/$(echo -n "{\"ConfigType\":6,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${TROJAN_PORT},\"Password\":\"${UUID}\",\"Network\":\"raw\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${CERT_SNI}\",\"Fingerprint\":\"chrome\",\"Cert\":\"${CERT_URL_2}\"}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
+    "v2rayn://trojan/$(echo -n "{\"ConfigType\":6,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${TROJAN_PORT},\"Password\":\"${UUID}\",\"Network\":\"raw\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${CERT_SNI}\",\"Fingerprint\":\"${FINGER_PRINT:-chrome}\",\"Cert\":\"${CERT_URL_2}\"}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
     "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} ${NODE_TAG[9]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${TROJAN_PORT}, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${FP_BASE64}\"] } }" \
-    "trojan://${UUID}@${SERVER_IP_1}:${TROJAN_PORT}?security=tls&sni=${TLS_SERVER}&tls_certificate=${CERT_URL_1}&fp=chrome#${NODE_NAME// /%20}%20${NODE_TAG[9]}" \
+    "trojan://${UUID}@${SERVER_IP_1}:${TROJAN_PORT}?security=tls&sni=${TLS_SERVER}&tls_certificate=${CERT_URL_1}&fp=${FINGER_PRINT:-chrome}#${NODE_NAME// /%20}%20${NODE_TAG[9]}" \
     "${NODE_NAME} ${NODE_TAG[9]}"
 
   # ss2022-direct
@@ -3306,11 +3581,11 @@ ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/sing-box"
   local CLASH_DISPLAY=$(echo -e "$CLASH" | sed '1d')
 
   check_system_info
-  local ARGO_V=$($WORK_DIR/cloudflared -v | awk '{print $3}')
+  local ARGO_V=$([ -s "$WORK_DIR/cloudflared" ] && $WORK_DIR/cloudflared -v 2>/dev/null | awk '{print $3}')
   local XRAY_V=$($WORK_DIR/xray version | awk 'NR==1 {print $2}')
   local NGINX_V=$(nginx -v 2>&1 | sed "s#.*/##")
   local SYS_INFO=" $(text 19):\n\t $(text 20): $SYS\n\t $(text 21): $(uname -r)\n\t $(text 22): $ARGO_ARCH\n\t $(text 23): $VIRT\n\t IPv4: $WAN4 $COUNTRY4 $ASNORG4\n\t IPv6: $WAN6 $COUNTRY6 $ASNORG6\n\t Argo: ${STATUS[0]}\t Version: ${ARGO_V}\t $(text 52): ${ARGO_MEM}\n\t Xray: ${STATUS[1]}\t Version: ${XRAY_V}\t $(text 52): ${XRAY_MEM}"
-  [ "$IS_NGINX" = 'is_nginx' ] && SYS_INFO+="\n\t Nginx: ${STATUS[2]}\t Version: ${NGINX_V}\t $(text 52): ${NGINX_MEM}"
+  [ -s $WORK_DIR/nginx.conf ] && SYS_INFO+="\n\t Nginx: ${STATUS[2]}\t Version: ${NGINX_V}\t $(text 52): ${NGINX_MEM}"
 
   EXPORT_LIST_FILE="*******************************************
 ┌────────────────┐
@@ -3380,7 +3655,7 @@ ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto
  $(text 64) QRcode:
 https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto")
 
-$($WORK_DIR/qrencode ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto)
+$([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto)
 "
 
   echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
@@ -3726,6 +4001,16 @@ EOF
 
   done
 
+  # Hysteria2 Realm: 注入 finalmask（如果启用）
+  if [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && printf '%s\n' "${REINSTALL_TAGS[@]}" | grep -qx 'hysteria2'; then
+    local _realm_id="${HY2_REALM_ID:-$UUID}"
+    local _finalmask_json
+    _finalmask_json=$(build_finalmask_json_str "$_realm_id")
+    grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --argjson fm "$_finalmask_json" \
+      '(.inbounds[] | select(.tag | endswith("hysteria2")) | .streamSettings.finalmask) |= $fm' \
+      > "$TEMP_DIR/inbound_tmp.json" && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json"
+  fi
+
   mapfile -t CURRENT_PROTOCOLS < <(get_installed_protocols)
 
   json_nginx
@@ -3827,7 +4112,7 @@ change_argo() {
       exit 0
   esac
 
-  [ "$IS_NGINX" = 'is_nginx' ] && json_nginx
+  [ -s $WORK_DIR/nginx.conf ] && json_nginx
   [ -s "$WORK_DIR/tunnel.json" ] && json_argo
   cmd_systemctl enable argo
   export_list
@@ -3867,6 +4152,213 @@ change_start_port() {
 "
 }
 
+# ===================== 自定义路由规则（Xray 版本）=====================
+CUSTOM_ROUTE_FILE="${WORK_DIR}/custom_route.json"
+
+# 统计自定义路由规则数量
+custom_route_count() {
+  [ -s "$CUSTOM_ROUTE_FILE" ] && $WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE" 2>/dev/null || echo 0
+}
+
+# 同步自定义路由规则到 outbound.json
+# 使用 _remark 字段标记自定义规则，Xray 会忽略未知字段，同时方便我们识别和清除旧规则
+custom_route_sync() {
+  local _ob="$WORK_DIR/outbound.json" _ob_tmp="$TEMP_DIR/outbound_tmp.json"
+  [ -s "$_ob" ] || return 1
+  grep -v '^//' "$_ob" > "$_ob_tmp.clean" 2>/dev/null || return 1
+
+  if [ -s "$CUSTOM_ROUTE_FILE" ] && [ "$($WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE")" -gt 0 ]; then
+    # 将 custom_route.json 条目转为 Xray 路由规则，合并到 outbound.json
+    $WORK_DIR/jq -s '
+      .[0] as $ob |
+      .[1] as $custom |
+      ($custom | map({type:"field", domain: [.domain], outboundTag: .outboundTag, _remark:"custom-route"})) as $new_rules |
+      $ob | .routing.rules = ([.routing.rules[]? | select(._remark != "custom-route")] + $new_rules)
+    ' "$_ob_tmp.clean" "$CUSTOM_ROUTE_FILE" > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
+  else
+    # 无自定义规则，清除残留的旧规则
+    $WORK_DIR/jq '
+      .routing.rules = [.routing.rules[]? | select(._remark != "custom-route")]
+    ' "$_ob_tmp.clean" > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
+  fi
+  rm -f "$_ob_tmp.clean"
+}
+
+# 添加自定义路由规则
+custom_route_add() {
+  # 选择规则类型
+  hint "\n $(text 133) "
+  reading " $(text 24) " RULE_TYPE_CHOICE
+  case "$RULE_TYPE_CHOICE" in
+    1 ) local RULE_TYPE="domain" ;;
+    2 ) local RULE_TYPE="geosite" ;;
+    * ) info " $(text 130) " && return ;;
+  esac
+
+  # 选择出站
+  hint "\n $(text 136) "
+  reading " $(text 24) " OUTBOUND_CHOICE
+  case "$OUTBOUND_CHOICE" in
+    1|"" ) local OUTBOUND_TAG="warp-IPv4" ;;
+    2 ) local OUTBOUND_TAG="warp-IPv6" ;;
+    * ) info " $(text 130) " && return ;;
+  esac
+
+  local VALIDATED_VALUES=()
+
+  if [ "$RULE_TYPE" = "domain" ]; then
+    # 输入域名后缀
+    reading " $(text 134) " DOMAIN_INPUT
+    [ -z "$DOMAIN_INPUT" ] && info " $(text 130) " && return
+
+    # 处理输入：支持逗号、空格、中文逗号等分隔
+    local DOMAINS=()
+    mapfile -t DOMAINS < <(printf '%s\n' "$DOMAIN_INPUT" | sed 's/[，、；;|]/,/g; s/,/\n/g; /^$/d' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
+    [ "${#DOMAINS[@]}" -eq 0 ] && info " $(text 130) " && return
+
+    # 验证域名格式
+    local DOMAIN
+    for DOMAIN in "${DOMAINS[@]}"; do
+      DOMAIN=$(sed 's/。/./g' <<< "${DOMAIN,,}")
+      if [[ "$DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
+        VALIDATED_VALUES+=("$DOMAIN")
+      else
+        warning " $(text 141) "
+      fi
+    done
+    [ "${#VALIDATED_VALUES[@]}" -eq 0 ] && warning " $(text 130) " && return
+
+  elif [ "$RULE_TYPE" = "geosite" ]; then
+    # 输入 geosite 分类名称
+    reading "\n $(text 135) " GEOSITE_INPUT
+    [ -z "$GEOSITE_INPUT" ] && info " $(text 130) " && return
+
+    # 解析逗号分隔输入
+    local GEOSITES=()
+    mapfile -t GEOSITES < <(printf '%s\n' "$GEOSITE_INPUT" | sed 's/[，、；;|]/,/g; s/,/\n/g; /^$/d' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
+    [ "${#GEOSITES[@]}" -eq 0 ] && info " $(text 130) " && return
+
+    local GS
+    for GS in "${GEOSITES[@]}"; do
+      GS=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' <<< "${GS,,}")
+      # 统一格式：去掉 geosite- 或 geosite: 前缀再重新添加
+      GS=$(sed -E 's/^geosite[-:]//I' <<< "$GS")
+      [[ -n "$GS" ]] && VALIDATED_VALUES+=("geosite:${GS}")
+    done
+    [ "${#VALIDATED_VALUES[@]}" -eq 0 ] && info " $(text 130) " && return
+  fi
+
+  # 构建新规则 JSON（Xray 路由格式）
+  local NEW_JSON='[]'
+  local VAL
+  for VAL in "${VALIDATED_VALUES[@]}"; do
+    NEW_JSON=$(echo "$NEW_JSON" | $WORK_DIR/jq --arg d "$VAL" --arg t "$OUTBOUND_TAG" \
+      '. + [{"domain": $d, "outboundTag": $t}]')
+  done
+
+  # 读现有规则，去重合并（domain + outboundTag 联合去重）
+  if [ -s "$CUSTOM_ROUTE_FILE" ]; then
+    $WORK_DIR/jq -s '
+      .[0] + .[1] |
+      unique_by(.domain, .outboundTag)
+    ' "$CUSTOM_ROUTE_FILE" <(echo "$NEW_JSON") > "$CUSTOM_ROUTE_FILE.tmp" 2>/dev/null \
+      && mv "$CUSTOM_ROUTE_FILE.tmp" "$CUSTOM_ROUTE_FILE"
+  else
+    echo "$NEW_JSON" | $WORK_DIR/jq '.' > "$CUSTOM_ROUTE_FILE" 2>/dev/null
+  fi
+
+  custom_route_sync
+  cmd_systemctl restart xray
+  info " $(text 137) "
+}
+
+# 查看自定义路由规则
+custom_route_view() {
+  if [ ! -s "$CUSTOM_ROUTE_FILE" ] || [ "$($WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE")" -eq 0 ]; then
+    hint " $(text 138) "
+    return 1
+  fi
+
+  hint "\n $(text 142) \n"
+  printf "  %-4s %-20s %s\n" "#" "OutboundTag" "Domain"
+  printf "  %-4s %-20s %s\n" "---" "-------------------" "---------------------------------------"
+
+  local IDX=0
+  while IFS= read -r _item; do
+    ((IDX++))
+    local _d=$(echo "$_item" | $WORK_DIR/jq -r '.domain // ""')
+    local _t=$(echo "$_item" | $WORK_DIR/jq -r '.outboundTag // "warp-IPv4"')
+    printf "  %-4s %-20s %s\n" "$IDX" "$_t" "$_d"
+  done < <($WORK_DIR/jq -c '.[]?' "$CUSTOM_ROUTE_FILE" 2>/dev/null)
+  echo ""
+  return 0
+}
+
+# 删除自定义路由规则
+custom_route_delete() {
+  custom_route_view || return
+
+  reading " $(text 139) " DELETE_INPUT
+  [ -z "$DELETE_INPUT" ] && info " $(text 130) " && return
+
+  # 解析编号
+  local DELETE_NUMS=()
+  mapfile -t DELETE_NUMS < <(printf '%s\n' "$DELETE_INPUT" | sed 's/[，、；;|]/,/g; s/,/\n/g; /^$/d' | sed 's/[^0-9]//g; /^$/d')
+  [ "${#DELETE_NUMS[@]}" -eq 0 ] && info " $(text 130) " && return
+
+  local TOTAL
+  TOTAL=$($WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE" 2>/dev/null)
+  local TO_DELETE=()
+  local NUM
+  for NUM in "${DELETE_NUMS[@]}"; do
+    [[ "$NUM" =~ ^[0-9]+$ ]] && [ "$NUM" -ge 1 ] && [ "$NUM" -le "$TOTAL" ] && TO_DELETE+=("$NUM")
+  done
+  [ "${#TO_DELETE[@]}" -eq 0 ] && info " $(text 130) " && return
+
+  # 排序去重（降序）
+  mapfile -t TO_DELETE < <(printf '%s\n' "${TO_DELETE[@]}" | sort -ru)
+
+  # 删除指定索引的条目（jq 索引从 0 开始）
+  local DEL_FILTER='del('
+  local FIRST=true
+  for NUM in "${TO_DELETE[@]}"; do
+    $FIRST || DEL_FILTER+=' | '
+    DEL_FILTER+=".[$((NUM-1))]"
+    FIRST=false
+  done
+  DEL_FILTER+=')'
+
+  $WORK_DIR/jq "$DEL_FILTER" "$CUSTOM_ROUTE_FILE" > "$CUSTOM_ROUTE_FILE.tmp" 2>/dev/null \
+    && mv "$CUSTOM_ROUTE_FILE.tmp" "$CUSTOM_ROUTE_FILE"
+
+  # 如果全部删完了，删除文件
+  [ "$($WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE" 2>/dev/null)" -eq 0 ] && rm -f "$CUSTOM_ROUTE_FILE"
+
+  custom_route_sync
+  cmd_systemctl restart xray
+  info " $(text 140) "
+}
+
+# 自定义路由规则子菜单
+custom_route_menu() {
+  while true; do
+    CUSTOM_ROUTE_COUNT=$(custom_route_count)
+    hint "\n $(text 131) \n"
+    hint " $(text 132) "
+    hint ""
+    reading " $(text 24) " CUSTOM_ROUTE_CHOICE
+
+    case "$CUSTOM_ROUTE_CHOICE" in
+      1 ) custom_route_add ;;
+      2 ) custom_route_view ;;
+      3 ) custom_route_delete ;;
+      0 ) return ;;
+      * ) info " $(text 130) " && return ;;
+    esac
+  done
+}
+# ===================== 自定义路由规则 END =====================
+
 change_config() {
   [ ! -d "${WORK_DIR}" ] && error " $(text 70) "
 
@@ -3901,7 +4393,24 @@ change_config() {
     else
       MENU_VAL+=("$(text 67)")
     fi
+
+    # Hysteria2 Realm 开关（当前状态由 IS_HY2_REALM 决定，参照 sing-box.sh 使用 167/168 风格）
+    if [ "$IS_HY2_REALM" = 'is_hy2_realm' ]; then
+      MENU_IDX+=(127) && MENU_KEY+=(hy2realm) && MENU_VAL+=("$(text 127)")
+    else
+      MENU_IDX+=(129) && MENU_KEY+=(hy2realm) && MENU_VAL+=("$(text 129)")
+    fi
   fi
+
+  # 客户端指纹（始终显示，默认 chrome）
+  MENU_IDX+=(143) && MENU_KEY+=(fingerprint) && MENU_VAL+=("${FINGER_PRINT:-chrome}")
+
+  # 指定网络出口（始终显示，默认空 = 不指定）
+  MENU_IDX+=(75) && MENU_KEY+=(bindinterface) && MENU_VAL+=("${BIND_IFACE:-default}")
+
+  # 自定义 warp 出站路由规则（使用 custom_route_count 统计）
+  CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
+  MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
 
   [ "${#MENU_IDX[@]}" -eq 0 ] && error " $(text 70) "
 
@@ -3976,6 +4485,97 @@ change_config() {
     FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
     export_list
     return
+  elif [ "$KEY" = "hy2realm" ]; then
+    # 添加 / 删除 Hysteria2 Realm
+    # 判断依据：检查 inbound.json 中是否有 finalmask
+    if detect_hy2_realm_status; then
+      # 已开启 → 直接关闭
+      handle_hy2_realm disable
+    else
+      # 未开启 → 先设置 Realm，再询问 WARP 辅助打洞
+      IS_HY2_REALM=is_hy2_realm
+      HY2_REALM_ID="${HY2_REALM_ID:-$UUID}"
+      input_hy2_warp
+      handle_hy2_realm enable
+    fi
+    return
+  elif [ "$KEY" = "fingerprint" ]; then
+    # 修改客户端指纹
+    hint "\n $(text 144) \n" && reading " $(text 24) " FP_CHOICE
+    case "$FP_CHOICE" in
+      ""|1) NEW_VAL="chrome" ;;
+      2 ) NEW_VAL="firefox" ;;
+      * ) NEW_VAL="$FP_CHOICE" ;;
+    esac
+    [[ ! "${NEW_VAL,,}" =~ ^[0-9a-z]+$ ]] && error " $(text 145) " || FINGER_PRINT="$NEW_VAL"
+    write_custom 'fingerprint' "${FINGER_PRINT}"
+    export_list
+    return
+  elif [ "$KEY" = "bindinterface" ]; then
+    # 指定网络出口 — 获取系统接口列表 + 选择 + 更新 outbound.json
+    local IFACE_LIST=() CHOOSE_BIND IDX=2
+    local _ob="$WORK_DIR/outbound.json" _ob_tmp="$TEMP_DIR/outbound_tmp.json"
+
+    if command -v ip >/dev/null 2>&1; then
+      while read -r _ iface; do
+        iface="${iface%%:*}"
+        iface="${iface%%@*}"
+        [ "$iface" != "lo" ] && IFACE_LIST+=("$iface")
+      done < <(ip -o link show up 2>/dev/null)
+    elif command -v ifconfig >/dev/null 2>&1; then
+      while read -r iface _; do
+        iface="${iface%%:}"
+        [ "$iface" != "lo" ] && IFACE_LIST+=("$iface")
+      done < <(ifconfig -a 2>/dev/null | awk '/^[a-zA-Z]/')
+    else
+      for _if in /sys/class/net/*; do
+        _if="${_if##*/}"
+        [ "$_if" != "lo" ] && IFACE_LIST+=("$_if")
+      done
+    fi
+    mapfile -t IFACE_LIST < <(printf '%s\n' "${IFACE_LIST[@]}" | sort -u)
+    [ "${#IFACE_LIST[@]}" -eq 0 ] && warning " $(text 2) " && return
+
+    hint "\n $(text 73) \n"
+    hint " $(text 69) "
+    for _if in "${IFACE_LIST[@]}"; do
+      hint " $IDX. $_if"
+      ((IDX++))
+    done
+    hint " 0. $(text 35)"
+    hint ""
+    reading " $(text 24) " CHOOSE_BIND
+
+    if [[ "$CHOOSE_BIND" == "0" ]]; then
+      return
+    elif [[ "$CHOOSE_BIND" == "1" || "${CHOOSE_BIND,,}" == "default" ]]; then
+      # 删除 bind_interface（恢复默认）
+      [ -s "$_ob" ] && grep -v '^//' "$_ob" | $WORK_DIR/jq \
+        'del(.outbounds[] | select(.tag == "direct") | .streamSettings.sockopt.interface)' \
+        > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
+      write_custom 'bind_interface' ''
+      BIND_IFACE=''
+      info " $(text 45) $(text 69 | sed 's/^1\. //')"
+    elif [[ "$CHOOSE_BIND" =~ ^[0-9]+$ ]] && [ "$CHOOSE_BIND" -ge 2 ] && [ "$CHOOSE_BIND" -le "$((IDX - 1))" ]; then
+      local SELECTED_IF="${IFACE_LIST[$((CHOOSE_BIND - 2))]}"
+      # 使用 streamSettings.sockopt.interface 绑定网络接口（Xray 官方方案）
+      [ -s "$_ob" ] && grep -v '^//' "$_ob" | $WORK_DIR/jq --arg iface "$SELECTED_IF" \
+        '.outbounds |= map(if .tag == "direct" then .streamSettings.sockopt.interface = $iface else . end)' \
+        > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
+      write_custom 'bind_interface' "${SELECTED_IF}"
+      BIND_IFACE="$SELECTED_IF"
+      info " $(text 45) ${SELECTED_IF}"
+    else
+      info " $(text 103) "
+      return
+    fi
+    cmd_systemctl restart xray
+    sleep 1
+    export_list
+    return
+  elif [ "$KEY" = "customroute" ]; then
+    custom_route_menu
+    return
   fi
 
   hint ""
@@ -4027,6 +4627,8 @@ change_config() {
       ;;
     serverip)
       write_custom 'serverIp' "${NEW_VAL}"
+      export_list
+      return
       ;;
     name)
       # 更新 inbound.json 所有 inbound 的 tag（"OLD_NAME proto" → "NEW_NAME proto"）
@@ -4108,7 +4710,7 @@ version() {
   local APP=ARGO && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
 
-  ONLINE=$(wget --no-check-certificate -qO- "${GH_PROXY}https://api.github.com/repos/XTLS/Xray-core/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
+  ONLINE=$(wget --no-check-certificate -qO- "${GH_PROXY}https://api.github.com/repos/XTLS/Xray-core/releases" | awk -F '["v]' '/tag_name/{print $5}' | sort -rV | sed -n 1p)
   [ -z "$ONLINE" ] && error " $(text 74) "
   LOCAL=$($WORK_DIR/xray version | awk '{for (i=0; i<NF; i++) if ($i=="Xray") {print $(i+1)}}')
   local APP=Xray && info "\n $(text 43) "
@@ -4127,7 +4729,7 @@ version() {
     fi
   fi
   if [ "${UPDATE[1],,}" = 'y' ]; then
-    wget --no-check-certificate -O $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$XRAY_ARCH.zip
+    wget --no-check-certificate -O $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/download/v${ONLINE}/Xray-linux-$XRAY_ARCH.zip
     if [ -s $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ]; then
       cmd_systemctl disable xray
       unzip -qo $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip xray *.dat -d $WORK_DIR; rm -f $TEMP_DIR/Xray*.zip
@@ -4150,7 +4752,7 @@ menu_setting() {
       ss -nltp | grep -q "cloudflared.*pid=${ARGO_PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
-    [ "$IS_NGINX" = 'is_nginx' ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/##; s/ (.*)//" | sed "s@^@Version: &@g")
+    [ -s $WORK_DIR/nginx.conf ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/##; s/ (.*)//" | sed "s@^@Version: &@g")
 
     OPTION[1]="1 .  $(text 29)"
     if [ "${STATUS[0]}" = "$(text 28)" ]; then
@@ -4160,7 +4762,7 @@ menu_setting() {
     else
       OPTION[2]="2 .  $(text 28) Argo (argox -a)"
     fi
-    if [ "$IS_NGINX" = 'is_nginx' ]; then
+    if [ -s $WORK_DIR/nginx.conf ]; then
       local NGINX_PID=$(pgrep -f "nginx: master process")
       [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
     fi
@@ -4248,7 +4850,7 @@ menu() {
   local _XV; printf -v _XV '%-26s' "$XRAY_VERSION"
   local _NV; printf -v _NV '%-26s' "$NGINX_VERSION"
   info "\t Argo:  $(_sv "${STATUS[0]}")  ${_AV}${ARGO_MEMORY}\t ${ARGO_CHECKHEALTH}\n\t Xray:  $(_sv "${STATUS[1]}")  ${_XV}${XRAY_MEMORY}"
-  [ "$IS_NGINX" = 'is_nginx' ] && info "\t Nginx: $(_sv "${STATUS[2]}")  ${_NV}${NGINX_MEMORY}"
+  [ -s $WORK_DIR/nginx.conf ] && info "\t Nginx: $(_sv "${STATUS[2]}")  ${_NV}${NGINX_MEMORY}"
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
   hint " ${OPTION[0]} "

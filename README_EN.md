@@ -21,16 +21,18 @@
 * * *
 
 ## Update Information
+2026.07.18 v2.0.8 1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers
+
 2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
-
-2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes
-
-2026.04.18 v2.0.5 1. Move XHTTP over CDN off the Nginx reverse-proxy path and let cloudflared ingress forward directly to the local Xray inbound; 2. Add Clash Mihomo-compatible XHTTP client output for both HTTP/2 CDN and HTTP/3 direct modes
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
-
+>
+>2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes
+>
+>2026.04.18 v2.0.5 1. Move XHTTP over CDN off the Nginx reverse-proxy path and let cloudflared ingress forward directly to the local Xray inbound; 2. Add Clash Mihomo-compatible XHTTP client output for both HTTP/2 CDN and HTTP/3 direct modes
+>
 >2026.04.11 v2.0.4 1. support non-443 ports for CDN address (IPv4 / IPv6 / domain); 2. remove pre-install UFW blocking logic, fallback to iptables when inactive; 3. avoid unnecessary xray restart for CDN / bandwidth / port hopping changes
 >
 >2026.04.10 v2.0.3 1. Automatically detect UFW and switch rule management accordingly; 2. add start port editing in [argox -d] and auto sync firewall; 3. add Hysteria2 bandwidth config entry
@@ -105,6 +107,10 @@
 * Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
 * **Select protocols on demand during installation**, supporting 11 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
 * Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
+* **Hysteria2 Realm mode**: Supports finalmask config with WARP-assisted NAT piercing, purpose-built for NAT VPS scenarios, significantly improving UDP traversal performance;
+* **Custom WARP outbound routing rules**: Supports domain suffix matching or geosite category as rule types, routing to warp-IPv4 or warp-IPv6 outbounds — flexible policy-based traffic steering;
+* **Bind network interface**: Allows specifying a particular network interface (e.g., eth0, eth1) for Xray outbound traffic on multi-homed servers, adapting to complex network topologies;
+* **Client fingerprint configuration**: Customize TLS client fingerprint (e.g., Chrome, Firefox) for Reality/WS protocols to enhance censorship resistance;
 * Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
 * Built-in warp chained proxy to unlock chatGPT;
 * Node information output to V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
@@ -191,6 +197,7 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 | chatGPT uses chained warp proxy, no need to install warp locally, other traffic goes through vps default network exit | [warp](https://gitlab.com/fscarmen/warp#通过-warp-解锁-chatgpt-的方法) |
 | Specified traffic goes through the specified network interface on the local machine, for dual-stack IPv4 or IPv6 differentiation, other traffic goes through vps default network exit | [interface](https://gitlab.com/fscarmen/warp#指定网站分流到-interface-的-xray-配置模板适用于-warp-client-warp-和-warp-warp-go-非全局) |
 | Specified traffic goes through the specified socks5 proxy on the local machine, for dual-stack IPv4 or IPv6 differentiation, other traffic goes through vps default network exit | [socks5](https://gitlab.com/fscarmen/warp#指定网站分流到-socks5-的-xray-配置模板-适用于-warp-client-proxy-和-wireproxy) |
+| Custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6), auto-generated via menu settings to `custom_route.json` | [custom_route](https://gitlab.com/fscarmen/warp#通过-warp-解锁-chatgpt-的方法) |
 
 ## Main directory files and descriptions
 
@@ -211,6 +218,7 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 ├── geoip.dat                 # Used for geographical location policies or access control based on IP addresses
 ├── geosite.dat               # Used for access control, content filtering or security policies based on domain names
 ├── inbound.json              # Dynamically generated inbound config based on selected protocols
+├── custom_route.json         # User-defined WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6)
 ├── list                      # Node information list
 ├── nginx.conf                # Nginx configuration file (generated when WS/XHTTP protocols are installed or subscription is enabled)
 ├── outbound.json             # Outbound and routing config, chatGPT uses warp ipv6 chained proxy outbound

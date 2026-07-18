@@ -20,16 +20,18 @@
 
 * * *
 ## 更新信息
+2026.07.18 v2.0.8 1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器
+
 2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
-
-2026.04.21 v2.0.6 1. 保持 CDN 下的 XHTTP 继续走 Nginx 反代链路，并由 Nginx 负责基于路径的分流; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，在固定隧道下覆盖 HTTP/1.1 CDN 与 HTTP/3 Direct
-
-2026.04.18 v2.0.5 1. 将 CDN 下的 XHTTP 从 Nginx 反代链路移出，改为由 cloudflared ingress 直接转发到本地 Xray inbound; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，同时覆盖 HTTP/2 CDN 与 HTTP/3 Direct
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.04.21 v2.0.6 1. 保持 CDN 下的 XHTTP 继续走 Nginx 反代链路，并由 Nginx 负责基于路径的分流; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，在固定隧道下覆盖 HTTP/1.1 CDN 与 HTTP/3 Direct
+>
+>2026.04.18 v2.0.5 1. 将 CDN 下的 XHTTP 从 Nginx 反代链路移出，改为由 cloudflared ingress 直接转发到本地 Xray inbound; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，同时覆盖 HTTP/2 CDN 与 HTTP/3 Direct
+>
 >2026.04.11 v2.0.4 1. 优选地址支持非 443 端口（IPv4 / IPv6 / 域名）; 2. 移除安装前 UFW 强制校验，inactive 自动回退 iptables; 3. 优选地址 / 带宽 / 端口跳跃修改不再重启 xray
 >
 >2026.04.10 v2.0.3 1. 自动检测 UFW 并切换规则管理方式; 2. [argox -d] 支持修改起始端口并自动同步防火墙; 3. 新增 Hysteria2 带宽配置入口
@@ -104,6 +106,10 @@
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
 * **安装时可按需多选协议**，支持 11 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
 * Hysteria2、VLESS + XHTTP Direct、Trojan Direct 使用自签证书直连；更换 TLS 域名时会自动同步重新生成自签证书；
+* **Hysteria2 Realm 模式**：支持 finalmask 配置及 WARP 辅助 NAT 打洞，专为 NAT VPS 场景设计，显著提升 UDP 穿透性能；
+* **自定义 WARP 出站路由规则**：支持域名后缀匹配或 geosite 分类两种规则类型，可分别路由到 warp-IPv4 或 warp-IPv6 出站，灵活实现分流策略；
+* **绑定网络出口接口**：支持在多网卡服务器上指定 Xray 流量从特定网络接口（如 eth0、eth1）出站，适配复杂网络拓扑；
+* **客户端指纹配置**：支持在 Reality / WS 等协议中自定义 TLS 客户端指纹（如 Chrome、Firefox），增强抗审查能力；
 * Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality、Hysteria2、Trojan Direct、Shadowsocks 2022 Direct 与 XHTTP Direct 可按各自模式直连，架构简洁；
 * 内置 warp 链式代理解锁 chatGPT；
 * 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Throne / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
@@ -193,6 +199,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 | chatGPT 使用链式 warp 代理，不需要本地安装 warp，其余流量走 vps 默认的网络出口 | [warp](https://gitlab.com/fscarmen/warp#通过-warp-解锁-chatgpt-的方法) |
 | 指定流量走本机指定的网络接口，对于双栈能区分 IPv4 或 IPv6，其余流量走 vps 默认的网络出口 | [interface](https://gitlab.com/fscarmen/warp#指定网站分流到-interface-的-xray-配置模板适用于-warp-client-warp-和-warp-warp-go-非全局) |
 | 指定流量走本机指定的socks5代理，对于双栈能区分 IPv4 或 IPv6，其余流量走 vps 默认的网络出口 | [socks5](https://gitlab.com/fscarmen/warp#指定网站分流到-socks5-的-xray-配置模板-适用于-warp-client-proxy-和-wireproxy) |
+| 自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6），菜单设置自动写入 `custom_route.json` | [custom_route](https://gitlab.com/fscarmen/warp#通过-warp-解锁-chatgpt-的方法) |
 
 
 ## 主体目录文件及说明
@@ -214,6 +221,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── geoip.dat                 # 用于根据 IP 地址来进行地理位置策略或访问控制
 ├── geosite.dat               # 用于基于域名或网站分类来进行访问控制、内容过滤或安全策略
 ├── inbound.json              # 按已选协议动态生成的入站配置文件
+├── custom_route.json         # 用户自定义 WARP 出站路由规则文件（域名 / geosite + warp-IPv4/warp-IPv6）
 ├── list                      # 节点信息列表
 ├── nginx.conf                # Nginx 配置文件（安装 WS/XHTTP 协议或启用订阅功能时生成）
 ├── outbound.json             # 出站和路由配置文件，chatGPT 使用 warp ipv6 链式代理出站
