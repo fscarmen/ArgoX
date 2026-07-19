@@ -20,6 +20,8 @@
 
 * * *
 ## 更新信息
+2026.07.19 v2.0.9 1. 新增长参数半交互安装模，支持 16 个长参数：协议、端口、CDN、UUID、路径、Argo、TLS、Reality、Hysteria2; 2. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段
+
 2026.07.18 v2.0.8 1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器
 
 2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
@@ -152,6 +154,109 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
 ```
+
+
+## 长参数传参安装
+
+支持通过 `--KEY VALUE` 或 `--KEY=VALUE` 形式传参，已传参的变量跳过交互，未传参的变量仍交互询问。适合需要定制部分参数、又不想全程交互的场景。
+
+### 参数说明
+
+| 参数 | 说明 |
+| ---- | ---- |
+| `--LANGUAGE` | c=中文; e=英文 |
+| `--CHOOSE_PROTOCOLS` | 可多选，如 bcef<br> a=全部<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP Direct<br> k=Trojan Direct<br> l=Shadowsocks 2022 Direct |
+| `--START_PORT` | 起始端口，100 - 65520 |
+| `--NGINX_PORT` | Nginx 端口（订阅服务），100 - 65520；n=不需要订阅 |
+| `--SERVER_IP` | 服务器公网 IPv4 或 IPv6 地址 |
+| `--CDN` | 优选 IP 或域名，如 `cf.090227.xyz`；可带端口如 `192.168.1.1:50000` |
+| `--UUID` | 节点 UUID 或密码 |
+| `--WS_PATH` | WebSocket 路径 |
+| `--NODE_NAME` | 节点名称 |
+| `--ARGO_DOMAIN` | Argo 固定隧道域名，不指定则使用临时隧道 |
+| `--ARGO_AUTH` | Argo 认证信息（Json / Token / Cloudflare API），与 `--ARGO_DOMAIN` 一并使用 |
+| `--TLS_SERVER` | TLS SNI 域名 |
+| `--REALITY_PRIVATE` | Reality 私钥 |
+| `--PORT_HOPPING_RANGE` | Hysteria2 端口跳跃范围，如 `50000:51000` |
+| `--HY2_REALM` | [true/false] 是否启用 Hysteria2 Realm |
+| `--HY2_WARP` | [true/false] 是否启用 Realm WARP 辅助打洞 |
+
+### 使用示例
+
+<details>
+    <summary> 最小参数安装（只指定协议，其余交互填写）（点击即可展开或收起）</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bcef
+```
+
+</details>
+
+<details>
+    <summary> 完整定制安装（传了大部分参数，减少交互）（点击即可展开或收起）</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bcef \
+  --START_PORT 8881 \
+  --NGINX_PORT 60000 \
+  --SERVER_IP 123.123.123.123 \
+  --CDN skk.moe \
+  --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
+  --WS_PATH argox \
+  --NODE_NAME argox \
+  --REALITY_PRIVATE UPO3FWlg6YDJbASYi7KIESibPec_K46edTvDPbqEYFk
+```
+
+</details>
+
+<details>
+    <summary> Hysteria2 Realm + 端口跳跃（点击即可展开或收起）</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bc \
+  --START_PORT 8881 \
+  --SERVER_IP 123.123.123.123 \
+  --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
+  --PORT_HOPPING_RANGE 50000:51000 \
+  --HY2_REALM true \
+  --HY2_WARP true
+```
+
+</details>
+
+<details>
+    <summary> 全参数 CI/CD 批量部署（必须传所有必要参数）（点击即可展开或收起）</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bcef \
+  --START_PORT 8881 \
+  --NGINX_PORT 60000 \
+  --SERVER_IP 123.123.123.123 \
+  --CDN skk.moe \
+  --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
+  --WS_PATH argox \
+  --NODE_NAME argox \
+  --REALITY_PRIVATE UPO3FWlg6YDJbASYi7KIESibPec_K46edTvDPbqEYFk \
+  --ARGO_DOMAIN argox.argo.com \
+  --ARGO_AUTH '{"AccountTag":"9cc9e3e4d8f29d2a02e297f14f20513a","TunnelSecret":"6AYfKBOoNlPiTAuWg64ZwujsNuERpWLm6pPJ2qpN8PM=","TunnelID":"1ac55430-f4dc-47d5-a850-bdce824c4101"}' \
+  --PORT_HOPPING_RANGE 50000:51000 \
+  --HY2_REALM true \
+  --HY2_WARP true
+```
+
+</details>
 
 
 ## Argo Json 的获取

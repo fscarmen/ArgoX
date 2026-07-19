@@ -21,6 +21,8 @@
 * * *
 
 ## Update Information
+2026.07.19 v2.0.9 1. Add long-parameter support for semi-interactive install. Support 16 long parameters covering protocols, ports, CDN, UUID, paths, Argo, TLS, Reality, Hysteria2; 2. Add minClientVer to realitySettings for Xray v26.7.11 compatibility
+
 2026.07.18 v2.0.8 1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers
 
 2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
@@ -153,6 +155,110 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
 ```
+
+
+## Long Parameter Installation
+
+Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided via long parameters skip their interactive prompts; missing parameters are still asked interactively. Ideal for scenarios where you want to customize some parameters without going through the entire interactive flow.
+
+### Parameter Reference
+
+| Parameter | Description |
+| --------- | ----------- |
+| `--LANGUAGE` | c=Chinese; e=English |
+| `--CHOOSE_PROTOCOLS` | Multi-select, e.g. bcef<br> a=all<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP Direct<br> k=Trojan Direct<br> l=Shadowsocks 2022 Direct |
+| `--START_PORT` | Start port, 100 - 65520 |
+| `--NGINX_PORT` | Nginx port (subscription service), 100 - 65520; n=no subscription |
+| `--SERVER_IP` | Server public IPv4 or IPv6 address |
+| `--CDN` | Preferred CDN IP or domain, e.g. `cf.090227.xyz`; can include port like `192.168.1.1:50000` |
+| `--UUID` | Node UUID or password |
+| `--WS_PATH` | WebSocket path |
+| `--NODE_NAME` | Node name |
+| `--ARGO_DOMAIN` | Argo fixed tunnel domain; leave empty for temporary tunnel |
+| `--ARGO_AUTH` | Argo auth (Json / Token / Cloudflare API), used with `--ARGO_DOMAIN` |
+| `--TLS_SERVER` | TLS SNI domain |
+| `--REALITY_PRIVATE` | Reality private key |
+| `--PORT_HOPPING_RANGE` | Hysteria2 port hopping range, e.g. `50000:51000` |
+| `--HY2_REALM` | [true/false] Enable Hysteria2 Realm |
+| `--HY2_WARP` | [true/false] Enable Realm WARP-assisted hole punching |
+
+### Examples
+
+<details>
+    <summary> Minimal install (only specify protocols, fill rest interactively) (Click to expand)</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bcef
+```
+
+</details>
+
+<details>
+    <summary> Full customization (most parameters provided, minimal interaction) (Click to expand)</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bcef \
+  --START_PORT 8881 \
+  --NGINX_PORT 60000 \
+  --SERVER_IP 123.123.123.123 \
+  --CDN skk.moe \
+  --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
+  --WS_PATH argox \
+  --NODE_NAME argox \
+  --REALITY_PRIVATE UPO3FWlg6YDJbASYi7KIESibPec_K46edTvDPbqEYFk
+```
+
+</details>
+
+<details>
+    <summary> Hysteria2 Realm + port hopping (Click to expand)</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bc \
+  --START_PORT 8881 \
+  --SERVER_IP 123.123.123.123 \
+  --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
+  --PORT_HOPPING_RANGE 50000:51000 \
+  --HY2_REALM true \
+  --HY2_WARP true
+```
+
+</details>
+
+<details>
+    <summary> Full parameter CI/CD batch deployment (all required params must be provided) (Click to expand)</summary>
+<br>
+
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
+  --LANGUAGE c \
+  --CHOOSE_PROTOCOLS bcef \
+  --START_PORT 8881 \
+  --NGINX_PORT 60000 \
+  --SERVER_IP 123.123.123.123 \
+  --CDN skk.moe \
+  --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
+  --WS_PATH argox \
+  --NODE_NAME argox \
+  --REALITY_PRIVATE UPO3FWlg6YDJbASYi7KIESibPec_K46edTvDPbqEYFk \
+  --ARGO_DOMAIN argox.argo.com \
+  --ARGO_AUTH '{"AccountTag":"9cc9e3e4d8f29d2a02e297f14f20513a","TunnelSecret":"6AYfKBOoNlPiTAuWg64ZwujsNuERpWLm6pPJ2qpN8PM=","TunnelID":"1ac55430-f4dc-47d5-a850-bdce824c4101"}' \
+  --PORT_HOPPING_RANGE 50000:51000 \
+  --HY2_REALM true \
+  --HY2_WARP true
+```
+
+</details>
+
 
 ## Obtaining Argo Json
 

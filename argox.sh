@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.8 (2026.07.18)'
+VERSION='2.0.9 (2026.07.19)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -43,8 +43,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers"
-C[1]="1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器"
+E[1]="1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers; 4. Add long-parameter support for semi-interactive install; 4. Add minClientVer to realitySettings for Xray v26.7.11 compatibility"
+C[1]="1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器; 4. 新增长参数半交互安装模式; 4. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -844,7 +844,7 @@ xray_variable() {
     fi
   fi
   (( STEP_NUM++ )) || true
-  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "${INSTALL_PROTOCOLS[*]}" ]; then
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "${INSTALL_PROTOCOLS[*]}" ] && [ -z "$CHOOSE_PROTOCOLS" ]; then
     hint "\n $(text 87)"
     hint "$(text 100)"
     for p in "${!PROTOCOL_LIST[@]}"; do
@@ -912,22 +912,29 @@ xray_variable() {
   done
 
   INSTALL_NGINX="y"
-  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$NGINX_PORT" ]; then
-    (( STEP_NUM++ )) || true
-    input_nginx_port
+  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+    if [ "$SKIP_MENU" != 'skip_menu' ] || [ -z "$NGINX_PORT" ]; then
+      (( STEP_NUM++ )) || true
+      input_nginx_port
+    fi
   fi
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
 
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-    (( STEP_NUM++ )) || true
-    reading "\n $(text 59) " SERVER_IP
+    if [ "$SKIP_MENU" != 'skip_menu' ] || [ -z "$SERVER_IP" ]; then
+      (( STEP_NUM++ )) || true
+      reading "\n $(text 59) " SERVER_IP
+    fi
   fi
   SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
 
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     if [ -z "$ARGO_DOMAIN" ]; then
-      (( STEP_NUM++ )) || true
-      reading "\n $(text 10) " ARGO_DOMAIN
+      # 长参数模式且未传 --ARGO_DOMAIN，视为使用临时隧道（不询问）
+      if [ "$SKIP_MENU" != 'skip_menu' ]; then
+        (( STEP_NUM++ )) || true
+        reading "\n $(text 10) " ARGO_DOMAIN
+      fi
     fi
     if [[ -n "$ARGO_DOMAIN" && ! "$ARGO_DOMAIN" =~ trycloudflare\.com$ && -z "$ARGO_AUTH" ]]; then
       hint "\n $(text 11)"
@@ -1007,7 +1014,17 @@ xray_variable() {
   done
 
   if [ -z "$SERVER" ]; then
-    if $_HAS_WS_XHTTP; then
+    if [ "$SKIP_MENU" = 'skip_menu' ] && [ -n "$CDN" ]; then
+      # 长参数模式：使用 --CDN 传入的值
+      # 如果 CDN 已包含端口（如 192.168.1.1:50000），直接使用；否则追加默认 443
+      if [[ "$CDN" == *:* ]]; then
+        parse_preferred_addr "$CDN" || error " $(text 118) "
+      else
+        parse_preferred_addr "${CDN}:443" || error " $(text 118) "
+      fi
+      SERVER="$PREFERRED_ADDR"
+      SERVER_PORT="$PREFERRED_PORT"
+    elif $_HAS_WS_XHTTP; then
       if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
         (( STEP_NUM++ )) || true
         echo ""
@@ -1050,7 +1067,10 @@ xray_variable() {
     # Realm ID 默认使用 UUID
     [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="$UUID"
 
-    if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+    if [ "$SKIP_MENU" = 'skip_menu' ] && [ -z "$PORT_HOPPING_RANGE" ]; then
+      # 长参数模式：未传 --PORT_HOPPING_RANGE，视为禁用端口跳跃
+      IS_HOPPING=no_hopping
+    elif ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
       input_hopping_port
     elif [ -n "$PORT_HOPPING_RANGE" ]; then
       # 非交互模式：config.conf 填了 PORT_HOPPING_RANGE，直接解析
@@ -2115,6 +2135,8 @@ build_realm_url() {
 
 # 交互输入是否启用 Hysteria2 Realm
 input_hy2_realm() {
+  # 长参数模式：--HY2_REALM 已传参（无论 true/false），跳过交互
+  [ "$SKIP_MENU" = 'skip_menu' ] && [ -n "$HY2_REALM_SET" ] && return
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     reading "\n $(text 125) " HY2_REALM_ANSWER
   fi
@@ -2129,6 +2151,8 @@ input_hy2_realm() {
 input_hy2_warp() {
   # 仅在 Realm 已启用且非交互模式下询问
   [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && return
+  # 长参数模式：--HY2_WARP 已传参（无论 true/false），跳过交互
+  [ "$SKIP_MENU" = 'skip_menu' ] && [ -n "$HY2_WARP_SET" ] && return
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     reading "\n $(text 126) " HY2_WARP_ANSWER
   fi
@@ -2795,6 +2819,7 @@ WantedBy=multi-user.target"
         "security": "reality",
         "realitySettings": {
           "show": false,
+          "minClientVer": "1.0.0",
           "dest": "${TLS_SERVER}:443",
           "serverNames": [
             "${TLS_SERVER}"
@@ -2873,6 +2898,7 @@ JSONEOF
         "security": "reality",
         "realitySettings": {
           "show": false,
+          "minClientVer": "1.0.0",
           "dest": "${TLS_SERVER}:443",
           "xver": 0,
           "serverNames": [
@@ -3990,8 +4016,8 @@ EOF
       xhttp-h3-direct) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"port\":${XHTTP_PORT},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"xhttpSettings\":{\"mode\":\"stream-up\",\"extra\":{\"alpn\":[\"h3\"]},\"path\":\"/${WS_PATH}-xh3\"},\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       trojan-direct) NEW_BLOCK="{\"port\":${TROJAN_PORT},\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       ss2022-direct) NEW_BLOCK="{\"port\":${SS2022_PORT},\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[10]}\",\"settings\":{\"method\":\"${SS_DIRECT_METHOD}\",\"password\":\"${SS2022_PASSWORD}\",\"network\":\"tcp,udp\"},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
-      reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
+      reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
+      reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
     esac
     if [ -n "$NEW_BLOCK" ] && [ -x "$WORK_DIR/jq" ]; then
       $WORK_DIR/jq --argjson block "$NEW_BLOCK" '.inbounds += [$block]' \
@@ -4882,7 +4908,87 @@ if [ -s $WORK_DIR/nginx.conf ] && grep -q 'v2rayN|Neko|Throne' $WORK_DIR/nginx.c
   export_list >/dev/null 2>&1
 fi
 
-# 传参
+# ── 传参处理1: 语言识别 + SKIP_MENU 检测（在 select_language 之前） ──
+# 支持 --LANGUAGE C|E 长参数，在 select_language() 之前识别，避免非交互安装仍弹出语言选择。
+# 同时检测是否有任何 --XXX 长参数，有则跳过主菜单直接进入菜单 2（install_argox）。
+for ((_param_i=1; _param_i<=$#; _param_i++)); do
+  eval "_param_v=\${${_param_i}}"
+  case "${_param_v^^}" in
+    --LANGUAGE )
+      _param_n=$((_param_i+1))
+      eval "_param_lang=\${${_param_n}}"
+      [[ "${_param_lang^^}" =~ ^C ]] && L=C || L=E
+      SKIP_MENU=skip_menu
+      ;;
+    --LANGUAGE=* )
+      _param_lang="${_param_v#*=}"
+      [[ "${_param_lang^^}" =~ ^C ]] && L=C || L=E
+      SKIP_MENU=skip_menu
+      ;;
+    --* )
+      # 任何其他 --XXX 长参数也触发跳过菜单
+      SKIP_MENU=skip_menu
+      ;;
+  esac
+done
+unset _param_i _param_v _param_n _param_lang
+
+# ── 传参处理2: 长参数解析（在 getopts 之前） ──
+# 可以是 Key Value 或者 Key=Value 的形式。
+# 传参处理: 把所有的 = 变为空格，但保留 =" ，因为 Json TunnelSecret 是 =" 结尾的
+ALL_PARAMETER=($(sed -E 's/=([^"])/ \1/g' <<< $*))
+# 已传参的变量跳过交互，未传参的变量仍交互询问。
+
+for z in ${!ALL_PARAMETER[@]}; do
+  case "${ALL_PARAMETER[z]^^}" in
+    --CHOOSE_PROTOCOLS ) ((z++)); CHOOSE_PROTOCOLS=${ALL_PARAMETER[z]} ;;
+    --START_PORT ) ((z++)); START_PORT=${ALL_PARAMETER[z]} ;;
+    --NGINX_PORT ) ((z++)); NGINX_PORT=${ALL_PARAMETER[z]} ;;
+    --SERVER_IP ) ((z++)); SERVER_IP=${ALL_PARAMETER[z]} ;;
+    --CDN ) ((z++)); CDN=${ALL_PARAMETER[z]} ;;
+    --UUID ) ((z++)); UUID=${ALL_PARAMETER[z]} ;;
+    --WS_PATH ) ((z++)); WS_PATH=${ALL_PARAMETER[z]} ;;
+    --NODE_NAME ) ((z++))
+      for ((z=$z; z<${#ALL_PARAMETER[@]}; z++)); do
+        [[ ! "${ALL_PARAMETER[z]}" =~ ^- ]] && NODE_NAME_ARRAY+=(${ALL_PARAMETER[z]}) || break
+      done
+      NODE_NAME=${NODE_NAME_ARRAY[@]}
+      unset NODE_NAME_ARRAY
+      ((z--))
+      ;;
+    --ARGO_DOMAIN ) ((z++)); ARGO_DOMAIN=${ALL_PARAMETER[z]} ;;
+    --ARGO_AUTH ) ((z++)); ARGO_AUTH=${ALL_PARAMETER[z]} ;;
+    --TLS_SERVER ) ((z++)); TLS_SERVER=${ALL_PARAMETER[z]} ;;
+    --REALITY_PRIVATE ) ((z++)); REALITY_PRIVATE=${ALL_PARAMETER[z]} ;;
+    --PORT_HOPPING_RANGE ) ((z++)); PORT_HOPPING_RANGE=${ALL_PARAMETER[z]} ;;
+    --HY2_REALM|--REALM ) ((z++)); HY2_REALM_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_REALM=is_hy2_realm ;;
+    --HY2_WARP|--REALM_WARP|--WARP_REALM ) ((z++)); HY2_WARP_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_WARP=is_hy2_warp && IS_HY2_REALM=is_hy2_realm ;;
+  esac
+done
+
+# 从 $@ 中移除所有长参数（--XXX 及其值），避免：
+# 1. getopts 错误解析（bash 3.2 会把 --LANGUAGE 中的 -L 当作短选项 -l）
+# 2. 短参数检测 regex 误匹配（如 --CHOOSE_PROTOCOLS 中的 -c 导致 L=C 被误设）
+# 长参数解析引擎已在上方处理了所有需要的参数，未被识别的 --XXX 应被忽略。
+# 不移除 -f、-l 等短参数。
+_REMAINING_ARGS=()
+_skip_next=false
+for _arg in "$@"; do
+  if $_skip_next; then
+    _skip_next=false
+    continue
+  fi
+  case "${_arg}" in
+    --* )
+      _skip_next=true ;;
+    * ) _REMAINING_ARGS+=("$_arg") ;;
+  esac
+done
+set -- "${_REMAINING_ARGS[@]}"
+unset _REMAINING_ARGS _arg _skip_next
+
+# 传参（短参数）
+# 注意：此时 $@ 中已无 --XXX 长参数，避免长参数名中的字符导致误匹配
 [[ "${*,,}" =~ '-e'|'-k' ]] && L=E
 [[ "${*,,}" =~ '-c'|'-b'|'-l' ]] && L=C
 
@@ -4957,4 +5063,4 @@ check_dependencies
 [ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' ] && check_system_ip
 check_install
 menu_setting
-[ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || menu
+[ "$SKIP_MENU" = 'skip_menu' ] || [ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || menu
