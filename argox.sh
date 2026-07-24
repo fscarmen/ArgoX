@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.0.9 (2026.07.19)'
+VERSION='2.1.0 (2026.07.24)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -29,6 +29,8 @@ NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 DEFAULT_XRAY_VERSION='26.7.11'
+IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
+IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -43,14 +45,14 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers; 4. Add long-parameter support for semi-interactive install; 4. Add minClientVer to realitySettings for Xray v26.7.11 compatibility"
-C[1]="1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器; 4. 新增长参数半交互安装模式; 4. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段"
+E[1]="1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu"
+C[1]="1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次,脚本退出"
-E[4]="UUID should be 36 characters, please re-enter (\${a} times remaining)"
-C[4]="UUID 应为36位字符,请重新输入 (剩余\${a}次)"
+E[4]="UUID should be 36 characters, please re-enter (\${a} times remaining): "
+C[4]="UUID 应为36位字符,请重新输入 (剩余\${a}次): "
 E[5]="The script supports Debian, Ubuntu, CentOS, Alpine, Armbian or Arch systems only. Feedback: [https://github.com/fscarmen/argox/issues]"
 C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine、Armbian 或 Arch 系统，问题反馈:[https://github.com/fscarmen/argox/issues]"
 E[6]="Port Hopping range (current: \${_val}) [leave blank to disable]"
@@ -61,14 +63,14 @@ E[8]="All dependencies already exist and do not need to be installed additionall
 C[8]="所有依赖已存在，不需要额外安装"
 E[9]="To upgrade, press [y]. No upgrade by default:"
 C[9]="升级请按 [y]，默认不升级:"
-E[10]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter Argo Domain (Default is temporary domain if left blank):"
-C[10]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
+E[10]="Please enter Argo Domain (Default is temporary domain if left blank):"
+C[10]="请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
 E[11]="Please enter Argo Token, Argo Json or Cloudflare API\n\n [*] Token: Visit https://dash.cloudflare.com/ , Zero Trust > Networks > Connectors > Create a tunnel > Select Cloudflared\n\n [*] Json: Users can easily obtain it through the following website: https://fscarmen.cloudflare.now.cc\n\n [*] Cloudflare API: Visit https://dash.cloudflare.com/profile/api-tokens > Create Token > Create Custom Token > Add the following permissions:\n - Account > Cloudflare One Connectors: cloudflared > Edit\n - Zone > DNS > Edit\n\n - Account Resources: Include > Required Account\n - Zone Resources: Include > Specific zone > Argo Root Domain"
 C[11]="请输入 Argo Token, Argo Json 或者 Cloudflare API\n\n [*] Token: 访问 https://dash.cloudflare.com/ ，Zero Trust > 网络 > 连接器 > 创建隧道 > 选择 Cloudflared\n\n [*] Json: 用户通过以下网站轻松获取: https://fscarmen.cloudflare.now.cc\n\n [*] Cloudflare API: 访问 https://dash.cloudflare.com/profile/api-tokens > 创建令牌 > 创建自定义令牌 > 添加以下权限:\n - 帐户 > Cloudflare One连接器: Cloudflared > 编辑\n - 区域 > DNS > 编辑\n\n - 帐户资源: 包括 > 所需账户\n - 区域资源: 包括 > 特定区域 > 所需域名"
 E[12]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter Xray UUID (Default is \${UUID_DEFAULT}):"
 C[12]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Xray UUID (默认为 \${UUID_DEFAULT}):"
-E[13]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter Xray WS Path (Default is \${WS_PATH_DEFAULT}):"
-C[13]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Xray WS 路径 (默认为 \${WS_PATH_DEFAULT}):"
+E[13]="Please enter Xray WS Path (Default is \${WS_PATH_DEFAULT}):"
+C[13]="请输入 Xray WS 路径 (默认为 \${WS_PATH_DEFAULT}):"
 E[14]="Xray WS Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @, please re-enter (\${a} times remaining):"
 C[14]="Xray WS 路径只允许英文大小写、数字、连字符、下划线、点和@字符，请重新输入 (剩余\${a}次):"
 E[15]="ArgoX script has not been installed yet."
@@ -109,8 +111,8 @@ E[32]="Upgrade kernel, turn on BBR, change Linux system (argox -b)"
 C[32]="升级内核、安装BBR、DD脚本 (argox -b)"
 E[33]="Uninstall (argox -u)"
 C[33]="卸载 (argox -u)"
-E[34]="Install ArgoX script (argo + xray)"
-C[34]="安装 ArgoX 脚本 (argo + xray)"
+E[34]="Install ArgoX script"
+C[34]="安装 ArgoX 脚本"
 E[35]="Exit"
 C[35]="退出"
 E[36]="Please enter the correct number"
@@ -125,8 +127,8 @@ E[40]="Argo tunnel is: \${ARGO_TYPE}\\\n The domain is: \${ARGO_DOMAIN}"
 C[40]="Argo 隧道类型为: \${ARGO_TYPE}\\\n 域名是: \${ARGO_DOMAIN}"
 E[41]="Argo tunnel type:\n 1. Try (VLESS + XHTTP not supported)\n 2. Token or Json"
 C[41]="Argo 隧道类型:\n 1. Try（不支持 VLESS + XHTTP）\n 2. Token 或者 Json"
-E[42]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please select or enter the preferred address (domain / IPv4 / [IPv6], optional :port), the default is \${CDN_DOMAIN[0]}:"
-C[42]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请选择或者填入优选地址（域名 / IPv4 / [IPv6]，可选 :端口），默认为 \${CDN_DOMAIN[0]}:"
+E[42]="Please select or enter the preferred address (domain / IPv4 / [IPv6], optional :port), the default is \${CDN_DOMAIN[0]}:"
+C[42]="请选择或者填入优选地址（域名 / IPv4 / [IPv6]，可选 :端口），默认为 \${CDN_DOMAIN[0]}:"
 E[43]="\${APP} local version: \${LOCAL}.\\\t The newest version: \${ONLINE}"
 C[43]="\${APP} 本地版本: \${LOCAL}.\\\t 最新版本: \${ONLINE}"
 E[44]="No upgrade required."
@@ -167,8 +169,8 @@ E[61]="Port already in use:"
 C[61]="端口已被占用:"
 E[62]="Create shortcut [ argox ] successfully."
 C[62]="创建快捷 [ argox ] 指令成功!"
-E[63]="The full template can be found at:\n https://github.com/chika0801/sing-box-examples/tree/main/Tun"
-C[63]="完整模板可参照:\n https://github.com/chika0801/sing-box-examples/tree/main/Tun"
+E[63]="XHTTP Direct TLS certificate: \${WORK_DIR}/cert/cert.pem"
+C[63]="XHTTP Direct TLS 证书: \${WORK_DIR}/cert/cert.pem"
 E[64]="subscribe"
 C[64]="订阅"
 E[65]="To uninstall Nginx press [y], it is not uninstalled by default:"
@@ -237,8 +239,8 @@ E[96]="Keep protocols"
 C[96]="保留协议"
 E[97]="Add protocols"
 C[97]="新增协议"
-E[98]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter the Reality privateKey, skip to generate randomly (Default is random):"
-C[98]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Reality 的密钥(privateKey)，跳过则随机生成 (默认为随机生成):"
+E[98]="Please enter the Reality privateKey, skip to generate randomly (Default is random):"
+C[98]="请输入 Reality 的密钥(privateKey)，跳过则随机生成 (默认为随机生成):"
 E[99]="Invalid Reality privateKey, generating randomly..."
 C[99]="Reality 私钥无效，随机生成中..."
 E[100]=" a. all (default)"
@@ -251,14 +253,14 @@ E[103]="No change was made."
 C[103]="未做任何修改"
 E[104]="Port Hopping: ISPs sometimes block or throttle persistent UDP on a single port. Port hopping works around this by forwarding a range of ports to the Hysteria2 listen port via iptables NAT.\n Tip1: Recommended ~1000 ports, min: \$MIN_HOPPING_PORT, max: \$MAX_HOPPING_PORT.\n Tip2: NAT machines have very few open ports (20-30); use with caution.\n Leave blank to disable."
 C[104]="端口跳跃介绍：运营商有时会阻断或限速单个 UDP 端口的持续连接，端口跳跃通过 iptables NAT 将端口段转发到 Hysteria2 监听端口来解决这个问题。\n Tip1: 推荐约 1000 个端口，最小值：\$MIN_HOPPING_PORT，最大值：\$MAX_HOPPING_PORT。\n Tip2: NAT 机器可开放端口很少（20-30 个），请谨慎使用。\n 留空则禁用该功能。"
-E[105]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Enter port range for Hysteria2 port hopping (e.g. 50000:51000). Leave blank to disable:"
-C[105]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Hysteria2 端口跳跃范围（如 50000:51000），留空禁用:"
+E[105]="Enter port range for Hysteria2 port hopping (e.g. 50000:51000). Leave blank to disable:"
+C[105]="请输入 Hysteria2 端口跳跃范围（如 50000:51000），留空禁用:"
 E[106]="Please select what to modify:"
 C[106]="请选择修改项目:"
 E[107]="Preferred address (current: \${_val})"
 C[107]="优选地址 (当前：\${_val})"
-E[108]="SNI / TLS domain (current: \${_val}) [Reality & Hysteria2]"
-C[108]="SNI / TLS 域名 (当前：\${_val}) [Reality 和 Hysteria2 共用]"
+E[108]="SNI / TLS domain (current: \${_val})"
+C[108]="SNI / TLS 域名 (当前：\${_val})"
 E[109]="Node name (current: \${_val})"
 C[109]="节点名称 (当前：\${_val})"
 E[110]="UUID / Password (current: \${_val})"
@@ -333,6 +335,28 @@ E[144]="Please select or input client fingerprint:\n 1. chrome (default)\n 2. fi
 C[144]="请选择或输入客户端指纹:\n 1. chrome (默认)\n 2. firefox\n 或直接输入自定义值:"
 E[145]="Invalid fingerprint format."
 C[145]="无效的指纹格式"
+E[146]="Install ArgoX script + subscription"
+C[146]="安装 ArgoX 脚本 + 订阅"
+E[147]="All WS/XHTTP protocols have been removed, Argo tunnel service has been stopped and cleaned up."
+C[147]="已移除所有 WS/XHTTP 协议，Argo 隧道服务已停止并清理。"
+E[148]="Installing nginx in the background..."
+C[148]="正在后台安装 nginx..."
+E[149]="Enable subscription"
+C[149]="开启订阅"
+E[150]="Disable subscription"
+C[150]="关闭订阅"
+E[151]="Xray API unavailable, downgrading to restart Xray"
+C[151]="Xray API 不可用，降级为重启 Xray"
+E[152]="API batch delete inbounds failed, some may not exist"
+C[152]="API 批量删除入站失败，可能是部分不存在"
+E[153]="API batch add inbounds failed"
+C[153]="API 批量添加入站失败"
+E[154]="API add outbound failed: \${_tag}"
+C[154]="API 添加出站失败: \${_tag}"
+E[155]="API replace routing rules failed"
+C[155]="API 替换路由规则失败"
+E[156]="Routing rules file is empty"
+C[156]="路由规则文件为空"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -376,6 +400,16 @@ refresh_port_snapshot() {
 is_port_in_use() {
   local _PORT="$1"
   grep -qE "(^|[[:space:]])[^[:space:]]*:${_PORT}([[:space:]]|$)" <<< "$PORT_SNAPSHOT"
+}
+
+# 查找空闲端口（复用 refresh_port_snapshot + is_port_in_use）
+find_free_port() {
+  local min=${1:-10000} max=${2:-65535} port
+  refresh_port_snapshot
+  while true; do
+    port=$((RANDOM % (max - min + 1) + min))
+    is_port_in_use "$port" || { echo "$port"; return 0; }
+  done
 }
 
 # 检测是否启用 Github CDN
@@ -494,6 +528,230 @@ write_custom() {
   fi
 }
 
+# ============================================================
+# api_hot_reload() - 统一的 Xray API 热更新入口
+# 用法:
+#   api_hot_reload inbounds [tag...]     # 增量更新入站（可指定强制更新的 tag）
+#   api_hot_reload outbound <tag>        # 热更新单个出站
+#   api_hot_reload custom_routes         # 全量替换路由规则（来自 outbound.json）
+#   api_hot_reload routing_rules [file]  # 全量替换路由规则（备选）
+# ============================================================
+api_hot_reload() {
+  local action="$1" _tag="$2"
+  local _ib="$WORK_DIR/inbound.json" _ob="$WORK_DIR/outbound.json"
+  local _tmp_dir="$TEMP_DIR/api_hot_reload"
+  local _ret=0 _api_port _api_addr
+
+  # 从 custom 文件读取 API 端口
+  _api_port=$(awk -F= '/^apiPort=/{print $2}' "$CUSTOM_FILE" 2>/dev/null)
+  [ -z "$_api_port" ] && _api_port=$(find_free_port 10000 65535)
+  _api_addr="127.0.0.1:${_api_port}"
+
+  # ---- 前置校验：所有操作都需要 API 可用 ----
+  $WORK_DIR/xray api lsi --server="$_api_addr" --isOnlyTags=true &>/dev/null || {
+    warning "\n $(text 151) "
+    cmd_systemctl restart xray
+    return 1
+  }
+
+  case "$action" in
+
+  # ========== 全量替换所有入站 ==========
+  inbounds)
+    local _live_tags=() _config_tags=() _tags_to_delete=() _tags_to_add=() _files_to_add=()
+    local _count _i _tag _f
+
+    # 1. 获取当前所有运行中的入站 Tag（排除 "api"）
+    local _raw_tags _tag_line
+    _raw_tags=$($WORK_DIR/xray api lsi --server="$_api_addr" --isOnlyTags=true 2>/dev/null)
+    if echo "$_raw_tags" | $WORK_DIR/jq -e '.' &>/dev/null 2>&1; then
+      while IFS= read -r _tag_line; do
+        [ -n "$_tag_line" ] && [ "$_tag_line" != "api" ] && _live_tags+=("$_tag_line")
+      done < <(echo "$_raw_tags" | $WORK_DIR/jq -r '.inbounds[].tag' 2>/dev/null)
+    else
+      while IFS= read -r _tag_line; do
+        _tag_line="${_tag_line%\"}"
+        _tag_line="${_tag_line#\"}"
+        [ -n "$_tag_line" ] && [ "$_tag_line" != "api" ] && _live_tags+=("$_tag_line")
+      done <<< "$_raw_tags"
+    fi
+
+    # 2. 读取 inbound.json 提取每个 inbound 到临时文件
+    rm -rf "$_tmp_dir" && mkdir -p "$_tmp_dir"
+    _count=$(grep -v '^//' "$_ib" | $WORK_DIR/jq -r '.inbounds | length' 2>/dev/null)
+    for ((_i=0; _i<_count; _i++)); do
+      local _cfg_tag
+      _cfg_tag=$(grep -v '^//' "$_ib" | $WORK_DIR/jq -r ".inbounds[$_i].tag" 2>/dev/null)
+      [ -n "$_cfg_tag" ] && _config_tags+=("$_cfg_tag")
+      
+      grep -v '^//' "$_ib" | $WORK_DIR/jq -c "{inbounds: [.inbounds[$_i]]}" > "$_tmp_dir/inbound_$_i.json" 2>/dev/null
+    done
+
+    # 3. 如果我们调用时带了额外的 tag（要强制更新的），加入待删除
+    local _force_tags
+    shift  # 去掉 $1(inbounds)，保留后续 force tags
+    _force_tags=("$@")
+
+    # 4. 计算差异 (增量策略)
+    # _tags_to_delete: 存在于 live 但不在 config，或者在 _force_tags 中
+    for _ltag in "${_live_tags[@]}"; do
+      local _found=0
+      for _ctag in "${_config_tags[@]}"; do
+        if [ "$_ltag" = "$_ctag" ]; then
+          _found=1
+          break
+        fi
+      done
+      
+      # 检查是否强制更新
+      for _ftag in "${_force_tags[@]}"; do
+        if [ "$_ltag" = "$_ftag" ]; then
+          _found=0 # 假装没在 config 里，以便强制 rmi
+        fi
+      done
+      
+      if [ $_found -eq 0 ]; then
+        _tags_to_delete+=("$_ltag")
+      fi
+    done
+
+    # _tags_to_add: 存在于 config 但不在 live，或者需要强制更新的
+    for ((_i=0; _i<_count; _i++)); do
+      local _ctag="${_config_tags[$_i]}"
+      local _found=0
+      for _ltag in "${_live_tags[@]}"; do
+        if [ "$_ctag" = "$_ltag" ]; then
+          _found=1
+          break
+        fi
+      done
+      
+      for _ftag in "${_force_tags[@]}"; do
+        if [ "$_ctag" = "$_ftag" ]; then
+           _found=0 # 强制加入
+        fi
+      done
+
+      if [ $_found -eq 0 ]; then
+        _tags_to_add+=("$_ctag")
+        _files_to_add+=("$_tmp_dir/inbound_$_i.json")
+      fi
+    done
+
+    # 5. 批量执行 rmi
+    if [ "${#_tags_to_delete[@]}" -gt 0 ]; then
+      $WORK_DIR/xray api rmi --server="$_api_addr" "${_tags_to_delete[@]}" &>/dev/null || {
+        warning " $(text 152) "
+      }
+    fi
+
+    # 6. 批量执行 adi
+    if [ "${#_files_to_add[@]}" -gt 0 ]; then
+      $WORK_DIR/xray api adi --server="$_api_addr" "${_files_to_add[@]}" &>/dev/null || {
+        warning " $(text 153) "
+        _ret=1
+      }
+    fi
+
+    rm -rf "$_tmp_dir"
+    return $_ret
+    ;;
+
+  # ========== 增量更新出站 ==========
+  outbound)
+    local _in_config=0 _in_live=0 _ret=0
+    local _live_full _live_iface _cfg_iface _need_update=0
+    local _live_tags_str _live_tag _tmp
+
+    # 1. 检查配置文件中有没有这个 tag
+    [ -s "$_ob" ] && grep -v '^//' "$_ob" | $WORK_DIR/jq -e ".outbounds[] | select(.tag == \"$_tag\")" &>/dev/null && _in_config=1
+
+    # 2. 检查运行中有没有这个 tag
+    _live_full=$($WORK_DIR/xray api lso --server="$_api_addr" 2>/dev/null)
+    _live_tags_str=$(echo "$_live_full" | $WORK_DIR/jq -r '.outbounds[].tag' 2>/dev/null)
+    while IFS= read -r _live_tag; do
+      [ "$_live_tag" = "$_tag" ] && { _in_live=1; break; }
+    done <<< "$_live_tags_str"
+
+    # 3. 两者都存在时，比较 interface 是否一致
+    if [ $_in_config -eq 1 ] && [ $_in_live -eq 1 ]; then
+      # 配置文件的路径：streamSettings.sockopt.interface
+      _cfg_iface=$(grep -v '^//' "$_ob" | $WORK_DIR/jq -r ".outbounds[] | select(.tag == \"$_tag\") | .streamSettings.sockopt.interface // empty" 2>/dev/null)
+      # API lso 的路径：senderSettings.streamSettings.socketSettings.interface
+      _live_iface=$(echo "$_live_full" | $WORK_DIR/jq -r ".outbounds[] | select(.tag == \"$_tag\") | .senderSettings.streamSettings.socketSettings.interface // empty" 2>/dev/null)
+      
+      if [ "$_cfg_iface" != "$_live_iface" ]; then
+        # interface 不同 → 需要更新
+        _need_update=1
+      fi
+      # interface 相同 → 不操作，保留原状
+    fi
+
+    # 4. 判断操作类型
+    if [ $_need_update -eq 1 ]; then
+      # 更新：rmo + ado
+      _tmp="$_tmp_dir.json"
+      rm -rf "$_tmp_dir" && mkdir -p "$_tmp_dir"
+      grep -v '^//' "$_ob" | $WORK_DIR/jq -c "{outbounds: [.outbounds[] | select(.tag == \"$_tag\")]}" > "$_tmp" 2>/dev/null
+      $WORK_DIR/xray api rmo --server="$_api_addr" "$_tag" &>/dev/null || true
+      $WORK_DIR/xray api ado --server="$_api_addr" "$_tmp" &>/dev/null || { warning " $(text 154) "; _ret=1; }
+      rm -rf "$_tmp_dir"
+    elif [ $_in_config -eq 1 ] && [ $_in_live -eq 0 ]; then
+      # 新增：直接 ado
+      _tmp="$_tmp_dir.json"
+      rm -rf "$_tmp_dir" && mkdir -p "$_tmp_dir"
+      grep -v '^//' "$_ob" | $WORK_DIR/jq -c "{outbounds: [.outbounds[] | select(.tag == \"$_tag\")]}" > "$_tmp" 2>/dev/null
+      $WORK_DIR/xray api ado --server="$_api_addr" "$_tmp" &>/dev/null || { warning " $(text 154) "; _ret=1; }
+      rm -rf "$_tmp_dir"
+    elif [ $_in_config -eq 0 ] && [ $_in_live -eq 1 ]; then
+      # 删除：直接 rmo
+      $WORK_DIR/xray api rmo --server="$_api_addr" "$_tag" &>/dev/null || true
+    fi
+    # 场景4：都没有 / interface 一致 → 无事可做
+
+    return $_ret
+    ;;
+
+  # ========== 全量替换路由规则（来自 outbound.json，自定义规则已在最前面）==========
+  custom_routes)
+    local _file="$_tmp_dir-routing.json"
+    rm -rf "$_tmp_dir" && mkdir -p "$_tmp_dir"
+
+    # 从 outbound.json 提取完整路由规则进行全量替换（custom_route_sync 已确保顺序正确）
+    grep -v '^//' "$_ob" | $WORK_DIR/jq '{ routing: .routing }' > "$_file" 2>/dev/null
+    [ ! -s "$_file" ] && { warning " $(text 156) "; rm -rf "$_tmp_dir"; return 1; }
+
+    $WORK_DIR/xray api adrules --server="$_api_addr" "$_file" &>/dev/null || {
+      warning " $(text 155) "
+      rm -rf "$_tmp_dir"
+      return 1
+    }
+    rm -rf "$_tmp_dir"
+    return 0
+    ;;
+
+  # ========== 全量替换路由规则（方案 B 备选）==========
+  routing_rules)
+    local _file="$2"
+    [ -z "$_file" ] && {
+      _file="$_tmp_dir-routing.json"
+      rm -rf "$_tmp_dir" && mkdir -p "$_tmp_dir"
+      grep -v '^//' "$_ob" | $WORK_DIR/jq '{ routing: .routing }' > "$_file" 2>/dev/null
+    }
+    [ ! -s "$_file" ] && { warning " $(text 156) "; rm -rf "$_tmp_dir"; return 1; }
+
+    $WORK_DIR/xray api adrules --server="$_api_addr" "$_file" &>/dev/null || {
+      warning " $(text 155) "
+      rm -rf "$_tmp_dir"
+      return 1
+    }
+    rm -rf "$_tmp_dir"
+    return 0
+    ;;
+
+  esac
+}
+
 # 选择中英语言
 select_language() {
   if [ -z "$L" ]; then
@@ -532,6 +790,15 @@ check_arch() {
 
 # 查安装及运行状态，下标0: argo，下标1: xray，下标2: nginx；状态码: 26 未安装， 27 已安装未运行， 28 运行中
 check_install() {
+  # 从 custom 文件读取 IS_SUB/IS_ARGO
+  # 如果用户通过 --ARGO 显式设置了 IS_ARGO，则不从 custom 文件覆盖
+  [ -s "$CUSTOM_FILE" ] && {
+    IS_SUB=$(awk -F= '/^isSub=/{print $2; exit}' "$CUSTOM_FILE")
+    [ "${IS_ARGO_EXPLICIT:-false}" != 'true' ] && IS_ARGO=$(awk -F= '/^isArgo=/{print $2; exit}' "$CUSTOM_FILE")
+  }
+  IS_SUB=${IS_SUB:-no_sub}
+  IS_ARGO=${IS_ARGO:-no_argo}
+
   STATUS[0]=$(text 26)
 
   [ -s ${ARGO_DAEMON_FILE} ] && STATUS[0]=$(text 27) && cmd_systemctl status argo &>/dev/null && STATUS[0]=$(text 28)
@@ -554,7 +821,9 @@ check_install() {
 
   mapfile -t CURRENT_PROTOCOLS < <(get_installed_protocols)
 
-  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] && { wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1; }&
+  # 后台下载 cloudflared 到 TEMP_DIR（只要 WORK_DIR 还没有就行），
+  # 后续如果 IS_ARGO=is_argo 再复制到工作目录，减少交互等待时间
+  [ ! -s $WORK_DIR/cloudflared ] && { wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1; }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/xray ] && {
     local XRAY_LATEST=$(wget --no-check-certificate -qO- "${GH_PROXY}https://api.github.com/repos/XTLS/Xray-core/releases" | awk -F '["v]' '/tag_name/{print $5}' | sort -rV | sed -n 1p)
     XRAY_LATEST=${XRAY_LATEST:-$DEFAULT_XRAY_VERSION}
@@ -741,29 +1010,14 @@ check_system_ip() {
 
 # 定义 Argo 变量（协议选择已在 xray_variable 中完成，此处只处理隧道配置）
 argo_variable() {
-  [ "${INSTALL_NGINX,,}" != 'n' ] && {
-    if ! command -v nginx >/dev/null 2>&1; then
-      info "\n $(text 7) nginx \n"
-      ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1
-      [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1
-    fi
-  } >/dev/null 2>&1 &
+  # IS_ARGO=no_argo 时不需要 cloudflared，跳过
+  [ "$IS_ARGO" = 'no_argo' ] && return
+
   NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
 
   if [ -z "$SERVER_IP" ]; then
     check_system_ip
     SERVER_IP="$SERVER_IP_DEFAULT"
-  fi
-
-  if [ ! -d $WORK_DIR ]; then
-    [ -z "$SERVER_IP" ] && error " $(text 58) "
-
-    [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && CHATGPT_STACK='-4' || CHATGPT_STACK='-6'
-    if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
-      CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
-    else
-      CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
-    fi
   fi
 
   ARGO_DOMAIN=$(sed 's/[ ]*//g; s/:[ ]*//' <<< "$ARGO_DOMAIN")
@@ -782,19 +1036,20 @@ argo_variable() {
   fi
 }
 
-# 定义 Xray 变量（含协议选择交互）
 # 根据 INSTALL_PROTOCOLS 计算安装流程总步骤数
 # Hysteria2 Realm / WARP / Port Hopping 属于协议子选项，不计入安装步骤（参照 sing-box.sh）
 calc_install_steps() {
-  local _total=7  # 固定步骤：协议选择、起始端口、Nginx端口、VPS IP、Argo域名、UUID、节点名
-  local _has_reality=false _has_ws_xhttp=false
+  local _total=5  # 固定步骤：协议选择、起始端口、VPS IP、UUID、节点名
+  local _has_ws_xhttp=false
   for _p in "${INSTALL_PROTOCOLS[@]}"; do
-    [[ "$_p" =~ ^[bd]$ ]] && _has_reality=true
     [[ "$_p" =~ ^[efghi]$ ]] && _has_ws_xhttp=true
   done
+  # Nginx 端口：需要订阅 OR WS/XHTTP 协议时需要
+  if [ "$IS_SUB" = 'is_sub' ] || $_has_ws_xhttp; then
+    (( _total++ ))
+  fi
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && (( _total-- ))  # 非交互安装时不单独询问 VPS IP
-  $_has_reality && (( _total++ ))      # Reality 密钥
-  $_has_ws_xhttp && (( _total += 2 ))  # CDN 域名 + WS 路径
+  # Argo 域名、Reality 密钥、CDN 优选地址、WS 路径等属于协议子参数，不计入安装步骤（参照 sing-box.sh）
   TOTAL_STEPS=$_total
 }
 
@@ -844,11 +1099,29 @@ xray_variable() {
     fi
   fi
   (( STEP_NUM++ )) || true
+
+  # 如果用户通过 --ARGO 显式设置为 no_argo，协议选择列表中过滤掉 WS/XHTTP 协议
+  local _WS_XHTTP_LETTERS='[efghi]'
+  if [ "${IS_ARGO_EXPLICIT:-false}" = 'true' ] && [ "$IS_ARGO" = 'no_argo' ]; then
+    # WS/XHTTP 协议在菜单中隐藏
+    local _FILTERED_LETTERS=''
+    local _IDX
+    for _IDX in "${!PROTOCOL_LIST[@]}"; do
+      local _LETTER=$(asc $((98 + _IDX)))
+      [[ "$_LETTER" =~ $_WS_XHTTP_LETTERS ]] || _FILTERED_LETTERS+="$_LETTER "
+    done
+    _all_protocol_letters="$_FILTERED_LETTERS"
+  fi
+
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "${INSTALL_PROTOCOLS[*]}" ] && [ -z "$CHOOSE_PROTOCOLS" ]; then
     hint "\n $(text 87)"
     hint "$(text 100)"
     for p in "${!PROTOCOL_LIST[@]}"; do
       local letter=$(asc $((p + 98)))
+      # IS_ARGO=no_argo 时隐藏 WS/XHTTP 协议
+      if [ "${IS_ARGO_EXPLICIT:-false}" = 'true' ] && [ "$IS_ARGO" = 'no_argo' ] && [[ "$letter" =~ $_WS_XHTTP_LETTERS ]]; then
+        continue
+      fi
       local p_name="${PROTOCOL_LIST[p]}"
       [ "$letter" = "i" ] && p_name=$(text 101)
       hint " ${letter}. ${p_name}"
@@ -863,6 +1136,10 @@ xray_variable() {
     else
       local filtered
       filtered=$(grep -o . <<< "${CHOOSE_PROTOCOLS,,}" | grep -E "^[b-${MAX_LETTER}]$" | awk '!seen[$0]++' | tr -d '\n')
+      # 如果 IS_ARGO=no_argo，自动过滤掉 WS/XHTTP 协议（efghi）
+      if [ "${IS_ARGO_EXPLICIT:-false}" = 'true' ] && [ "$IS_ARGO" = 'no_argo' ]; then
+        filtered=$(grep -o . <<< "$filtered" | grep -v "$_WS_XHTTP_LETTERS" | tr -d '\n')
+      fi
       [ -z "$filtered" ] && read -r -a INSTALL_PROTOCOLS <<< "${_all_protocol_letters% }" || {
         INSTALL_PROTOCOLS=()
         while IFS= read -r -n1 ch; do
@@ -872,7 +1149,27 @@ xray_variable() {
     fi
   fi
 
-  # 协议已确定，计算总步骤数
+  # 协议已确定，从这里推导 IS_ARGO：有 WS/XHTTP (efghi) 时需要 Argo
+  # 如果用户通过 --ARGO 或 config.conf 显式设置了 IS_ARGO，则不覆盖
+  [ "${IS_ARGO_EXPLICIT:-false}" != 'true' ] && IS_ARGO=no_argo
+  if [ "${IS_ARGO_EXPLICIT:-false}" != 'true' ]; then
+    for _p in "${INSTALL_PROTOCOLS[@]}"; do
+      [[ "$_p" =~ ^[efghi]$ ]] && { IS_ARGO=is_argo; break; }
+    done
+  fi
+
+  # 根据 IS_SUB / IS_ARGO 决定是否需要 nginx，按需安装
+  INSTALL_NGINX="n"
+  if [ "$IS_SUB" = 'is_sub' ] || [ "$IS_ARGO" = 'is_argo' ]; then
+    INSTALL_NGINX="y"
+    if ! command -v nginx >/dev/null 2>&1; then
+      hint "\n $(text 148) "
+      # 后台安装，用户可继续交互，首次使用 nginx 前会 wait 等待完成
+      ( ${PACKAGE_UPDATE[int]} >/dev/null 2>&1; ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1; [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1; ) &
+    fi
+  fi
+
+  # 计算总步骤数
   calc_install_steps
 
   # 显示选择协议及其次序，输入开始端口号
@@ -911,14 +1208,16 @@ xray_variable() {
     esac
   done
 
-  INSTALL_NGINX="y"
-  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-    if [ "$SKIP_MENU" != 'skip_menu' ] || [ -z "$NGINX_PORT" ]; then
-      (( STEP_NUM++ )) || true
-      input_nginx_port
+  # Nginx 端口：仅在需要 nginx 时询问
+  if [ "$INSTALL_NGINX" = 'y' ]; then
+    if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+      if [ "$SKIP_MENU" != 'skip_menu' ] || [ -z "$NGINX_PORT" ]; then
+        (( STEP_NUM++ )) || true
+        input_nginx_port
+      fi
     fi
+    NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
   fi
-  NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
 
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     if [ "$SKIP_MENU" != 'skip_menu' ] || [ -z "$SERVER_IP" ]; then
@@ -928,11 +1227,10 @@ xray_variable() {
   fi
   SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
 
-  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+  # Argo 域名：仅在 IS_ARGO=is_argo 时询问（协议子参数，不计入安装步骤）
+  if [ "$IS_ARGO" = 'is_argo' ] && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     if [ -z "$ARGO_DOMAIN" ]; then
-      # 长参数模式且未传 --ARGO_DOMAIN，视为使用临时隧道（不询问）
       if [ "$SKIP_MENU" != 'skip_menu' ]; then
-        (( STEP_NUM++ )) || true
         reading "\n $(text 10) " ARGO_DOMAIN
       fi
     fi
@@ -955,7 +1253,6 @@ xray_variable() {
     [[ "$REALITY_PUBLIC" == '__KEY_UNSET__' ]] && REALITY_PUBLIC=''
     if [ -z "$REALITY_PRIVATE" ]; then
       if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-        (( STEP_NUM++ )) || true
         reading "\n $(text 98) " REALITY_PRIVATE
       fi
       if [ -z "$REALITY_PRIVATE" ]; then
@@ -1026,7 +1323,6 @@ xray_variable() {
       SERVER_PORT="$PREFERRED_PORT"
     elif $_HAS_WS_XHTTP; then
       if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-        (( STEP_NUM++ )) || true
         echo ""
         for c in "${!CDN_DOMAIN[@]}"; do
           hint " $((c+1)). ${CDN_DOMAIN[c]} "
@@ -1085,7 +1381,6 @@ xray_variable() {
 
   if $_HAS_WS_XHTTP; then
     if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$WS_PATH" ]; then
-      (( STEP_NUM++ )) || true
       reading "\n $(text 13) " WS_PATH
     fi
     local a=5
@@ -1097,7 +1392,7 @@ xray_variable() {
   fi
 
   if $_HAS_XHTTP_DIRECT && [[ ! " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
-    info "\n XHTTP Direct TLS certificate: ${WORK_DIR}/cert/cert.pem \n"
+    info "\n $(text 63) \n"
   fi
 
   input_uuid
@@ -1196,9 +1491,9 @@ fast_install_variables() {
 check_dependencies() {
   local DEPS_CHECK=() DEPS_INSTALL=() TO_INSTALL=()
 
-  # 1. 基础通用依赖 (所有系统都需要)
-  DEPS_CHECK=(  "wget" "bash" "ss"       "nginx" "unzip" "openssl")
-  DEPS_INSTALL=("wget" "bash" "iproute2" "nginx" "unzip" "openssl")
+  # 1. 基础通用依赖 (所有系统都需要，nginx 在选协议后按需安装)
+  DEPS_CHECK=(  "wget" "bash" "ss"       "unzip" "openssl")
+  DEPS_INSTALL=("wget" "bash" "iproute2" "unzip" "openssl")
 
   # 2. 根据系统差异补充初始化系统依赖（不含防火墙，防火墙仅端口跳跃时按需安装）
   if [ "$SYSTEM" = 'Alpine' ]; then
@@ -1231,15 +1526,6 @@ check_dependencies() {
   else
     info "\n $(text 8) \n"
   fi
-
-  # 5. 后置处理: 禁用 nginx 默认自启 (防止端口冲突)
-  if command -v nginx >/dev/null 2>&1; then
-    if [ "$SYSTEM" = 'Alpine' ]; then
-      rc-update del nginx default >/dev/null 2>&1 || true
-    else
-      cmd_systemctl disable nginx >/dev/null 2>&1 || true
-    fi
-  fi
 }
 
 # 输入 uuid
@@ -1252,10 +1538,10 @@ input_uuid() {
     UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
     if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
       $_uuid_step_done || { (( STEP_NUM++ )) || true; _uuid_step_done=true; }
-      reading "\n $(text 12) " UUID
+      reading "\n$(text 12) " UUID
     fi
     UUID=${UUID:-"$UUID_DEFAULT"}
-    [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning "\n $(text 4) "
+    [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning " $(text 4) "
   done
 }
 
@@ -1342,7 +1628,7 @@ parse_preferred_addr() {
 
 # 从已安装的 inbound.json / protocols 等配置文件中读取各参数，供 export_list / change_protocols 复用
 fetch_nodes_value() {
-  unset SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER SERVER_PORT SERVER_DISPLAY UUID WS_PATH NODE_NAME SS_WS_METHOD SS_DIRECT_METHOD SS2022_PASSWORD GRPC_PORT HY2_PORT VLESS_WS_PORT VMESS_WS_PORT TROJAN_WS_PORT SS_WS_PORT VLESS_XHTTP_PORT XHTTP_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 SERVER_IP_2 HY2_UP_NOW HY2_DOWN_NOW
+  unset IS_SUB IS_ARGO SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER SERVER_PORT SERVER_DISPLAY UUID WS_PATH NODE_NAME SS_WS_METHOD SS_DIRECT_METHOD SS2022_PASSWORD GRPC_PORT HY2_PORT VLESS_WS_PORT VMESS_WS_PORT TROJAN_WS_PORT SS_WS_PORT VLESS_XHTTP_PORT XHTTP_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 SERVER_IP_2 HY2_UP_NOW HY2_DOWN_NOW
 
   [ -s "$CUSTOM_FILE" ] && . "$CUSTOM_FILE"
   SERVER_IP="${serverIp:-}"
@@ -1352,7 +1638,9 @@ fetch_nodes_value() {
   SERVER_PORT="${cdnPort:-443}"
   FINGER_PRINT="${fingerprint:-chrome}"
   BIND_IFACE="${bind_interface:-}"
-  unset serverIp privateKey publicKey cdn cdnPort language fingerprint bind_interface
+  IS_SUB="${isSub:-no_sub}"
+  IS_ARGO="${isArgo:-no_argo}"
+  unset serverIp privateKey publicKey cdn cdnPort language fingerprint bind_interface isSub isArgo
 
   local JSON
   JSON=$(grep -v '^//' $WORK_DIR/inbound.json 2>/dev/null)
@@ -2224,9 +2512,9 @@ sync_hy2_warp_route() {
     local _warp_rules
     _warp_rules=$(printf '[{"type":"field","inboundTag":["%s"],"outboundTag":"warp-IPv4"},{"type":"field","inboundTag":["%s"],"outboundTag":"warp-IPv6"}]' "$_hy2_tag" "$_hy2_tag")
 
-    # 追加两条路由规则到 outbound.json
+    # 在 routing 最前面插入 WARP 路由规则（优先级高于 ChatGPT 兜底规则）
     echo "$_json" | $WORK_DIR/jq --argjson rules "$_warp_rules" \
-      '.routing.rules += $rules' \
+      '.routing.rules = $rules + .routing.rules' \
       > "$_ob_tmp" && mv "$_ob_tmp" "$_ob"
   elif [ "$_action" = 'disable' ]; then
     # 删除匹配 inboundTag 的 WARP v4 和 v6 路由规则（从 outbound.json 操作）
@@ -2240,7 +2528,7 @@ sync_hy2_warp_route() {
 # 参数 $1: enable 或 disable
 # 无参数时根据 IS_HY2_REALM 和 IS_HY2_WARP 自动执行
 handle_hy2_realm() {
-  local _action="${1:-}"
+  local _action="${1:-}" _hy2_tag
   [ -z "$_action" ] && _action="$([ "$IS_HY2_REALM" = 'is_hy2_realm' ] && echo 'enable' || echo 'disable')"
 
   if [ "$_action" = 'enable' ]; then
@@ -2251,8 +2539,10 @@ handle_hy2_realm() {
     sync_hy2_warp_route disable
   fi
 
-  cmd_systemctl restart xray
-  sleep 1
+  # 提取受影响的 hysteria2 inbound tag，强制热更新（因增量 diff 只对比 tag，不对比内容）
+  _hy2_tag=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
+  api_hot_reload inbounds ${_hy2_tag:+"$_hy2_tag"}
+  api_hot_reload routing_rules
   export_list
 }
 
@@ -2338,8 +2628,10 @@ json_nginx() {
   grep -q 'trojan-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-tr" "$_PORT_TR")"
   grep -qw 'ss-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-sh" "$_PORT_SH")"
   grep -q 'xhttp-h1.1-cdn' <<< "$PROTOCOLS_NOW" && _add_location "$(_xhttp_location "/${WS_PATH}-xh" "${_PORT_XH}")"
-  local SUB_BLOCK
-  SUB_BLOCK=$(printf '    location ~ ^/%s/auto {
+  # 订阅路由：仅 IS_SUB=is_sub 时生成
+  local SUB_BLOCK=''
+  if [ "$IS_SUB" = 'is_sub' ]; then
+    SUB_BLOCK=$(printf '    location ~ ^/%s/auto {
       default_type  text/plain;
       alias         %s/subscribe/$path;
     }
@@ -2349,6 +2641,7 @@ json_nginx() {
       default_type  text/plain;
       alias         %s/subscribe/$1;
     }\n' "$UUID" "$WORK_DIR" "$UUID" "$WORK_DIR")
+  fi
   SERVER_BLOCK+="$SUB_BLOCK"
 
   cat > $WORK_DIR/nginx.conf << EOF
@@ -2614,6 +2907,14 @@ install_argox() {
     fi
   fi
 
+  # ChatGPT 解锁检测，决定 OpenAI 路由的 outboundTag（direct / warp-IPv4 / warp-IPv6）
+  [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && CHATGPT_STACK='-4' || CHATGPT_STACK='-6'
+  if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
+    CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
+  else
+    CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
+  fi
+
   [ ! -d /etc/systemd/system ] && mkdir -p /etc/systemd/system
   mkdir -p $WORK_DIR/subscribe
   [ "$L" = 'C' ] && write_custom 'language' 'Chinese' || write_custom 'language' 'English'
@@ -2622,26 +2923,31 @@ install_argox() {
   write_custom 'publicKey' "${REALITY_PUBLIC:-__KEY_UNSET__}"
   write_custom 'cdn' "${SERVER:-__CDN_UNSET__}"
   write_custom 'cdnPort' "${SERVER_PORT:-443}"
+  write_custom 'isSub' "${IS_SUB}"
+  write_custom 'isArgo' "${IS_ARGO}"
   [ -s "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORK_DIR/
 
   wait
-  [[ ! -s $WORK_DIR/cloudflared && -x $TEMP_DIR/cloudflared ]] && mv $TEMP_DIR/cloudflared $WORK_DIR
+  # 通用工具复制
   [[ ! -s $WORK_DIR/jq && -x $TEMP_DIR/jq ]] && mv $TEMP_DIR/jq $WORK_DIR
   [[ "$INSTALL_NGINX" != 'n' && ! -s $WORK_DIR/qrencode && -x $TEMP_DIR/qrencode ]] && mv $TEMP_DIR/qrencode $WORK_DIR
-  if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
-    json_argo
-  elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
-  else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
-  fi
+  # cloudflared：后台已下载到 TEMP_DIR，需要时才复制到 WORK_DIR
+  if [ "$IS_ARGO" = 'is_argo' ]; then
+    [[ ! -s $WORK_DIR/cloudflared && -x $TEMP_DIR/cloudflared ]] && mv $TEMP_DIR/cloudflared $WORK_DIR
+    if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+      json_argo
+    elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
+    else
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
+    fi
 
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    local COMMAND=${ARGO_RUNS%% --*}
-    local ARGS=${ARGO_RUNS#$COMMAND }
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      local COMMAND=${ARGO_RUNS%% --*}
+      local ARGS=${ARGO_RUNS#$COMMAND }
 
-    cat > ${ARGO_DAEMON_FILE} << EOF
+      cat > ${ARGO_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
 
 name="argo"
@@ -2680,9 +2986,9 @@ stop() {
     return 0
 }
 EOF
-    chmod +x ${ARGO_DAEMON_FILE}
+      chmod +x ${ARGO_DAEMON_FILE}
 
-    cat > ${XRAY_DAEMON_FILE} << EOF
+      cat > ${XRAY_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
 
 name="xray"
@@ -2718,7 +3024,7 @@ stop() {
     local RETVAL=\$?
     if [ \$RETVAL -ne 0 ]; then
         local XRAY_PIDS
-        XRAY_PIDS="\$(ps -eo pid,args | awk -v work_dir="\$WORK_DIR" '\$0~(work_dir"/xray run"){print \$1;exit}')"
+        XRAY_PIDS="\$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '\$0~(work_dir"/xray run"){print \$1;exit}')"
         if [ -n "\$XRAY_PIDS" ]; then
             for pid in \$XRAY_PIDS; do
                 kill -9 "\$pid" 2>/dev/null
@@ -2736,9 +3042,9 @@ stop() {
     eend 0
 }
 EOF
-    chmod +x ${XRAY_DAEMON_FILE}
-  else
-    local ARGO_SERVER="[Unit]
+      chmod +x ${XRAY_DAEMON_FILE}
+    else
+      local ARGO_SERVER="[Unit]
 Description=Cloudflare Tunnel
 After=network.target
 
@@ -2746,7 +3052,7 @@ After=network.target
 Type=simple
 NoNewPrivileges=yes
 TimeoutStartSec=0"
-    ARGO_SERVER+="
+      ARGO_SERVER+="
 ExecStart=$ARGO_RUNS
 Restart=on-failure
 RestartSec=5s
@@ -2754,26 +3060,39 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target"
 
-    echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
+      echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
+    fi
+  else
+    # 没有 Argo 需要的协议，清理已存在的二进制和守护进程
+    rm -f $WORK_DIR/cloudflared
+    if [ -s "${ARGO_DAEMON_FILE}" ]; then
+      cmd_systemctl disable argo 2>/dev/null
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        rm -f /etc/init.d/argo
+      else
+        rm -f ${ARGO_DAEMON_FILE}
+      fi
+    fi
+    rm -f $WORK_DIR/tunnel.json $WORK_DIR/tunnel.yml
+  fi  # end IS_ARGO=is_argo
 
-    local XRAY_SERVICE="[Unit]
+  local XRAY_SERVICE="[Unit]
 Description=Xray Service
 Documentation=https://github.com/XTLS/Xray-core
 After=network.target
 
 [Service]
 User=root"
-    [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
+  [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
 ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
-    XRAY_SERVICE+="
+  XRAY_SERVICE+="
 ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
 Restart=on-failure
 RestartPreventExitStatus=23
 
 [Install]
 WantedBy=multi-user.target"
-    echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
-  fi
+  echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
 
   local i=1
   [ ! -s $WORK_DIR/xray ] && wait && while [ "$i" -le 20 ]; do [[ -s $TEMP_DIR/xray && -s $TEMP_DIR/geoip.dat && -s $TEMP_DIR/geosite.dat ]] && mv $TEMP_DIR/xray $TEMP_DIR/geo*.dat $WORK_DIR && break; ((i++)); sleep 2; done
@@ -3223,8 +3542,23 @@ JSONEOF
     fi
   done
 
+  # 为 API 分配端口并持久化
+  local _api_port
+  _api_port=$(find_free_port 10000 65535)
+  write_custom 'apiPort' "$_api_port"
+
   cat > $WORK_DIR/inbound.json << EOF
 {
+  "api": {
+    "tag": "api",
+    "listen": "127.0.0.1:${_api_port}",
+    "services": [
+      "HandlerService",
+      "LoggerService",
+      "StatsService",
+      "RoutingService"
+    ]
+  },
   "log": {
     "access": "/dev/null",
     "error": "/dev/null",
@@ -3325,20 +3659,23 @@ EOF
 }
 EOF
 
-  [ "$INSTALL_NGINX" != 'n' ] && json_nginx
+  # 需要 nginx 时，等待后台安装完成后再生成 nginx 配置
+  [ "$INSTALL_NGINX" != 'n' ] && { wait; json_nginx; }
 
   check_install
-  case "${STATUS[0]}" in
-    "$(text 26)" )
-      warning "\n Argo $(text 28) $(text 38) \n"
-      ;;
-    "$(text 27)" )
-      cmd_systemctl enable argo
-      cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
-      ;;
-    "$(text 28)" )
-      info "\n Argo $(text 28) $(text 37) \n"
-  esac
+  if [ "$IS_ARGO" = 'is_argo' ]; then
+    case "${STATUS[0]}" in
+      "$(text 26)" )
+        warning "\n Argo $(text 28) $(text 38) \n"
+        ;;
+      "$(text 27)" )
+        cmd_systemctl enable argo
+        cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37) \n" || warning "\n Argo $(text 28) $(text 38) \n"
+        ;;
+      "$(text 28)" )
+        info "\n Argo $(text 28) $(text 37) \n"
+    esac
+  fi
 
   case "${STATUS[1]}" in
     "$(text 26)" )
@@ -3389,16 +3726,16 @@ export_list() {
   fi
 
   local APP
-  [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(Argo)
+  [ "$IS_ARGO" = 'is_argo' ] && [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(Argo)
   [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(Xray)
   if [ "${#APP[@]}" -gt 0 ]; then
     reading "\n $(text 50) " OPEN_APP
     if [ "${OPEN_APP,,}" = 'y' ]; then
-      [ "${STATUS[0]}" != "$(text 28)" ] && cmd_systemctl enable argo
+      [ "$IS_ARGO" = 'is_argo' ] && [ "${STATUS[0]}" != "$(text 28)" ] && cmd_systemctl enable argo
       [ "${STATUS[1]}" != "$(text 28)" ] && cmd_systemctl enable xray
       sleep 2
       check_install
-      ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
+      [ "$IS_ARGO" = 'is_argo' ] && ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
       [ -n "$ARGO_PID" ] && ARGO_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status) MB"
       XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
       [ -n "$XRAY_PID" ] && XRAY_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status) MB"
@@ -3416,7 +3753,15 @@ export_list() {
   fi
   fetch_nodes_value
 
-  local _SUB_SCHEME='https'
+  # 确定订阅 URL 的 scheme 和 domain：有 Argo 隧道域名就用 HTTPS+域名，否则用 HTTP+IP:端口
+  if [ -n "$ARGO_DOMAIN" ]; then
+    local _SUB_SCHEME='https'
+    local _SUB_DOMAIN="${ARGO_DOMAIN}"
+  else
+    local _SUB_SCHEME='http'
+    [ -z "$NGINX_PORT" ] && NGINX_PORT="$NGINX_PORT_DEFAULT"
+    local _SUB_DOMAIN="${SERVER_IP_1}:${NGINX_PORT}"
+  fi
 
   local PROTOS_NOW
   PROTOS_NOW=$(get_installed_protocols | tr '
@@ -3567,12 +3912,14 @@ export_list() {
     "ss://${SS_DIRECT_METHOD}:${SS2022_PASSWORD}@${SERVER_IP_1}:${SS2022_PORT}#${NODE_NAME// /%20}%20${NODE_TAG[10]}" \
     "${NODE_NAME} ${NODE_TAG[10]}"
 
-  # 写入订阅文件
-  echo -e "$CLASH" > $WORK_DIR/subscribe/proxies
-  wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#http://${ARGO_DOMAIN}/${UUID}/proxies#" > $WORK_DIR/subscribe/clash
-  echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
-  echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/v2rayn
-  echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/throne
+  # 写入订阅文件（仅 IS_SUB=is_sub 时生成）
+  if [ "$IS_SUB" = 'is_sub' ]; then
+    echo -e "$CLASH" > $WORK_DIR/subscribe/proxies
+    wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" > $WORK_DIR/subscribe/clash
+    echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
+    echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/v2rayn
+    echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/throne
+  fi
 
   # sing-box 订阅：纯 xhttp 场景直接跳过；其余场景仅在确实生成了 sing-box outbound 时才处理
   local SINGBOX_DISPLAY='' SINGBOX_BLOCK='' SINGBOX_LINK_BLOCK=''
@@ -3589,13 +3936,11 @@ export_list() {
 └────────────────┘
 ----------------------------
 
-$(info "${SINGBOX_DISPLAY}")
-
-$(hint "$(text 63)")"
+$(info "${SINGBOX_DISPLAY}")"
     SINGBOX_LINK_BLOCK="
 
 sing-box $(text 64):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/sing-box"
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/sing-box"
     else
       rm -f $WORK_DIR/subscribe/sing-box >/dev/null 2>&1 || true
     fi
@@ -3652,37 +3997,44 @@ $(info "${CLASH_DISPLAY}")
 $(hint "$(echo -e "${THRONE_DISPLAY}")")
 
 ${SINGBOX_BLOCK}
+"
 
-*******************************************
+  # 订阅聚合 URL：仅 IS_SUB=is_sub 时显示
+  local SUB_URL_BLOCK=''
+  if [ "$IS_SUB" = 'is_sub' ]; then
+    SUB_URL_BLOCK="*******************************************
 
 $(hint "Index:
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/
 
 QR code:
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/qr
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/qr
 
 V2rayN $(text 64):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/v2rayn
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/v2rayn
 
 Throne $(text 64):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/throne
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/throne
 
 Clash $(text 64):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/clash${SINGBOX_LINK_BLOCK}
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/clash${SINGBOX_LINK_BLOCK}
 
 Shadowrocket $(text 64):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/shadowrocket")
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/shadowrocket")
 
 *******************************************
 
 $(info " $(text 66):
-${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto
+${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto
 
- $(text 64) QRcode:
-https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto")
+$(text 64) QRcode:
+https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto")
 
-$([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto)
+$([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto)
 "
+  fi
+
+  EXPORT_LIST_FILE="${EXPORT_LIST_FILE}${SUB_URL_BLOCK}"
 
   echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
   cat $WORK_DIR/list
@@ -3789,13 +4141,16 @@ change_protocols() {
     done
   done
 
-  cmd_systemctl disable xray
-
   local _HAS_HY2_ADD=false _HAS_HY2_KEEP=false
   for t in "${ADD_TAGS[@]}"; do [ "$t" = 'hysteria2' ] && _HAS_HY2_ADD=true && break; done
   for t in "${REINSTALL_TAGS[@]}"; do [ "$t" = 'hysteria2' ] && _HAS_HY2_KEEP=true && break; done
   if $_HAS_HY2_ADD; then
     ssl_certificate "${TLS_SERVER}"
+    # Hysteria2 Realm 交互（在端口跳跃之前询问，需要先 Realm 再端口跳跃）
+    input_hy2_realm
+    input_hy2_warp
+    # Realm ID 默认使用 UUID
+    [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="$UUID"
     # 先收集端口跳跃范围，再写 NAT 规则（原逻辑顺序颠倒，NAT 参数为空）
     unset IS_HOPPING PORT_HOPPING_RANGE PORT_HOPPING_START PORT_HOPPING_END
     input_hopping_port
@@ -3932,6 +4287,19 @@ change_protocols() {
     [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h1.1-cdn)$ ]] && _HAS_WS_XHTTP_ADD=true && break
   done
 
+  # 在用户交互（CDN 选择 / Argo 域名）之前尽早后台安装 nginx，让安装与交互并行
+  local _PRELIM_NEED_NGINX=false
+  [ "$IS_SUB" = 'is_sub' ] && _PRELIM_NEED_NGINX=true
+  $_HAS_WS_XHTTP_ADD && _PRELIM_NEED_NGINX=true
+  # 检查已有协议中是否有 WS/XHTTP（这些也要保留 nginx）
+  for _t in "${KEEP_TAGS[@]}"; do
+    [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h1.1-cdn)$ ]] && _PRELIM_NEED_NGINX=true && break
+  done
+  if $_PRELIM_NEED_NGINX && ! command -v nginx >/dev/null 2>&1; then
+    hint "\n $(text 148) "
+    ( ${PACKAGE_UPDATE[int]} >/dev/null 2>&1; ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1; [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1; ) &
+  fi
+
   if $_HAS_WS_XHTTP_ADD && [[ -z "$SERVER" || "$SERVER" == '__CDN_UNSET__' ]]; then
     echo ""
     for _c in "${!CDN_DOMAIN[@]}"; do
@@ -3968,6 +4336,44 @@ change_protocols() {
   done
   $_HAS_WS_XHTTP_FINAL || SERVER='__CDN_UNSET__'
 
+  # 推导 IS_ARGO：最终协议中有 WS/XHTTP 时需要 Argo
+  # 如果用户通过 --ARGO 或 config.conf 显式设置了 IS_ARGO，则不覆盖
+  [ "${IS_ARGO_EXPLICIT:-false}" != 'true' ] && IS_ARGO=no_argo
+  [ "${IS_ARGO_EXPLICIT:-false}" != 'true' ] && $_HAS_WS_XHTTP_FINAL && IS_ARGO=is_argo
+
+  # 推导是否需要 Nginx（订阅 或 WS/XHTTP 协议都需要 nginx 做反向代理）
+  local _NEED_NGINX=false
+  [ "$IS_SUB" = 'is_sub' ] || [ "$IS_ARGO" = 'is_argo' ] && _NEED_NGINX=true
+
+  # Nginx 端口：之前没有 nginx.conf（首次需要 nginx）时询问端口
+  if $_NEED_NGINX && [ ! -s "$WORK_DIR/nginx.conf" ] && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+    [ -z "$NGINX_PORT" ] && input_nginx_port
+    NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
+  fi
+
+  # Argo 联动：新增 WS/XHTTP 且无现有 cloudflared → 交互询问 Argo 域名
+  if $_HAS_WS_XHTTP_ADD && [ ! -s "${ARGO_DAEMON_FILE}" ]; then
+    if [ -z "$ARGO_DOMAIN" ]; then
+      reading "\n $(text 10) " ARGO_DOMAIN
+    fi
+    if [[ -n "$ARGO_DOMAIN" && ! "$ARGO_DOMAIN" =~ trycloudflare\.com$ && -z "$ARGO_AUTH" ]]; then
+      hint "\n $(text 11)"
+      reading "\n $(text 86) " ARGO_AUTH
+    fi
+  fi
+
+  # 移除所有 WS/XHTTP 且有现有 cloudflared → 主动清理：停止服务、移除开机启动、删除守护文件、删除二进制和 tunnel 配置
+  if ! $_HAS_WS_XHTTP_FINAL && [ -s "${ARGO_DAEMON_FILE}" ]; then
+    hint "\n $(text 147) "
+    cmd_systemctl disable argo
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      rm -f /etc/init.d/argo
+    else
+      rm -f ${ARGO_DAEMON_FILE}
+    fi
+    rm -f $WORK_DIR/cloudflared $WORK_DIR/tunnel.json $WORK_DIR/tunnel.yml
+  fi
+
   local _XHTTP_TLS_SERVER_NAME="$ARGO_DOMAIN"
   if printf '%s
 ' "${REINSTALL_TAGS[@]}" | grep -qx 'xhttp-h1.1-cdn'; then
@@ -3988,8 +4394,24 @@ change_protocols() {
   write_custom 'cdn' "${SERVER:-__CDN_UNSET__}"
   write_custom 'cdnPort' "${SERVER_PORT:-443}"
 
+  # 获取或分配 API 端口
+  local _api_port
+  _api_port=$(awk -F= '/^apiPort=/{print $2}' "$CUSTOM_FILE" 2>/dev/null)
+  [ -z "$_api_port" ] && _api_port=$(find_free_port 10000 65535)
+  write_custom 'apiPort' "$_api_port"
+
   cat > $WORK_DIR/inbound.json << EOF
 {
+  "api": {
+    "tag": "api",
+    "listen": "127.0.0.1:${_api_port}",
+    "services": [
+      "HandlerService",
+      "LoggerService",
+      "StatsService",
+      "RoutingService"
+    ]
+  },
   "log": {
     "access": "/dev/null",
     "error": "/dev/null",
@@ -4011,11 +4433,11 @@ EOF
       vless-ws) NEW_BLOCK="{\"port\":${VLESS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[3]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vl\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       vmess-ws) NEW_BLOCK="{\"port\":${VMESS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vmess\",\"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"alterId\":0}]},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-vm\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       trojan-ws) NEW_BLOCK="{\"port\":${TROJAN_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[5]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-tr\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      ss-ws) NEW_BLOCK="{\"port\":${SS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"settings\":{\"clients\":[{\"method\":\"${SS_WS_METHOD}\",\"password\":\"${UUID}\"}],\"network\":\"tcp,udp\"},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-sh\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
+      ss-ws) NEW_BLOCK="{\"port\":${SS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"settings\":{\"clients\":[{\"method\":\"${SS_WS_METHOD:-chacha20-ietf-poly1305}\",\"password\":\"${UUID}\"}],\"network\":\"tcp,udp\"},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-sh\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       xhttp-h1.1-cdn) NEW_BLOCK="{\"port\":${VLESS_XHTTP_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[7]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"none\",\"xhttpSettings\":{\"path\":\"/${WS_PATH}-xh\",\"mode\":\"auto\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       xhttp-h3-direct) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"port\":${XHTTP_PORT},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"xhttpSettings\":{\"mode\":\"stream-up\",\"extra\":{\"alpn\":[\"h3\"]},\"path\":\"/${WS_PATH}-xh3\"},\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       trojan-direct) NEW_BLOCK="{\"port\":${TROJAN_PORT},\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      ss2022-direct) NEW_BLOCK="{\"port\":${SS2022_PORT},\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[10]}\",\"settings\":{\"method\":\"${SS_DIRECT_METHOD}\",\"password\":\"${SS2022_PASSWORD}\",\"network\":\"tcp,udp\"},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
+      ss2022-direct) NEW_BLOCK="{\"port\":${SS2022_PORT},\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[10]}\",\"settings\":{\"method\":\"${SS_DIRECT_METHOD:-2022-blake3-aes-128-gcm}\",\"password\":\"${SS2022_PASSWORD:-$(openssl rand -base64 16)}\",\"network\":\"tcp,udp\"},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
       reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
     esac
@@ -4039,22 +4461,163 @@ EOF
 
   mapfile -t CURRENT_PROTOCOLS < <(get_installed_protocols)
 
+  # 等待后台 nginx 安装完成后再生成配置和启动
+  wait
   json_nginx
   [ -s "$WORK_DIR/tunnel.json" ] && json_argo
-  local _NGINX_PID=$(pgrep -f "nginx: master process" 2>/dev/null)
-  if [ -n "$_NGINX_PID" ]; then
-    nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
+  # nginx 已安装（已 wait 确保完毕）才启动/重载；
+  # 不再需要 nginx 时停止脚本管理的 nginx 进程
+  if $_NEED_NGINX; then
+    if command -v nginx >/dev/null 2>&1; then
+      local _NGINX_PID=$(pgrep -f "nginx: master process" 2>/dev/null)
+      if [ -n "$_NGINX_PID" ]; then
+        nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
+      else
+        $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
+      fi
+    fi
   else
-    $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
+    # 停止脚本管理的 nginx（匹配 $WORK_DIR/nginx.conf）
+    local _NGINX_PID=$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '$0~(work_dir"/nginx.conf") && /nginx: master process/{print $1;exit}')
+    if [ -n "$_NGINX_PID" ]; then
+      kill -QUIT "$_NGINX_PID" 2>/dev/null
+      sleep 1
+      kill -9 "$_NGINX_PID" 2>/dev/null || true
+    fi
   fi
 
-  if [ ! -s "${ARGO_DAEMON_FILE}" ]; then
+  # 当 IS_ARGO=is_argo 但守护进程文件不存在时（如之前被清理），需要完整重建 Argo
+  if [ "$IS_ARGO" = 'is_argo' ] && [ ! -s "${ARGO_DAEMON_FILE}" ]; then
     argo_variable
+
+    # 确保 cloudflared 二进制存在（优先用后台已下载到 TEMP_DIR 的缓存）
+    wait
+    if [ ! -s $WORK_DIR/cloudflared ]; then
+      if [ -x $TEMP_DIR/cloudflared ] && [ -s $TEMP_DIR/cloudflared ]; then
+        mv $TEMP_DIR/cloudflared $WORK_DIR
+      fi
+      # 如果复制后还是没有有效二进制，直接下载到工作目录
+      if [ ! -s $WORK_DIR/cloudflared ]; then
+        rm -f $WORK_DIR/cloudflared $TEMP_DIR/cloudflared
+        wget --no-check-certificate -qO $WORK_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH 2>/dev/null && chmod +x $WORK_DIR/cloudflared 2>/dev/null
+        # 如果还是 0 字节，标记失败以便后续处理
+        [ ! -s $WORK_DIR/cloudflared ] && rm -f $WORK_DIR/cloudflared
+      fi
+    fi
+
+    # 构造 ARGO_RUNS 命令
+    if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+      json_argo
+    elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
+    else
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
+    fi
+
+    # 创建守护进程文件（Alpine openrc / systemd）
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      local COMMAND=${ARGO_RUNS%% --*}
+      local ARGS=${ARGO_RUNS#$COMMAND }
+      cat > ${ARGO_DAEMON_FILE} << EOF
+#!/sbin/openrc-run
+
+name="argo"
+description="Cloudflare Tunnel"
+
+command="${COMMAND}"
+command_args="${ARGS}"
+
+pidfile="/run/\${RC_SVCNAME}.pid"
+command_background="yes"
+
+output_log="${WORK_DIR}/argo.log"
+error_log="${WORK_DIR}/argo.log"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    mkdir -p ${WORK_DIR} /run
+    rm -f "\$pidfile"
+}
+
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
+    local CF_PIDS
+    CF_PIDS="\$(ps -eo pid,args | awk '\$0~/\/etc\/argox\/cloudflared/{print \$1}')"
+    if [ -n "\$CF_PIDS" ]; then
+        einfo "Force killing cloudflared: \$CF_PIDS"
+        kill -9 \$CF_PIDS 2>/dev/null
+    fi
+    rm -f "\$pidfile"
+    eend 0
+    return 0
+}
+EOF
+      chmod +x ${ARGO_DAEMON_FILE}
+    else
+      local ARGO_SERVER="[Unit]
+Description=Cloudflare Tunnel
+After=network.target
+
+[Service]
+Type=simple
+NoNewPrivileges=yes
+TimeoutStartSec=0"
+      ARGO_SERVER+="
+ExecStart=$ARGO_RUNS
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target"
+      echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
+    fi
+
+    cmd_systemctl enable argo
+
   elif [ -s "$WORK_DIR/tunnel.json" ]; then
     cmd_systemctl restart argo
   fi
 
-  cmd_systemctl enable xray
+  # 根据 _NEED_NGINX 重写 xray 守护进程文件（systemd 需要 ExecStartPre 来启动 nginx；
+  # Alpine 的 init.d 已通过 start_pre() 动态检查 nginx.conf，无需修改）
+  if [ "$SYSTEM" != 'Alpine' ]; then
+    local XRAY_SERVICE="[Unit]
+Description=Xray Service
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target
+
+[Service]
+User=root"
+    [[ "$_NEED_NGINX" != 'false' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
+ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
+    XRAY_SERVICE+="
+ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
+Restart=on-failure
+RestartPreventExitStatus=23
+
+[Install]
+WantedBy=multi-user.target"
+    echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
+  fi
+
+  # 在 check_install/export_list 之前持久化 IS_SUB/IS_ARGO，确保状态正确
+  write_custom 'isSub' "${IS_SUB}"
+  write_custom 'isArgo' "${IS_ARGO}"
+
+  # 确保 xray 开机自启（不启动，由后续 API 热更处理）
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    rc-update add xray default >/dev/null 2>&1
+  else
+    systemctl daemon-reload 2>/dev/null
+    systemctl enable xray >/dev/null 2>&1
+  fi
+  api_hot_reload inbounds
   sleep 2
   check_install
   cmd_systemctl status xray &>/dev/null \
@@ -4144,7 +4707,7 @@ change_argo() {
   export_list
 }
 
-# 更换优选域名 / Reality SNI / 节点信息
+# 更换起始端口
 change_start_port() {
   local OLD_PORTS OLD_START_PORT OLD_CONSECUTIVE_PORTS
   local _STEP_NUM_BAK="${STEP_NUM-}" _TOTAL_STEPS_BAK="${TOTAL_STEPS-}"
@@ -4166,7 +4729,14 @@ change_start_port() {
   fetch_nodes_value
   [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
   [ -s "$WORK_DIR/tunnel.json" ] && json_argo
-  cmd_systemctl restart xray
+
+  # 提取所有 inbound tag 强制热更新（端口变更但 tag 不变，增量 diff 无法检测）
+  local _force_all_tags=()
+  while IFS= read -r _t; do
+    [ -n "$_t" ] && _force_all_tags+=("$_t")
+  done < <(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].tag // empty' 2>/dev/null)
+  api_hot_reload inbounds "${_force_all_tags[@]}"
+
   FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
   [ -s "$WORK_DIR/tunnel.json" ] && cmd_systemctl restart argo
   sleep 2
@@ -4198,8 +4768,8 @@ custom_route_sync() {
     $WORK_DIR/jq -s '
       .[0] as $ob |
       .[1] as $custom |
-      ($custom | map({type:"field", domain: [.domain], outboundTag: .outboundTag, _remark:"custom-route"})) as $new_rules |
-      $ob | .routing.rules = ([.routing.rules[]? | select(._remark != "custom-route")] + $new_rules)
+      ($custom | to_entries | map({type:"field", domain: [.value.domain], outboundTag: .value.outboundTag, _remark:"custom-route"})) as $new_rules |
+      $ob | .routing.rules = ($new_rules + [.routing.rules[]? | select(._remark != "custom-route")])
     ' "$_ob_tmp.clean" "$CUSTOM_ROUTE_FILE" > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
   else
     # 无自定义规则，清除残留的旧规则
@@ -4294,7 +4864,7 @@ custom_route_add() {
   fi
 
   custom_route_sync
-  cmd_systemctl restart xray
+  api_hot_reload custom_routes
   info " $(text 137) "
 }
 
@@ -4361,7 +4931,7 @@ custom_route_delete() {
   [ "$($WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE" 2>/dev/null)" -eq 0 ] && rm -f "$CUSTOM_ROUTE_FILE"
 
   custom_route_sync
-  cmd_systemctl restart xray
+  api_hot_reload custom_routes
   info " $(text 140) "
 }
 
@@ -4370,6 +4940,7 @@ custom_route_menu() {
   while true; do
     CUSTOM_ROUTE_COUNT=$(custom_route_count)
     hint "\n $(text 131) \n"
+    [ "$CUSTOM_ROUTE_COUNT" -eq 0 ] && warning " $(text 138) \n"
     hint " $(text 132) "
     hint ""
     reading " $(text 24) " CUSTOM_ROUTE_CHOICE
@@ -4438,6 +5009,13 @@ change_config() {
   CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
   MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
 
+  # 订阅开关（始终显示，判断当前状态；显示的是可执行的操作：已开启 → 关闭，已关闭 → 开启）
+  if [ "$IS_SUB" = 'is_sub' ]; then
+    MENU_IDX+=(150) && MENU_KEY+=(subscribe) && MENU_VAL+=("$(text 150)")
+  else
+    MENU_IDX+=(149) && MENU_KEY+=(subscribe) && MENU_VAL+=("$(text 149)")
+  fi
+
   [ "${#MENU_IDX[@]}" -eq 0 ] && error " $(text 70) "
 
   hint "\n $(text 106)\n"
@@ -4445,7 +5023,11 @@ change_config() {
     local _val="${MENU_VAL[_i]}"
     local _raw
     eval "_raw=\"\${${L}[${MENU_IDX[_i]}]}\""
-    eval "hint \" $(( _i+1 )). ${_raw}\""
+    if [ "${#MENU_IDX[@]}" -ge '10' ] && [ "$(( _i+1 ))" -lt 10 ]; then
+      eval "hint \" $(( _i+1 )) . ${_raw}\""
+    else
+      eval "hint \" $(( _i+1 )). ${_raw}\""
+    fi
   done
   hint ""
   reading " $(text 24) " CHOOSE_NODE_INFO
@@ -4575,9 +5157,9 @@ change_config() {
     if [[ "$CHOOSE_BIND" == "0" ]]; then
       return
     elif [[ "$CHOOSE_BIND" == "1" || "${CHOOSE_BIND,,}" == "default" ]]; then
-      # 删除 bind_interface（恢复默认）
+      # 删除 bind_interface（恢复默认），同时清理 streamSettings 避免残留 {}
       [ -s "$_ob" ] && grep -v '^//' "$_ob" | $WORK_DIR/jq \
-        'del(.outbounds[] | select(.tag == "direct") | .streamSettings.sockopt.interface)' \
+        'del(.outbounds[] | select(.tag == "direct") | .streamSettings)' \
         > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
       write_custom 'bind_interface' ''
       BIND_IFACE=''
@@ -4595,12 +5177,99 @@ change_config() {
       info " $(text 103) "
       return
     fi
-    cmd_systemctl restart xray
-    sleep 1
+    api_hot_reload outbound "direct"
     export_list
     return
   elif [ "$KEY" = "customroute" ]; then
     custom_route_menu
+    return
+  elif [ "$KEY" = "subscribe" ]; then
+    if [ "$IS_SUB" = 'is_sub' ]; then
+      # 关闭订阅
+      IS_SUB=no_sub
+      json_nginx
+
+      # 检查是否还需要 nginx（是否还有 WS/XHTTP 协议）
+      local _HAS_WS=false
+      for _t in $(get_installed_protocols); do
+        [[ "$_t" =~ ^(vless-ws|vmess-ws|trojan-ws|ss-ws|xhttp-h1.1-cdn)$ ]] && _HAS_WS=true && break
+      done
+
+      if ! $_HAS_WS; then
+        # 没有任何 WS/XHTTP → nginx 不再需要，停止并清理
+        local _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}')
+        [ -n "$_NGINX_PID" ] && { kill -QUIT "$_NGINX_PID" 2>/dev/null; sleep 1; kill -9 "$_NGINX_PID" 2>/dev/null || true; }
+        rm -f $WORK_DIR/nginx.conf
+        # 重写 xray.service 去掉 ExecStartPre（仅 systemd）
+        if [ "$SYSTEM" != 'Alpine' ]; then
+          sed -i '/ExecStartPre.*nginx/d' ${XRAY_DAEMON_FILE} 2>/dev/null
+          cmd_systemctl daemon-reload 2>/dev/null || true
+        fi
+      else
+        # 还有 WS/XHTTP，重载 nginx（新配置不包含订阅路由）
+        local _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}')
+        if [ -n "$_NGINX_PID" ]; then
+          nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
+        fi
+      fi
+
+      # 清理旧的订阅文件及 qrencode
+      rm -f $WORK_DIR/subscribe/{proxies,clash,shadowrocket,v2rayn,throne,sing-box,qr}
+      rm -f "$WORK_DIR/qrencode"
+
+      write_custom 'isSub' "${IS_SUB}"
+      export_list
+      info "\n $(text 150) $(text 37) \n"
+    else
+      # 开启订阅
+      IS_SUB=is_sub
+
+      # 如果 nginx 未安装，后台安装
+      if ! command -v nginx >/dev/null 2>&1; then
+        hint "\n $(text 148) "
+        ( ${PACKAGE_UPDATE[int]} >/dev/null 2>&1; ${PACKAGE_INSTALL[int]} nginx >/dev/null 2>&1; [ "$SYSTEM" != 'Alpine' ] && systemctl disable --now nginx >/dev/null 2>&1; ) &
+      fi
+
+      # 首次需要 nginx（nginx.conf 不存在）时交互询问端口（与新安装相同）
+      if [ ! -s "$WORK_DIR/nginx.conf" ]; then
+        [ -z "$NGINX_PORT" ] && input_nginx_port
+        NGINX_PORT=${NGINX_PORT:-"$NGINX_PORT_DEFAULT"}
+      fi
+      wait
+
+      # 确保 qrencode 可用：先从 TEMP_DIR 复制，没有再直接下载（export_list 用 qrencode 显示二维码）
+      # 先检查架构，确保 QRENCODE_ARCH 已设置（check_arch 不在本路径调用）
+      check_arch >/dev/null 2>&1 || true
+      if [ ! -s "$WORK_DIR/qrencode" ]; then
+        if [ -x "$TEMP_DIR/qrencode" ]; then
+          mv "$TEMP_DIR/qrencode" "$WORK_DIR"
+        else
+          wget --no-check-certificate --continue -qO "$WORK_DIR/qrencode" ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH >/dev/null 2>&1 && chmod +x "$WORK_DIR/qrencode" >/dev/null 2>&1
+        fi
+      fi
+
+      json_nginx
+
+      # 确保 xray.service 包含 ExecStartPre（仅 systemd，且 CentOS7 不支持 nginx）
+      if [ "$SYSTEM" != 'Alpine' ] && [ "$IS_CENTOS" != 'CentOS7' ]; then
+        if ! grep -q 'ExecStartPre.*nginx' ${XRAY_DAEMON_FILE} 2>/dev/null; then
+          sed -i '/^ExecStart=/i ExecStartPre=/bin/bash -c '\''nginx -c '"$WORK_DIR"'/nginx.conf -s reload 2>/dev/null || nginx -c '"$WORK_DIR"'/nginx.conf'\' "${XRAY_DAEMON_FILE}"
+          cmd_systemctl daemon-reload 2>/dev/null || true
+        fi
+      fi
+
+      # 启动/重载 nginx
+      local _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}')
+      if [ -n "$_NGINX_PID" ]; then
+        nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
+      else
+        $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
+      fi
+
+      write_custom 'isSub' "${IS_SUB}"
+      export_list
+      info "\n $(text 149) $(text 37) \n"
+    fi
     return
   fi
 
@@ -4627,13 +5296,22 @@ change_config() {
         ;;
     esac
   else
-    reading " $(text 60) " NEW_VAL
-    [ -z "$NEW_VAL" ] && info " $(text 103) " && return
+    if [ "$KEY" = "uuid" ]; then
+      local a=5
+      while true; do
+        reading " $(text 4) " NEW_VAL
+        [ -z "$NEW_VAL" ] && info " $(text 103) " && return
+        [[ "${NEW_VAL,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && break
+        ((a--)) || true
+        [ "$a" -eq 0 ] && error "\n $(text 3) \n"
+      done
+    else
+      reading " $(text 60) " NEW_VAL
+      [ -z "$NEW_VAL" ] && info " $(text 103) " && return
+    fi
   fi
 
-  if [ "$KEY" = "uuid" ]; then
-    [[ ! "${NEW_VAL,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && error " $(text 3) "
-  elif [ "$KEY" = "sni" ]; then
+  if [ "$KEY" = "sni" ]; then
     ssl_certificate "$NEW_VAL"
   elif [ "$KEY" = "serverip" ]; then
     [[ ! "$NEW_VAL" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && [[ ! "$NEW_VAL" =~ ^[0-9a-fA-F:]+$ ]] && error " $(text 112) "
@@ -4664,13 +5342,26 @@ change_config() {
               '(.inbounds[].tag) |= if startswith($old + " ") then ($new + " " + (ltrimstr($old + " "))) else . end' \
           > "$_IB_TMP" && mv "$_IB_TMP" "$_IB"
       fi
+      api_hot_reload inbounds
       ;;
     uuid)
       # 精确更新 inbound.json 中各协议的认证字段
+      local _force_update_tags=()
       if [ -s "$_IB" ] && [ -x "$WORK_DIR/jq" ]; then
+        # 提取出因修改 UUID 受影响的 tag，以用来强制重载
+        # 不仅检查 clients 中的 id/password/auth，还检查 realm URL 中的 UUID 子串
+        while IFS= read -r _t; do
+          [ -n "$_t" ] && _force_update_tags+=("$_t")
+        done < <(grep -v '^//' "$_IB" | $WORK_DIR/jq -r --arg old "$OLD" '.inbounds[] | select(
+          (.settings.clients[]? | (.id == $old or .password == $old or .auth == $old))
+          or
+          (.streamSettings.finalmask.udp[]?.settings.url | strings | contains($old))
+        ) | .tag' 2>/dev/null)
+        
         grep -v '^//' "$_IB" \
           | $WORK_DIR/jq --arg old "$OLD" --arg new "$NEW_VAL" \
-              '(.inbounds[].settings.clients[]? | (.id, .password, .auth) | select(. == $old)) = $new' \
+              '(.inbounds[].settings.clients[]? | (.id, .password, .auth) | select(. == $old)) = $new
+              | walk(if type == "string" and contains($old) then sub($old; $new) else . end)' \
           > "$_IB_TMP" && mv "$_IB_TMP" "$_IB"
       fi
       # UUID 用于 nginx.conf 的 location 路径，需重新生成 nginx.conf
@@ -4681,10 +5372,20 @@ change_config() {
       if [ -n "$_NGINX_PID" ]; then
         nginx -c "$WORK_DIR/nginx.conf" -s reload >/dev/null 2>&1 || true
       fi
+      api_hot_reload inbounds "${_force_update_tags[@]}"
       ;;
     sni)
       # TLS_SERVER 存储在 inbound.json，精确更新所有 serverNames/serverName 字段
+      local _force_update_tags=()
       if [ -s "$_IB" ] && [ -x "$WORK_DIR/jq" ]; then
+        # 提取出因修改 sni 受影响的 tag，以用来强制重载
+        while IFS= read -r _t; do
+          [ -n "$_t" ] && _force_update_tags+=("$_t")
+        done < <(grep -v '^//' "$_IB" | $WORK_DIR/jq -r --arg old "$OLD" '.inbounds[] | select(
+            (.streamSettings.tlsSettings.serverName == $old) or
+            (.streamSettings.realitySettings.serverNames[]? == $old)
+          ) | .tag' 2>/dev/null)
+          
         grep -v '^//' "$_IB" \
           | $WORK_DIR/jq --arg old "$OLD" --arg new "$NEW_VAL" \
               'walk(if type == "object" then
@@ -4693,11 +5394,35 @@ change_config() {
               else . end)' \
           > "$_IB_TMP" && mv "$_IB_TMP" "$_IB"
       fi
+      api_hot_reload inbounds "${_force_update_tags[@]}"
+      ;;
+    ports)
+      local _force_update_tags=()
+      if [ -x "$WORK_DIR/jq" ] && [ -s "$_IB" ] && [ -s "$WORK_DIR/outbound.json" ]; then
+        # 提取出因修改 port 受影响的 tag
+        while IFS= read -r _t; do
+          [ -n "$_t" ] && _force_update_tags+=("$_t")
+        done < <(grep -v '^//' "$_IB" | $WORK_DIR/jq -r --arg old "$OLD" '.inbounds[] | select(
+            (.port == ($old | tonumber)) or
+            (.port == $old)
+          ) | .tag' 2>/dev/null)
+          
+        grep -v '^//' "$_IB" \
+          | $WORK_DIR/jq --arg old "$OLD" --arg new "$NEW_VAL" \
+              'walk(if type == "object"
+                    then (if has("port") and .port == ($old | tonumber) then .port = ($new | tonumber) else . end) |
+                         (if has("port") and .port == $old then .port = $new else . end)
+                    else . end)' \
+          > "$_IB_TMP" && mv "$_IB_TMP" "$_IB"
+        
+        # argo tunnel 出站和订阅地址也要同步更新端口
+        # customroute 需要重新绑定路由
+      fi
+      api_hot_reload inbounds "${_force_update_tags[@]}"
       ;;
   esac
 
-  cmd_systemctl restart xray
-  sleep 2
+  # name/uuid/sni/ports 已经通过 api_hot_reload inbounds 热更新，无需再重启
   cmd_systemctl status xray &>/dev/null && \
     info "\n Xray $(text 28) $(text 37) \n" || \
     warning "\n Xray $(text 27) $(text 38) \n"
@@ -4719,8 +5444,11 @@ uninstall() {
       sleep 1
       kill -9 "$_NGINX_MASTER" 2>/dev/null || true
     fi
-    reading "\n $(text 65) " REMOVE_NGINX
-    [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
+    # 仅当 WORK_DIR/nginx.conf 存在时（即本脚本管理的 nginx 实例）才询问是否卸载
+    [ -s $WORK_DIR/nginx.conf ] && command -v nginx >/dev/null 2>&1 && {
+      reading "\n $(text 65) " REMOVE_NGINX
+      [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
+    }
     [ "$SYSTEM" = 'Alpine' ] && rm -rf $WORK_DIR $TEMP_DIR /etc/init.d/{xray,argo} /usr/bin/argox || rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service /usr/bin/argox
     info "\n $(text 16) \n"
   else
@@ -4780,14 +5508,34 @@ menu_setting() {
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
     [ -s $WORK_DIR/nginx.conf ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/##; s/ (.*)//" | sed "s@^@Version: &@g")
 
-    OPTION[1]="1 .  $(text 29)"
-    if [ "${STATUS[0]}" = "$(text 28)" ]; then
-      local ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
-      [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
-      OPTION[2]="2 .  $(text 27) Argo (argox -a)"
-    else
-      OPTION[2]="2 .  $(text 28) Argo (argox -a)"
+    local _opt=1
+    OPTION[_opt]="${_opt}.  $(text 29)"
+    eval "ACTION[$_opt]() { export_list; exit 0; }"
+    ((_opt++))
+
+    # Argo 选项：仅当 Argo 守护进程文件存在时才显示
+    if [ -s "${ARGO_DAEMON_FILE}" ]; then
+      if [ "${STATUS[0]}" = "$(text 28)" ]; then
+        local ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
+        [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
+        OPTION[_opt]="${_opt}.  $(text 27) Argo (argox -a)"
+      else
+        OPTION[_opt]="${_opt}.  $(text 28) Argo (argox -a)"
+      fi
+      [[ ${STATUS[0]} = "$(text 28)" ]] &&
+      eval "ACTION[$_opt]() {
+        cmd_systemctl disable argo
+        cmd_systemctl status argo &>/dev/null && error \" Argo \$(text 27) \$(text 38) \" || info \"\n Argo \$(text 27) \$(text 37)\"
+      }" ||
+      eval "ACTION[$_opt]() {
+        cmd_systemctl enable argo
+        sleep 2
+        cmd_systemctl status argo &>/dev/null && info \"\n Argo \$(text 28) \$(text 37)\" || error \" Argo \$(text 28) \$(text 38) \"
+        grep -qs \"^${DAEMON_RUN_PATTERN}.*--url\" ${ARGO_DAEMON_FILE} && fetch_tunnel_domain quick && export_list
+      }"
+      ((_opt++))
     fi
+
     if [ -s $WORK_DIR/nginx.conf ]; then
       local NGINX_PID=$(pgrep -f "nginx: master process")
       [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
@@ -4795,66 +5543,82 @@ menu_setting() {
     if [ "${STATUS[1]}" = "$(text 28)" ]; then
       local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
       [ -n "$XRAY_PID" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
-      OPTION[3]="3 .  $(text 27) Xray (argox -x)"
+      OPTION[_opt]="${_opt}.  $(text 27) Xray (argox -x)"
     else
-      OPTION[3]="3 .  $(text 28) Xray (argox -x)"
+      OPTION[_opt]="${_opt}.  $(text 28) Xray (argox -x)"
     fi
-    OPTION[4]="4 .  $(text 30)"
-    OPTION[5]="5 .  $(text 76)"
-    OPTION[6]="6 .  $(text 95)"
-    OPTION[7]="7 .  $(text 31)"
-    OPTION[8]="8 .  $(text 32)"
-    OPTION[9]="9 .  $(text 33)"
-    OPTION[10]="10.  $(text 51)"
-    OPTION[11]="11.  $(text 57)"
-
-    ACTION[1]() { export_list; exit 0; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] &&
-    ACTION[2]() {
-      cmd_systemctl disable argo
-      cmd_systemctl status argo &>/dev/null && error " Argo $(text 27) $(text 38) " || info "\n Argo $(text 27) $(text 37)"
-    } ||
-    ACTION[2]() {
-      cmd_systemctl enable argo
-      sleep 2
-      cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
-      grep -qs "^${DAEMON_RUN_PATTERN}.*--url" ${ARGO_DAEMON_FILE} && fetch_tunnel_domain quick && export_list
-    }
-
     [[ ${STATUS[1]} = "$(text 28)" ]] &&
-    ACTION[3]() {
+    eval "ACTION[$_opt]() {
       cmd_systemctl disable xray
-      cmd_systemctl status xray &>/dev/null && error " Xray $(text 27) $(text 38) " || info "\n Xray $(text 27) $(text 37)"
-    } ||
-    ACTION[3]() {
+      cmd_systemctl status xray &>/dev/null && error \" Xray \$(text 27) \$(text 38) \" || info \"\n Xray \$(text 27) \$(text 37)\"
+    }" ||
+    eval "ACTION[$_opt]() {
       cmd_systemctl enable xray
       sleep 2
-      cmd_systemctl status xray &>/dev/null && info "\n Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
-    }
-    ACTION[4]() { change_argo; exit; }
-    ACTION[5]() { change_config; exit; }
-    ACTION[6]() { change_protocols; exit; }
-    ACTION[7]() { version; exit; }
-    ACTION[8]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
-    ACTION[9]() { uninstall; exit; }
-    ACTION[10]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
-    ACTION[11]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
+      cmd_systemctl status xray &>/dev/null && info \"\n Xray \$(text 28) \$(text 37)\" || error \" Xray \$(text 28) \$(text 38) \"
+    }"
+    ((_opt++))
+
+    # 更换 Argo 隧道：仅当 Argo 守护进程文件存在时才显示
+    if [ -s "${ARGO_DAEMON_FILE}" ]; then
+      OPTION[_opt]="${_opt}.  $(text 30)"
+      eval "ACTION[$_opt]() { change_argo; exit; }"
+      ((_opt++))
+    fi
+
+    OPTION[_opt]="${_opt}.  $(text 76)"
+    eval "ACTION[$_opt]() { change_config; exit; }"
+    ((_opt++))
+
+    OPTION[_opt]="${_opt}.  $(text 95)"
+    eval "ACTION[$_opt]() { change_protocols; exit; }"
+    ((_opt++))
+
+    OPTION[_opt]="${_opt}.  $(text 31)"
+    eval "ACTION[$_opt]() { version; exit; }"
+    ((_opt++))
+
+    OPTION[_opt]="${_opt}.  $(text 32)"
+    eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }"
+    ((_opt++))
+
+    OPTION[_opt]="${_opt}.  $(text 33)"
+    eval "ACTION[$_opt]() { uninstall; exit; }"
+    ((_opt++))
+
+    OPTION[_opt]="${_opt}.  $(text 51)"
+    eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -\$L; exit; }"
+    ((_opt++))
+
+    OPTION[_opt]="${_opt}.  $(text 57)"
+    eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -\$L; exit; }"
+    ((_opt++))
 
   else
     OPTION[1]="1.  $(text 77)"
-    OPTION[2]="2.  $(text 34)"
-    OPTION[3]="3.  $(text 32)"
-    OPTION[4]="4.  $(text 51)"
-    OPTION[5]="5.  $(text 57)"
+    OPTION[2]="2.  $(text 146)"
+    OPTION[3]="3.  $(text 34)"
+    OPTION[4]="4.  $(text 32)"
+    OPTION[5]="5.  $(text 51)"
+    OPTION[6]="6.  $(text 57)"
 
-    ACTION[1]() { NONINTERACTIVE_INSTALL='noninteractive_install'; fast_install_variables; install_argox; export_list; create_shortcut; exit;}
-    ACTION[2]() { install_argox; export_list; create_shortcut; exit; }
-    ACTION[3]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
-    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
-    ACTION[5]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
+    ACTION[1]() { NONINTERACTIVE_INSTALL='noninteractive_install'; IS_SUB=is_sub; fast_install_variables; install_argox; export_list; create_shortcut; exit;}
+    ACTION[2]() { IS_SUB=is_sub; install_argox; export_list; create_shortcut; exit; }
+    ACTION[3]() { IS_SUB=no_sub; install_argox; export_list; create_shortcut; exit; }
+    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
+    ACTION[5]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
+    ACTION[6]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
   fi
 
-  [ "${#OPTION[@]}" -ge '10' ] && OPTION[0]="0 .  $(text 35)" || OPTION[0]="0.  $(text 35)"
+  # 根据选项总数决定对齐格式：≥10 时单位数需要加空格对齐两位数
+  if [ "${#OPTION[@]}" -ge '10' ]; then
+    OPTION[0]="0 .  $(text 35)"
+    for ((_i=1;_i<10;_i++)); do
+      [ -n "${OPTION[_i]}" ] && OPTION[_i]="${_i} . ${OPTION[_i]#*. }"
+    done
+  else
+    OPTION[0]="0.  $(text 35)"
+  fi
   ACTION[0]() { exit; }
 }
 
@@ -4904,8 +5668,31 @@ fi
 if [ -s $WORK_DIR/nginx.conf ] && grep -q 'v2rayN|Neko|Throne' $WORK_DIR/nginx.conf; then
   sed -i '/~\*v2rayN|Neko|Throne/s#~\*v2rayN|Neko|Throne[[:space:]]*/base64;#~*v2rayN              /v2rayn;\n    ~*Throne|Neko         /throne;#' /etc/argox/nginx.conf
   [ -s $WORK_DIR/subscribe/base64 ] && rm -f $WORK_DIR/subscribe/base64
-  cmd_systemctl restart xray
   export_list >/dev/null 2>&1
+fi
+
+###### 为了给旧版本 inbound.json 补全 Xray API 配置块，将于 2026年9月30日移除
+if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%d)" < "20260930" ]]; then
+  grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -e '.api' >/dev/null 2>&1 || {
+    # 旧版本升级默认开启 isSub/isArgo，并补全 bind_interface（仅当 custom 中不存在时）
+    grep -q '^isSub=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'isSub' 'is_sub'
+    grep -q '^isArgo=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'isArgo' 'is_argo'
+    grep -q '^bind_interface=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'bind_interface' ''
+    _api_port=$(awk -F= '/^apiPort=/{print $2}' "$CUSTOM_FILE" 2>/dev/null)
+    refresh_port_snapshot
+    if [ -z "$_api_port" ] || is_port_in_use "$_api_port"; then
+      _api_port=$(find_free_port 10000 65535)
+      write_custom 'apiPort' "$_api_port"
+    fi
+    _api_listen="127.0.0.1:${_api_port}"
+    grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --arg listen "$_api_listen" '
+      .api = {
+        "tag": "api",
+        "listen": $listen,
+        "services": ["HandlerService", "LoggerService", "StatsService", "RoutingService"]
+      }
+    ' > "$TEMP_DIR/inbound_api_tmp.json" 2>/dev/null && mv "$TEMP_DIR/inbound_api_tmp.json" "$WORK_DIR/inbound.json"
+  }
 fi
 
 # ── 传参处理1: 语言识别 + SKIP_MENU 检测（在 select_language 之前） ──
@@ -4963,6 +5750,8 @@ for z in ${!ALL_PARAMETER[@]}; do
     --PORT_HOPPING_RANGE ) ((z++)); PORT_HOPPING_RANGE=${ALL_PARAMETER[z]} ;;
     --HY2_REALM|--REALM ) ((z++)); HY2_REALM_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_REALM=is_hy2_realm ;;
     --HY2_WARP|--REALM_WARP|--WARP_REALM ) ((z++)); HY2_WARP_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_WARP=is_hy2_warp && IS_HY2_REALM=is_hy2_realm ;;
+    --SUBSCRIBE|--SUB ) ((z++)); [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_SUB=is_sub || IS_SUB=no_sub ;;
+    --ARGO ) ((z++)); [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_ARGO=is_argo || IS_ARGO=no_argo; IS_ARGO_EXPLICIT=true ;;
   esac
 done
 
@@ -4994,7 +5783,7 @@ unset _REMAINING_ARGS _arg _skip_next
 
 while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
   case "${OPTNAME,,}" in
-    a ) select_language; check_system_info; check_install
+    a ) select_language; check_system_info; check_arch; check_install
         [ "${STATUS[0]}" = "$(text 28)" ] && {
           cmd_systemctl disable argo
           cmd_systemctl status argo &>/dev/null && error " Argo $(text 27) $(text 38) " || info "\n Argo $(text 27) $(text 37)"
@@ -5009,7 +5798,7 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
           fi
         }; exit 0 ;;
 
-    x ) select_language; check_system_info; check_install
+    x ) select_language; check_system_info; check_arch; check_install
         [ "${STATUS[1]}" = "$(text 28)" ] && {
           cmd_systemctl disable xray
           cmd_systemctl status xray &>/dev/null && error " Xray $(text 27) $(text 38) " || info "\n Xray $(text 27) $(text 37)"
@@ -5020,7 +5809,7 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
         }; exit 0 ;;
     t ) select_language; check_system_info; check_arch; change_argo; exit 0 ;;
     d ) select_language; check_system_info; change_config; exit 0 ;;
-    r ) select_language; check_system_info; check_install; change_protocols; exit 0 ;;
+    r ) select_language; check_system_info; check_arch; check_install; change_protocols; exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0;;
     n ) select_language; check_system_info; export_list; exit 0 ;;
     v ) select_language; check_system_info; check_arch; version; exit 0;;
@@ -5029,6 +5818,12 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
     k|l ) NONINTERACTIVE_INSTALL='noninteractive_install'; fast_install_variables ;;
   esac
 done
+
+# 配置变量后处理：SUBSCRIBE → IS_SUB / ARGO → IS_ARGO 转换（仅当在 config 中被显式设置时）
+[[ -n "${SUBSCRIBE:-}" ]] && { [[ "${SUBSCRIBE,,}" =~ ^(y|yes|true|1)$ ]] && IS_SUB=is_sub || IS_SUB=no_sub; }
+unset SUBSCRIBE
+[[ -n "${ARGO:-}" ]] && { [[ "${ARGO,,}" =~ ^(y|yes|true|1)$ ]] && IS_ARGO=is_argo || IS_ARGO=no_argo; IS_ARGO_EXPLICIT=true; }
+unset ARGO
 
 # 旧版本兼容过渡（将于 2026年9月30日移除）：$WORK_DIR 已存在但 custom 文件不存在，说明是旧版本安装，降级运行旧版脚本
 if [ -d "$WORK_DIR" ] && [ ! -s "$CUSTOM_FILE" ] && [[ "$(date +%Y%m%d)" < "20260930" ]]; then

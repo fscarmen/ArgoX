@@ -20,16 +20,18 @@
 
 * * *
 ## 更新信息
+2026.07.24 v2.1.0 1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关
+
 2026.07.19 v2.0.9 1. 新增长参数半交互安装模，支持 16 个长参数：协议、端口、CDN、UUID、路径、Argo、TLS、Reality、Hysteria2; 2. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段
 
 2026.07.18 v2.0.8 1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器
-
-2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
+>
 >2026.04.21 v2.0.6 1. 保持 CDN 下的 XHTTP 继续走 Nginx 反代链路，并由 Nginx 负责基于路径的分流; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，在固定隧道下覆盖 HTTP/1.1 CDN 与 HTTP/3 Direct
 >
 >2026.04.18 v2.0.5 1. 将 CDN 下的 XHTTP 从 Nginx 反代链路移出，改为由 cloudflared ingress 直接转发到本地 Xray inbound; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，同时覆盖 HTTP/2 CDN 与 HTTP/3 Direct
@@ -175,6 +177,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 | `--NODE_NAME` | 节点名称 |
 | `--ARGO_DOMAIN` | Argo 固定隧道域名，不指定则使用临时隧道 |
 | `--ARGO_AUTH` | Argo 认证信息（Json / Token / Cloudflare API），与 `--ARGO_DOMAIN` 一并使用 |
+| `--ARGO` | [true/false] 是否启用 Argo 隧道（安装后可在 -d 菜单调整） |
+| `--SUBSCRIBE` | [true/false] 是否启用订阅功能（安装后可在 -d 菜单调整） |
 | `--TLS_SERVER` | TLS SNI 域名 |
 | `--REALITY_PRIVATE` | Reality 私钥 |
 | `--PORT_HOPPING_RANGE` | Hysteria2 端口跳跃范围，如 `50000:51000` |
@@ -251,6 +255,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   --REALITY_PRIVATE UPO3FWlg6YDJbASYi7KIESibPec_K46edTvDPbqEYFk \
   --ARGO_DOMAIN argox.argo.com \
   --ARGO_AUTH '{"AccountTag":"9cc9e3e4d8f29d2a02e297f14f20513a","TunnelSecret":"6AYfKBOoNlPiTAuWg64ZwujsNuERpWLm6pPJ2qpN8PM=","TunnelID":"1ac55430-f4dc-47d5-a850-bdce824c4101"}' \
+  --ARGO true \
+  --SUBSCRIBE true \
   --PORT_HOPPING_RANGE 50000:51000 \
   --HY2_REALM true \
   --HY2_WARP true

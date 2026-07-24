@@ -21,15 +21,17 @@
 * * *
 
 ## Update Information
+2026.07.24 v2.1.0 1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu
+
 2026.07.19 v2.0.9 1. Add long-parameter support for semi-interactive install. Support 16 long parameters covering protocols, ports, CDN, UUID, paths, Argo, TLS, Reality, Hysteria2; 2. Add minClientVer to realitySettings for Xray v26.7.11 compatibility
 
 2026.07.18 v2.0.8 1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers
 
-2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
-
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
+
+>2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
 >
 >2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes
 >
@@ -176,6 +178,8 @@ Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided v
 | `--NODE_NAME` | Node name |
 | `--ARGO_DOMAIN` | Argo fixed tunnel domain; leave empty for temporary tunnel |
 | `--ARGO_AUTH` | Argo auth (Json / Token / Cloudflare API), used with `--ARGO_DOMAIN` |
+| `--ARGO` | [true/false] Enable Argo tunnel (adjustable via -d menu after install) |
+| `--SUBSCRIBE` | [true/false] Enable subscription (adjustable via -d menu after install) |
 | `--TLS_SERVER` | TLS SNI domain |
 | `--REALITY_PRIVATE` | Reality private key |
 | `--PORT_HOPPING_RANGE` | Hysteria2 port hopping range, e.g. `50000:51000` |
@@ -252,6 +256,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   --REALITY_PRIVATE UPO3FWlg6YDJbASYi7KIESibPec_K46edTvDPbqEYFk \
   --ARGO_DOMAIN argox.argo.com \
   --ARGO_AUTH '{"AccountTag":"9cc9e3e4d8f29d2a02e297f14f20513a","TunnelSecret":"6AYfKBOoNlPiTAuWg64ZwujsNuERpWLm6pPJ2qpN8PM=","TunnelID":"1ac55430-f4dc-47d5-a850-bdce824c4101"}' \
+  --ARGO true \
+  --SUBSCRIBE true \
   --PORT_HOPPING_RANGE 50000:51000 \
   --HY2_REALM true \
   --HY2_WARP true
