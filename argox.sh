@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.0 (2026.07.24)'
+VERSION='2.1.0 (2026.07.26)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -357,6 +357,10 @@ E[155]="API replace routing rules failed"
 C[155]="API 替换路由规则失败"
 E[156]="Routing rules file is empty"
 C[156]="路由规则文件为空"
+E[157]="Xray config syntax check failed, details:"
+C[157]="Xray 配置文件语法错误，详情："
+E[158]="Port \$_p occupied by non-xray processes, force killing: \$_bad_pids"
+C[158]="端口 \$_p 被非 Xray 进程占用，强制清理: \$_bad_pids"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -529,6 +533,273 @@ write_custom() {
 }
 
 # ============================================================
+# _should_use_supervise_daemon() - 判断 Alpine OpenRC 是否启用 supervise-daemon
+#
+# 根据环境兼容性选择服务管理方式：
+#   - 容器环境且支持 supervise-daemon 时启用，以获得自动 respawn 和更可靠的进程管理。
+#   - 其他环境保持 command_background 模式，确保旧版本兼容和稳定运行。
+#
+# 返回值: echo "yes" / "no"
+# ============================================================
+_should_use_supervise_daemon() {
+  # ---- 前置条件硬校验：任何一条不满足直接 no，比「强制全用」安全得多 ----
+  # 1) 必须是 Alpine
+  [ "$SYSTEM" != 'Alpine' ] && { echo no; return; }
+  # 2) supervise-daemon 二进制真实存在（精简 openrc 包可能被 strip 掉）
+  if ! command -v supervise-daemon >/dev/null 2>&1 && [ ! -x /sbin/supervise-daemon ] && [ ! -x /usr/sbin/supervise-daemon ]; then
+    echo no; return
+  fi
+  # 3) openrc 版本 >= 0.43（supervise-daemon 首次被引入到 openrc 主线）
+  local _openrc_ver=""
+  if command -v openrc >/dev/null 2>&1; then
+    _openrc_ver=$(openrc --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  fi
+  [ -z "$_openrc_ver" ] && [ -s /etc/os-release ] && \
+    _openrc_ver=$(awk -F'["=]' '/^VERSION_ID=/{gsub(/[^0-9.]/,"",$2); print $2}' /etc/os-release 2>/dev/null)
+  if [ -n "$_openrc_ver" ]; then
+    # 主版本 < 0 或者 (主==0 && 次<43) → no
+    local _maj="${_openrc_ver%%.*}" _min="${_openrc_ver#*.}"
+    _min="${_min%%.*}"
+    if [ "$_maj" -lt 1 ] 2>/dev/null; then
+      if [ "${_min:-0}" -lt 43 ] 2>/dev/null; then
+        echo no; return
+      fi
+    fi
+  fi
+
+  # ---- 容器检测（命中任意一条即 yes）----
+  local _lxc_env="" _cgroup=""
+  [ -r /proc/1/environ ]    && _lxc_env+=" $(tr '\0' '\n' </proc/1/environ 2>/dev/null | tr '\n' ' ')"
+  [ -r /proc/self/environ ] && _lxc_env+=" $(tr '\0' '\n' </proc/self/environ 2>/dev/null | tr '\n' ' ')"
+  [ -r /proc/1/cgroup ]     && _cgroup="$(cat /proc/1/cgroup 2>/dev/null)"
+
+  # 1) 容器环境变量（container= 是 systemd / LXC / Docker / podman 约定）
+  case " $_lxc_env " in
+    *"container=lxc"*|*"container=docker"*|*"container=podman"*|*"container=systemd-nspawn"*|*"container=libvirt-lxc"*) 
+      echo yes; return ;;
+  esac
+
+  # 2) cgroupv1/v2 路径线索（比只看 /proc/1/cgroup 里的 lxc/docker 关键字更宽）
+  if echo "$_cgroup" | grep -Eq 'lxc|docker|kubepods|containerd|podman|systemd\.nspawn|libpod'; then
+    echo yes; return
+  fi
+
+  # 3) systemd-detect-virt（如果系统里凑巧有）
+  if command -v systemd-detect-virt >/dev/null 2>&1; then
+    case "$(systemd-detect-virt 2>/dev/null)" in
+      lxc|systemd-nspawn|docker|podman|container|wsl) echo yes; return ;;
+    esac
+  fi
+
+  # 4) machinectl 可见的容器（systemd-nspawn / LXC 通过 machined 注册）
+  if command -v machinectl >/dev/null 2>&1; then
+    local _self_mid=""
+    _self_mid=$(cat /proc/self/mountinfo 2>/dev/null | awk '/machine-id/{print $NF; exit}')
+    if [ -n "$_self_mid" ] && machinectl list --no-legend 2>/dev/null | awk '{print $1}' | grep -qF "$_self_mid"; then
+      echo yes; return
+    fi
+  fi
+
+  # 5) PID namespace 非初始 ns：KVM/物理机通常 ns 号最小，容器都 > 初始 ns。这是一个弱信号，
+  #    仅当 /proc/1/ns/pid 符号链接目标不为 4026531836（init ns 固定号）时提示容器。
+  if [ -L /proc/self/ns/pid ]; then
+    local _pidns_link
+    _pidns_link=$(readlink /proc/self/ns/pid 2>/dev/null)
+    if [ -n "$_pidns_link" ] && [ "$_pidns_link" != "pid:[4026531836]" ]; then
+      # 命中 pid ns 非 init，但这一条太泛（Chrome sandbox / firejail / flatpak 也会命中），
+      # 只在同时发现 /dev/.lxc / .dockerenv 等容器指纹文件时才判 yes
+      if [ -f /.dockerenv ] || [ -d /dev/.lxc ] || [ -f /run/.containerenv ]; then
+        echo yes; return
+      fi
+    fi
+  fi
+
+  echo no
+}
+
+# ============================================================
+# write_argo_daemon() - 统一写入 Argo / cloudflared 守护进程文件
+#   依赖调用方作用域的变量: $SYSTEM $WORK_DIR $ARGO_RUNS $ARGO_DAEMON_FILE
+#   自动处理 Alpine OpenRC vs 其他 systemd，OpenRC 模板仅此一份
+# ============================================================
+write_argo_daemon() {
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    local COMMAND=${ARGO_RUNS%% --*}
+    local ARGS=${ARGO_RUNS#$COMMAND }
+    local _USE_SD="no"
+    [ "$(_should_use_supervise_daemon)" = 'yes' ] && _USE_SD="yes"
+
+    cat > ${ARGO_DAEMON_FILE} << EOF
+#!/sbin/openrc-run
+
+name="argo"
+description="Cloudflare Tunnel"
+
+command="${COMMAND}"
+command_args="${ARGS}"
+
+pidfile="/run/\${RC_SVCNAME}.pid"
+EOF
+    if [ "$_USE_SD" = 'yes' ]; then
+      # 容器环境：让 openrc 自带的 supervise-daemon 托管进程，比 start-stop-daemon --background 拿 pid 更准
+      cat >> ${ARGO_DAEMON_FILE} << EOF
+supervisor="supervise-daemon"
+respawn_max=10
+respawn_period=10
+EOF
+    else
+      cat >> ${ARGO_DAEMON_FILE} << EOF
+command_background="yes"
+EOF
+    fi
+    cat >> ${ARGO_DAEMON_FILE} << EOF
+
+output_log="${WORK_DIR}/argo.log"
+error_log="${WORK_DIR}/argo.log"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    mkdir -p ${WORK_DIR} /run
+    rm -f "\$pidfile"
+}
+
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
+    local CF_PIDS
+    CF_PIDS="\$(ps -eo pid,args | awk '\$0~/\/etc\/argox\/cloudflared/{print \$1}')"
+    if [ -n "\$CF_PIDS" ]; then
+        einfo "Force killing cloudflared: \$CF_PIDS"
+        kill -9 \$CF_PIDS 2>/dev/null
+    fi
+    rm -f "\$pidfile"
+    eend 0
+    return 0
+}
+EOF
+    chmod +x ${ARGO_DAEMON_FILE}
+  else
+    local ARGO_SERVER="[Unit]
+Description=Cloudflare Tunnel
+After=network.target
+
+[Service]
+Type=simple
+NoNewPrivileges=yes
+TimeoutStartSec=0
+ExecStart=$ARGO_RUNS
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target"
+    echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
+  fi
+}
+
+# ============================================================
+# write_xray_daemon() - 统一写入 Xray 守护进程文件
+#   依赖调用方作用域的变量: $SYSTEM $WORK_DIR $INSTALL_NGINX $IS_CENTOS7 $XRAY_DAEMON_FILE
+#   OpenRC 模板仅此一份，通过 start_pre 处理 nginx；systemd 按 $INSTALL_NGINX 写 ExecStartPre
+# ============================================================
+write_xray_daemon() {
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    local _USE_SD="no"
+    [ "$(_should_use_supervise_daemon)" = 'yes' ] && _USE_SD="yes"
+
+    cat > ${XRAY_DAEMON_FILE} << EOF
+#!/sbin/openrc-run
+
+name="xray"
+description="Xray Service"
+
+command="${WORK_DIR}/xray"
+command_args="run -c ${WORK_DIR}/inbound.json -c ${WORK_DIR}/outbound.json"
+
+pidfile="/run/\${RC_SVCNAME}.pid"
+EOF
+    if [ "$_USE_SD" = 'yes' ]; then
+      cat >> ${XRAY_DAEMON_FILE} << EOF
+supervisor="supervise-daemon"
+respawn_max=10
+respawn_period=10
+EOF
+    else
+      cat >> ${XRAY_DAEMON_FILE} << EOF
+command_background="yes"
+EOF
+    fi
+    cat >> ${XRAY_DAEMON_FILE} << EOF
+
+output_log="${WORK_DIR}/xray.log"
+error_log="${WORK_DIR}/xray.log"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    mkdir -p ${WORK_DIR} /run
+    chmod 755 ${WORK_DIR}
+    rm -f "\$pidfile"
+    if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
+        pgrep -f "nginx.*${WORK_DIR}/nginx.conf" >/dev/null 2>&1 || /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
+    fi
+    return 0
+}
+
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
+    local RETVAL=\$?
+    if [ \$RETVAL -ne 0 ]; then
+        local XRAY_PIDS
+        XRAY_PIDS="\$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '\$0~(work_dir"/xray run"){print \$1;exit}')"
+        if [ -n "\$XRAY_PIDS" ]; then
+            for pid in \$XRAY_PIDS; do
+                kill -9 "\$pid" 2>/dev/null
+            done
+        fi
+    fi
+    if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
+        /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf -s stop 2>/dev/null
+        sleep 1
+        local NGINX_REMAINING
+        NGINX_REMAINING="\$(ps -eo pid,args | awk '\$0~/nginx.*\/etc\/argox\/nginx.conf/{print \$1}')"
+        [ -n "\$NGINX_REMAINING" ] && kill -9 \$NGINX_REMAINING 2>/dev/null
+    fi
+    rm -f "\$pidfile"
+    eend 0
+}
+EOF
+    chmod +x ${XRAY_DAEMON_FILE}
+  else
+    local XRAY_SERVICE="[Unit]
+Description=Xray Service
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target
+
+[Service]
+User=root"
+    [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
+ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
+    XRAY_SERVICE+="
+ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
+Restart=on-failure
+RestartPreventExitStatus=23
+
+[Install]
+WantedBy=multi-user.target"
+    echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
+  fi
+}
+
+# ============================================================
 # api_hot_reload() - 统一的 Xray API 热更新入口
 # 用法:
 #   api_hot_reload inbounds [tag...]     # 增量更新入站（可指定强制更新的 tag）
@@ -549,8 +820,70 @@ api_hot_reload() {
 
   # ---- 前置校验：所有操作都需要 API 可用 ----
   $WORK_DIR/xray api lsi --server="$_api_addr" --isOnlyTags=true &>/dev/null || {
+    # 失败时 3 行分类兜底，避免一律 restart 掩盖根本原因
+    # 1) 配置语法错误：先 xray -test 打出具体错，不盲目重启
+    # 2) 端口占用：逐个找 inbound 监听端口冲突的旧进程，清掉再启动
+    # 3) 其它（进程未起、权限、cgroup 等）→ 走标准 restart
     warning "\n $(text 151) "
-    cmd_systemctl restart xray
+
+    local _cfg_ok=true
+    if [ -x "$WORK_DIR/xray" ] && [ -s "$_ib" ] && [ -s "$_ob" ]; then
+      if ! $WORK_DIR/xray run -test -c "$_ib" -c "$_ob" >/dev/null 2>"$TEMP_DIR/xray_test.err"; then
+        _cfg_ok=false
+        warning " $(text 157) "
+        head -n 30 "$TEMP_DIR/xray_test.err" >&2 || true
+      fi
+    fi
+
+    # 端口占用扫描：读取 inbound.json 的所有 listen port，逐个查冲突
+    local _killed_any=false
+    if [ -s "$_ib" ] && [ -x "$WORK_DIR/jq" ]; then
+      local _ports
+      _ports=$($WORK_DIR/jq -r '.inbounds[] | select(.port != null) | .port' "$_ib" 2>/dev/null)
+      if command -v ss >/dev/null 2>&1; then
+        local _ss_tool="ss -nltp"
+      elif command -v netstat >/dev/null 2>&1; then
+        local _ss_tool="netstat -nltp"
+      else
+        local _ss_tool=""
+      fi
+      if [ -n "$_ports" ] && [ -n "$_ss_tool" ]; then
+        local _p
+        while IFS= read -r _p; do
+          [ -z "$_p" ] && continue
+          # 找监听该端口且不是 xray 的进程 PID
+          local _bad_pids
+          _bad_pids=$(eval "$_ss_tool" 2>/dev/null \
+            | awk -v p=":$_p" '$4 ~ p && $0 ~ /pid=/ {print $0}' \
+            | tr ',' '\n' \
+            | awk -F= '/^pid=/ {print $2}' \
+            | sort -u \
+            | while read -r _pid; do
+                [ -z "$_pid" ] && continue
+                local _cmd
+                _cmd=$(ps -p "$_pid" -o args= 2>/dev/null || true)
+                case "$_cmd" in
+                  *"$WORK_DIR/xray"*) ;;
+                  *) echo "$_pid" ;;
+                esac
+              done)
+          if [ -n "$_bad_pids" ]; then
+            warning " $(text 158) "
+            kill -9 $_bad_pids 2>/dev/null || true
+            _killed_any=true
+          fi
+        done <<< "$_ports"
+      fi
+    fi
+
+    if [ "$_cfg_ok" = 'true' ]; then
+      # 清掉端口占用的进程时，先 stop 再 start 比 restart 更稳
+      if [ "$_killed_any" = 'true' ]; then
+        cmd_systemctl disable xray 2>/dev/null || true
+        sleep 1
+      fi
+      cmd_systemctl enable xray 2>/dev/null || cmd_systemctl restart xray 2>/dev/null || true
+    fi
     return 1
   }
 
@@ -2987,8 +3320,43 @@ stop() {
 }
 EOF
       chmod +x ${ARGO_DAEMON_FILE}
+    else
+      local ARGO_SERVER="[Unit]
+Description=Cloudflare Tunnel
+After=network.target
 
-      cat > ${XRAY_DAEMON_FILE} << EOF
+[Service]
+Type=simple
+NoNewPrivileges=yes
+TimeoutStartSec=0"
+      ARGO_SERVER+="
+ExecStart=$ARGO_RUNS
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target"
+
+      echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
+    fi
+  else
+    # 没有 Argo 需要的协议，清理已存在的二进制和守护进程
+    rm -f $WORK_DIR/cloudflared
+    if [ -s "${ARGO_DAEMON_FILE}" ]; then
+      cmd_systemctl disable argo 2>/dev/null
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        rm -f /etc/init.d/argo
+      else
+        rm -f ${ARGO_DAEMON_FILE}
+      fi
+    fi
+    rm -f $WORK_DIR/tunnel.json $WORK_DIR/tunnel.yml
+  fi  # end IS_ARGO=is_argo
+
+  # 写 xray 守护进程文件：Alpine → OpenRC init.d；其他 → systemd unit
+  # 注意：放 IS_ARGO fi 块外统一处理，确保 IS_ARGO=false（直连协议）时 Alpine 也能正确生成 xray 守护脚本
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    cat > ${XRAY_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
 
 name="xray"
@@ -3042,57 +3410,26 @@ stop() {
     eend 0
 }
 EOF
-      chmod +x ${XRAY_DAEMON_FILE}
-    else
-      local ARGO_SERVER="[Unit]
-Description=Cloudflare Tunnel
-After=network.target
-
-[Service]
-Type=simple
-NoNewPrivileges=yes
-TimeoutStartSec=0"
-      ARGO_SERVER+="
-ExecStart=$ARGO_RUNS
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target"
-
-      echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
-    fi
+    chmod +x ${XRAY_DAEMON_FILE}
   else
-    # 没有 Argo 需要的协议，清理已存在的二进制和守护进程
-    rm -f $WORK_DIR/cloudflared
-    if [ -s "${ARGO_DAEMON_FILE}" ]; then
-      cmd_systemctl disable argo 2>/dev/null
-      if [ "$SYSTEM" = 'Alpine' ]; then
-        rm -f /etc/init.d/argo
-      else
-        rm -f ${ARGO_DAEMON_FILE}
-      fi
-    fi
-    rm -f $WORK_DIR/tunnel.json $WORK_DIR/tunnel.yml
-  fi  # end IS_ARGO=is_argo
-
-  local XRAY_SERVICE="[Unit]
+    local XRAY_SERVICE="[Unit]
 Description=Xray Service
 Documentation=https://github.com/XTLS/Xray-core
 After=network.target
 
 [Service]
 User=root"
-  [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
+    [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
 ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
-  XRAY_SERVICE+="
+    XRAY_SERVICE+="
 ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
 Restart=on-failure
 RestartPreventExitStatus=23
 
 [Install]
 WantedBy=multi-user.target"
-  echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
+    echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
+  fi
 
   local i=1
   [ ! -s $WORK_DIR/xray ] && wait && while [ "$i" -le 20 ]; do [[ -s $TEMP_DIR/xray && -s $TEMP_DIR/geoip.dat && -s $TEMP_DIR/geosite.dat ]] && mv $TEMP_DIR/xray $TEMP_DIR/geo*.dat $WORK_DIR && break; ((i++)); sleep 2; done
@@ -4515,68 +4852,8 @@ EOF
       ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
     fi
 
-    # 创建守护进程文件（Alpine openrc / systemd）
-    if [ "$SYSTEM" = 'Alpine' ]; then
-      local COMMAND=${ARGO_RUNS%% --*}
-      local ARGS=${ARGO_RUNS#$COMMAND }
-      cat > ${ARGO_DAEMON_FILE} << EOF
-#!/sbin/openrc-run
-
-name="argo"
-description="Cloudflare Tunnel"
-
-command="${COMMAND}"
-command_args="${ARGS}"
-
-pidfile="/run/\${RC_SVCNAME}.pid"
-command_background="yes"
-
-output_log="${WORK_DIR}/argo.log"
-error_log="${WORK_DIR}/argo.log"
-
-depend() {
-    need net
-    after firewall
-}
-
-start_pre() {
-    mkdir -p ${WORK_DIR} /run
-    rm -f "\$pidfile"
-}
-
-stop() {
-    ebegin "Stopping \${RC_SVCNAME}"
-    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
-    local CF_PIDS
-    CF_PIDS="\$(ps -eo pid,args | awk '\$0~/\/etc\/argox\/cloudflared/{print \$1}')"
-    if [ -n "\$CF_PIDS" ]; then
-        einfo "Force killing cloudflared: \$CF_PIDS"
-        kill -9 \$CF_PIDS 2>/dev/null
-    fi
-    rm -f "\$pidfile"
-    eend 0
-    return 0
-}
-EOF
-      chmod +x ${ARGO_DAEMON_FILE}
-    else
-      local ARGO_SERVER="[Unit]
-Description=Cloudflare Tunnel
-After=network.target
-
-[Service]
-Type=simple
-NoNewPrivileges=yes
-TimeoutStartSec=0"
-      ARGO_SERVER+="
-ExecStart=$ARGO_RUNS
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target"
-      echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
-    fi
+    # 创建守护进程文件：统一走 write_argo_daemon，避免 Alpine/systemd 双份手写模板
+    write_argo_daemon
 
     cmd_systemctl enable argo
 
@@ -4584,27 +4861,14 @@ WantedBy=multi-user.target"
     cmd_systemctl restart argo
   fi
 
-  # 根据 _NEED_NGINX 重写 xray 守护进程文件（systemd 需要 ExecStartPre 来启动 nginx；
-  # Alpine 的 init.d 已通过 start_pre() 动态检查 nginx.conf，无需修改）
-  if [ "$SYSTEM" != 'Alpine' ]; then
-    local XRAY_SERVICE="[Unit]
-Description=Xray Service
-Documentation=https://github.com/XTLS/Xray-core
-After=network.target
-
-[Service]
-User=root"
-    [[ "$_NEED_NGINX" != 'false' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
-ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
-    XRAY_SERVICE+="
-ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
-Restart=on-failure
-RestartPreventExitStatus=23
-
-[Install]
-WantedBy=multi-user.target"
-    echo "$XRAY_SERVICE" > ${XRAY_DAEMON_FILE}
-  fi
+  # 重写 xray 守护进程文件（重装/改协议场景）。
+  # 原逻辑：Alpine 不动 init.d（start_pre 已动态检查 nginx），仅 systemd 按 _NEED_NGINX 重写 ExecStartPre。
+  # 现统一走 write_xray_daemon，通过临时映射 INSTALL_NGINX=(_NEED_NGINX?y:n) 保持与原 systemd 分支等价，
+  # 同时 Alpine 分支也顺带刷新 init.d（函数内 start_pre 等价实现旧逻辑），不会比不刷新更差。
+  local INSTALL_NGINX="y"
+  [ "$_NEED_NGINX" = 'false' ] && INSTALL_NGINX="n"
+  write_xray_daemon
+  # 恢复调用方作用域（local 仅在本函数块有效，无需手工 unset）
 
   # 在 check_install/export_list 之前持久化 IS_SUB/IS_ARGO，确保状态正确
   write_custom 'isSub' "${IS_SUB}"
