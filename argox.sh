@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.0 (2026.07.26)'
+VERSION='2.1.0 (2026.07.28)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -159,8 +159,8 @@ E[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter the starting
 C[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入所有协议的起始端口，必须是 \${MIN_PORT}-\${MAX_PORT}，需要 \${NUM} 个连续空闲端口(默认为 \${START_PORT_DEFAULT}):"
 E[57]="Install sba scripts (argo + sing-box) [https://github.com/fscarmen/sba]"
 C[57]="安装 sba 脚本 (argo + sing-box) [https://github.com/fscarmen/sba]"
-E[58]="No server ip, script exits. Feedback:[https://github.com/fscarmen/sing-box/issues]"
-C[58]="没有 server ip，脚本退出，问题反馈:[https://github.com/fscarmen/sing-box/issues]"
+E[58]="Xray config syntax check failed, details:"
+C[58]="Xray 配置文件语法错误，详情："
 E[59]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter VPS IP (Default is: \${SERVER_IP_DEFAULT}):"
 C[59]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 VPS IP (默认为: \${SERVER_IP_DEFAULT}):"
 E[60]="Please enter new value (press Enter to skip):"
@@ -185,8 +185,8 @@ E[69]="1. Default (not specified)"
 C[69]="1. 默认（不指定）"
 E[70]="ArgoX is not installed and cannot change the CDN."
 C[70]="ArgoX 未安装，不能更换 CDN"
-E[71]="Current CDN is: \${CDN_NOW}"
-C[71]="当前 CDN 为: \${CDN_NOW}"
+E[71]="Port \$_p occupied by non-xray processes, force killing: \$_bad_pids"
+C[71]="端口 \$_p 被非 Xray 进程占用，强制清理: \$_bad_pids"
 E[72]="Please select or enter a new preferred address (domain / IPv4 / [IPv6], optional :port; press Enter to keep the current one):"
 C[72]="请选择或输入新的优选地址（域名 / IPv4 / [IPv6]，可选 :端口；回车保持当前值）:"
 E[73]="Please select network interface:"
@@ -299,8 +299,8 @@ E[126]="Hysteria2 WARP-assisted hole punching (for strict NAT environments). Ena
 C[126]="Hysteria2 WARP 辅助打洞（适用于 NAT 严格环境）。是否启用？[y/N] (默认为 N):"
 E[127]="Close Realm"
 C[127]="关闭 Realm"
-E[128]="Hysteria2 Realm is only available for hysteria2 protocol. Skipping."
-C[128]="Hysteria2 Realm 仅支持 Hysteria2 协议，跳过。"
+E[128]="Hot reload successful via Xray API"
+C[128]="Xray API 热加载成功"
 E[129]="Open Realm"
 C[129]="开启 Realm"
 E[130]="No change was made."
@@ -357,10 +357,6 @@ E[155]="API replace routing rules failed"
 C[155]="API 替换路由规则失败"
 E[156]="Routing rules file is empty"
 C[156]="路由规则文件为空"
-E[157]="Xray config syntax check failed, details:"
-C[157]="Xray 配置文件语法错误，详情："
-E[158]="Port \$_p occupied by non-xray processes, force killing: \$_bad_pids"
-C[158]="端口 \$_p 被非 Xray 进程占用，强制清理: \$_bad_pids"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -830,7 +826,7 @@ api_hot_reload() {
     if [ -x "$WORK_DIR/xray" ] && [ -s "$_ib" ] && [ -s "$_ob" ]; then
       if ! $WORK_DIR/xray run -test -c "$_ib" -c "$_ob" >/dev/null 2>"$TEMP_DIR/xray_test.err"; then
         _cfg_ok=false
-        warning " $(text 157) "
+        warning " $(text 58) "
         head -n 30 "$TEMP_DIR/xray_test.err" >&2 || true
       fi
     fi
@@ -868,7 +864,7 @@ api_hot_reload() {
                 esac
               done)
           if [ -n "$_bad_pids" ]; then
-            warning " $(text 158) "
+            warning " $(text 71) "
             kill -9 $_bad_pids 2>/dev/null || true
             _killed_any=true
           fi
@@ -1511,7 +1507,7 @@ xray_variable() {
     for w in "${!INSTALL_PROTOCOLS[@]}"; do
       local _proto_idx=$(($(asc ${INSTALL_PROTOCOLS[w]}) - 98))
       local _proto_name="${PROTOCOL_LIST[$_proto_idx]}"
-      [ "$w" -ge 9 ] && hint " $(( w+1 )). ${_proto_name} " || hint " $(( w+1 )) . ${_proto_name} "
+      hint " $(printf '%3d.' $(( w+1 ))) ${_proto_name} "
     done
   fi
 
@@ -2876,6 +2872,7 @@ handle_hy2_realm() {
   _hy2_tag=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
   api_hot_reload inbounds ${_hy2_tag:+"$_hy2_tag"}
   api_hot_reload routing_rules
+  info "\n $(text 128) \n"
   export_list
 }
 
@@ -4449,9 +4446,9 @@ change_protocols() {
 
   hint "\n $(text 92) (${#REINSTALL_PROTOCOLS[@]})"
   [ "${#KEEP_PROTOCOLS[@]}" -gt 0 ] && hint "\n $(text 96) (${#KEEP_PROTOCOLS[@]})"
-  for r in "${!KEEP_PROTOCOLS[@]}"; do hint "  $((r+1)). ${KEEP_PROTOCOLS[r]}"; done
+  for r in "${!KEEP_PROTOCOLS[@]}"; do hint " $(printf '%3d.' $((r+1))) ${KEEP_PROTOCOLS[r]}"; done
   [ "${#ADD_PROTOCOLS[@]}" -gt 0 ] && hint "\n $(text 97) (${#ADD_PROTOCOLS[@]})"
-  for r in "${!ADD_PROTOCOLS[@]}"; do hint "  $((r+1)). ${ADD_PROTOCOLS[r]}"; done
+  for r in "${!ADD_PROTOCOLS[@]}"; do hint " $(printf '%3d.' $((r+1))) ${ADD_PROTOCOLS[r]}"; done
   reading "\n $(text 93) " CONFIRM
   [ "${CONFIRM,,}" = 'n' ] && exit 0
 
@@ -4882,7 +4879,7 @@ EOF
     systemctl enable xray >/dev/null 2>&1
   fi
   api_hot_reload inbounds
-  sleep 2
+  info "\n $(text 128) \n"
   check_install
   cmd_systemctl status xray &>/dev/null \
     && info "\n Xray $(text 28) $(text 37) \n" \
@@ -5000,10 +4997,10 @@ change_start_port() {
     [ -n "$_t" ] && _force_all_tags+=("$_t")
   done < <(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].tag // empty' 2>/dev/null)
   api_hot_reload inbounds "${_force_all_tags[@]}"
+  info "\n $(text 128) \n"
 
   FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
   [ -s "$WORK_DIR/tunnel.json" ] && cmd_systemctl restart argo
-  sleep 2
   export_list
   cmd_systemctl status xray &>/dev/null && info "
  Xray $(text 28) $(text 37)
@@ -5287,11 +5284,7 @@ change_config() {
     local _val="${MENU_VAL[_i]}"
     local _raw
     eval "_raw=\"\${${L}[${MENU_IDX[_i]}]}\""
-    if [ "${#MENU_IDX[@]}" -ge '10' ] && [ "$(( _i+1 ))" -lt 10 ]; then
-      eval "hint \" $(( _i+1 )) . ${_raw}\""
-    else
-      eval "hint \" $(( _i+1 )). ${_raw}\""
-    fi
+    eval "hint \" $(printf '%3d.' $(( _i+1 ))) ${_raw}\""
   done
   hint ""
   reading " $(text 24) " CHOOSE_NODE_INFO
@@ -5409,12 +5402,12 @@ change_config() {
     [ "${#IFACE_LIST[@]}" -eq 0 ] && warning " $(text 2) " && return
 
     hint "\n $(text 73) \n"
-    hint " $(text 69) "
+    hint " $(printf '%3d.' 1) $(text 69 | sed 's/^1\. //') "
     for _if in "${IFACE_LIST[@]}"; do
-      hint " $IDX. $_if"
+      hint " $(printf '%3d.' $IDX) $_if"
       ((IDX++))
     done
-    hint " 0. $(text 35)"
+    hint " $(printf '%3d.' 0) $(text 35)"
     hint ""
     reading " $(text 24) " CHOOSE_BIND
 
@@ -5442,6 +5435,7 @@ change_config() {
       return
     fi
     api_hot_reload outbound "direct"
+    info "\n $(text 128) \n"
     export_list
     return
   elif [ "$KEY" = "customroute" ]; then
@@ -5687,6 +5681,7 @@ change_config() {
   esac
 
   # name/uuid/sni/ports 已经通过 api_hot_reload inbounds 热更新，无需再重启
+  info "\n $(text 128) \n"
   cmd_systemctl status xray &>/dev/null && \
     info "\n Xray $(text 28) $(text 37) \n" || \
     warning "\n Xray $(text 27) $(text 38) \n"
@@ -5773,7 +5768,7 @@ menu_setting() {
     [ -s $WORK_DIR/nginx.conf ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/##; s/ (.*)//" | sed "s@^@Version: &@g")
 
     local _opt=1
-    OPTION[_opt]="${_opt}.  $(text 29)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 29)"
     eval "ACTION[$_opt]() { export_list; exit 0; }"
     ((_opt++))
 
@@ -5781,10 +5776,10 @@ menu_setting() {
     if [ -s "${ARGO_DAEMON_FILE}" ]; then
       if [ "${STATUS[0]}" = "$(text 28)" ]; then
         local ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
-        [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
-        OPTION[_opt]="${_opt}.  $(text 27) Argo (argox -a)"
+        [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf \"%.1f\", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
+        OPTION[_opt]="$(printf '%3d.' $_opt) $(text 27) Argo (argox -a)"
       else
-        OPTION[_opt]="${_opt}.  $(text 28) Argo (argox -a)"
+        OPTION[_opt]="$(printf '%3d.' $_opt) $(text 28) Argo (argox -a)"
       fi
       [[ ${STATUS[0]} = "$(text 28)" ]] &&
       eval "ACTION[$_opt]() {
@@ -5802,14 +5797,14 @@ menu_setting() {
 
     if [ -s $WORK_DIR/nginx.conf ]; then
       local NGINX_PID=$(pgrep -f "nginx: master process")
-      [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
+      [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf \"%.1f\", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
     fi
     if [ "${STATUS[1]}" = "$(text 28)" ]; then
       local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
-      [ -n "$XRAY_PID" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
-      OPTION[_opt]="${_opt}.  $(text 27) Xray (argox -x)"
+      [ -n "$XRAY_PID" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf \"%.1f\", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
+      OPTION[_opt]="$(printf '%3d.' $_opt) $(text 27) Xray (argox -x)"
     else
-      OPTION[_opt]="${_opt}.  $(text 28) Xray (argox -x)"
+      OPTION[_opt]="$(printf '%3d.' $_opt) $(text 28) Xray (argox -x)"
     fi
     [[ ${STATUS[1]} = "$(text 28)" ]] &&
     eval "ACTION[$_opt]() {
@@ -5825,46 +5820,46 @@ menu_setting() {
 
     # 更换 Argo 隧道：仅当 Argo 守护进程文件存在时才显示
     if [ -s "${ARGO_DAEMON_FILE}" ]; then
-      OPTION[_opt]="${_opt}.  $(text 30)"
+      OPTION[_opt]="$(printf '%3d.' $_opt) $(text 30)"
       eval "ACTION[$_opt]() { change_argo; exit; }"
       ((_opt++))
     fi
 
-    OPTION[_opt]="${_opt}.  $(text 76)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 76)"
     eval "ACTION[$_opt]() { change_config; exit; }"
     ((_opt++))
 
-    OPTION[_opt]="${_opt}.  $(text 95)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 95)"
     eval "ACTION[$_opt]() { change_protocols; exit; }"
     ((_opt++))
 
-    OPTION[_opt]="${_opt}.  $(text 31)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 31)"
     eval "ACTION[$_opt]() { version; exit; }"
     ((_opt++))
 
-    OPTION[_opt]="${_opt}.  $(text 32)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 32)"
     eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }"
     ((_opt++))
 
-    OPTION[_opt]="${_opt}.  $(text 33)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 33)"
     eval "ACTION[$_opt]() { uninstall; exit; }"
     ((_opt++))
 
-    OPTION[_opt]="${_opt}.  $(text 51)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 51)"
     eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -\$L; exit; }"
     ((_opt++))
 
-    OPTION[_opt]="${_opt}.  $(text 57)"
+    OPTION[_opt]="$(printf '%3d.' $_opt) $(text 57)"
     eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -\$L; exit; }"
     ((_opt++))
 
   else
-    OPTION[1]="1.  $(text 77)"
-    OPTION[2]="2.  $(text 146)"
-    OPTION[3]="3.  $(text 34)"
-    OPTION[4]="4.  $(text 32)"
-    OPTION[5]="5.  $(text 51)"
-    OPTION[6]="6.  $(text 57)"
+    OPTION[1]="$(printf '%3d.' 1) $(text 77)"
+    OPTION[2]="$(printf '%3d.' 2) $(text 146)"
+    OPTION[3]="$(printf '%3d.' 3) $(text 34)"
+    OPTION[4]="$(printf '%3d.' 4) $(text 32)"
+    OPTION[5]="$(printf '%3d.' 5) $(text 51)"
+    OPTION[6]="$(printf '%3d.' 6) $(text 57)"
 
     ACTION[1]() { NONINTERACTIVE_INSTALL='noninteractive_install'; IS_SUB=is_sub; fast_install_variables; install_argox; export_list; create_shortcut; exit;}
     ACTION[2]() { IS_SUB=is_sub; install_argox; export_list; create_shortcut; exit; }
@@ -5874,15 +5869,8 @@ menu_setting() {
     ACTION[6]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
   fi
 
-  # 根据选项总数决定对齐格式：≥10 时单位数需要加空格对齐两位数
-  if [ "${#OPTION[@]}" -ge '10' ]; then
-    OPTION[0]="0 .  $(text 35)"
-    for ((_i=1;_i<10;_i++)); do
-      [ -n "${OPTION[_i]}" ] && OPTION[_i]="${_i} . ${OPTION[_i]#*. }"
-    done
-  else
-    OPTION[0]="0.  $(text 35)"
-  fi
+  # 统一编号右对齐：退出选项 0 （数字占3字符位宽+点，与上面所有菜单项完全对齐）
+  OPTION[0]="$(printf '%3d.' 0) $(text 35)"
   ACTION[0]() { exit; }
 }
 
