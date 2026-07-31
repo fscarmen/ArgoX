@@ -21,16 +21,18 @@
 * * *
 
 ## Update Information
+2026.07.31 v2.1.1  Xray real-time traffic stats (-n / -r / main menu)
+
 2026.07.24 v2.1.0 1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu
 
 2026.07.19 v2.0.9 1. Add long-parameter support for semi-interactive install. Support 16 long parameters covering protocols, ports, CDN, UUID, paths, Argo, TLS, Reality, Hysteria2; 2. Add minClientVer to realitySettings for Xray v26.7.11 compatibility
-
-2026.07.18 v2.0.8 1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.07.18 v2.0.8 1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers
+>
 >2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
 >
 >2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes

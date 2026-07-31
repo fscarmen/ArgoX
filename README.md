@@ -20,16 +20,18 @@
 
 * * *
 ## 更新信息
+2026.07.31 v2.1.1 Xray 实时流量统计 (-n / -r / 主菜单)
+
 2026.07.24 v2.1.0 1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关
 
 2026.07.19 v2.0.9 1. 新增长参数半交互安装模，支持 16 个长参数：协议、端口、CDN、UUID、路径、Argo、TLS、Reality、Hysteria2; 2. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段
-
-2026.07.18 v2.0.8 1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.07.18 v2.0.8 1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器
+>
 >2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
 >
 >2026.04.21 v2.0.6 1. 保持 CDN 下的 XHTTP 继续走 Nginx 反代链路，并由 Nginx 负责基于路径的分流; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，在固定隧道下覆盖 HTTP/1.1 CDN 与 HTTP/3 Direct

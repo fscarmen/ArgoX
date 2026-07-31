@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.0 (2026.07.28)'
+VERSION='2.1.1 (2026.07.31)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu"
-C[1]="1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关"
+E[1]="1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu; 4. Xray real-time traffic stats (-n / -r / main menu)"
+C[1]="1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关; 4. Xray 实时流量统计 (-n / -r / 主菜单)"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -429,13 +429,13 @@ check_cdn() {
     return
   fi
 
-  # 获取 HTTP 状态码的函数
+  # 获取 HTTP 状态码（HEAD 探测：只取响应头，不下载 body；--tries=1 避免被墙时 wget 默认 20 次重试放大延迟）
   get_code() {
     local url=$1
     if [ "$CMD" = 'wget' ]; then
-      wget -qT5 -O /dev/null --server-response "$url" 2>&1 | awk '/HTTP\//{code=$2} END{print code}'
+      wget -q --spider --tries=1 -T5 -O /dev/null --server-response "$url" 2>&1 | awk '/HTTP\//{code=$2} END{print code}'
     else
-      curl -skL -w "%{http_code}" "$url" -o /dev/null
+      curl -skL -I --connect-timeout 3 --max-time 5 -o /dev/null -w '%{http_code}' "$url"
     fi
   }
 
@@ -1867,7 +1867,7 @@ input_uuid() {
     UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
     if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
       $_uuid_step_done || { (( STEP_NUM++ )) || true; _uuid_step_done=true; }
-      reading "\n$(text 12) " UUID
+      reading "\n $(text 12) " UUID
     fi
     UUID=${UUID:-"$UUID_DEFAULT"}
     [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] && warning " $(text 4) "
@@ -3893,6 +3893,15 @@ JSONEOF
       "RoutingService"
     ]
   },
+  "stats": {},
+  "policy": {
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  },
   "log": {
     "access": "/dev/null",
     "error": "/dev/null",
@@ -4041,6 +4050,39 @@ EOF
   fi
 
   [ -s /usr/bin/argox ] && hint "\n $(text 62) "
+}
+
+# ── 流量统计：单位换算（B/KB/MB/GB/TB，四舍五入保留 1 位小数） ──
+format_traffic() {
+  local bytes=$1
+  [ "$bytes" -lt 1024 ] && { echo "${bytes} B"; return; }
+  local _div _unit
+  if [ "$bytes" -lt $((1024 * 1024)) ]; then
+    _div=1024; _unit=KB
+  elif [ "$bytes" -lt $((1024 * 1024 * 1024)) ]; then
+    _div=$((1024 * 1024)); _unit=MB
+  elif [ "$bytes" -lt $((1024 * 1024 * 1024 * 1024)) ]; then
+    _div=$((1024 * 1024 * 1024)); _unit=GB
+  else
+    _div=$((1024 * 1024 * 1024 * 1024)); _unit=TB
+  fi
+  local _i=$((bytes / _div))
+  local _r=$(( ((bytes % _div) * 10 + _div / 2) / _div ))
+  [ "$_r" -ge 10 ] && { _i=$((_i + 1)); _r=0; }
+  echo "${_i}.${_r} ${_unit}"
+}
+
+# ── 流量统计：获取 statsquery 数据并缓存到全局（同一次执行只查一次） ──
+STATS_JSON=''
+ensure_stats_data() {
+  [ -n "$STATS_JSON" ] && return 0
+  [ "${STATUS[1]}" != "$(text 28)" ] && return 1
+  [ ! -x "$WORK_DIR/xray" ] && return 1
+  local _api_addr
+  _api_addr="127.0.0.1:$(awk -F= '/^apiPort=/{print $2}' "$CUSTOM_FILE" 2>/dev/null)"
+  [ -z "$_api_addr" ] && _api_addr="127.0.0.1:$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')"
+  [ -z "$_api_addr" ] && return 1
+  STATS_JSON=$($WORK_DIR/xray api statsquery --server="$_api_addr" 2>/dev/null) || return 1
 }
 
 export_list() {
@@ -4370,6 +4412,34 @@ $([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMA
 
   EXPORT_LIST_FILE="${EXPORT_LIST_FILE}${SUB_URL_BLOCK}"
 
+  # === 流量统计块（仅 API 可用时显示；流量为 0 时显示 0 B） ===
+  if ensure_stats_data; then
+    local _in_sum=0 _out_sum=0 _line _name _val
+    while IFS= read -r _line; do
+      _name=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
+      _val=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
+      [ -z "$_name" ] && continue
+      case "$_name" in
+        inbound*traffic*downlink ) _in_sum=$((_in_sum + _val)) ;;
+        outbound*traffic*uplink )  _out_sum=$((_out_sum + _val)) ;;
+      esac
+    done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
+    EXPORT_LIST_FILE="${EXPORT_LIST_FILE}
+
+*******************************************
+┌────────────────┐
+│                │
+│  $(warning "Traffic Stats") │
+│                │
+└────────────────┘
+---------------------------
+
+$(info "⬇ Inbound  (total):  $(format_traffic $_in_sum)")
+$(hint "⬆ Outbound (total):  $(format_traffic $_out_sum)")
+"
+  fi
+  # === 结束 ===
+
   echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
   cat $WORK_DIR/list
 
@@ -4383,6 +4453,35 @@ change_protocols() {
   [ "${STATUS[1]}" = "$(text 26)" ] && error "\n $(text 39) \n"
 
   check_system_ip
+
+  # 加载流量统计（静默；API 不可用时 STATS_JSON 为空，各协议行不显示流量）
+  ensure_stats_data 2>/dev/null
+
+  # 根据协议名返回该协议流量字符串；stats 不可用时返回空串（不显示），
+  # 可用时始终显示（流量为 0 时显示 0 B）
+  _proto_traffic_str() {
+    [ -z "$STATS_JSON" ] && { echo ''; return; }
+    local _p="$1" _ts='' _dl=0 _ul=0 _line _n _v _idx
+    for _idx in "${!NODE_TAG[@]}"; do
+      local _pn="${PROTOCOL_LIST[$_idx]}"
+      [ "$_idx" = '7' ] && _pn=$(text 101)
+      [ "$_p" = "$_pn" ] && { _ts="${NODE_TAG[$_idx]}"; break; }
+    done
+    if [ -n "$_ts" ]; then
+      while IFS= read -r _line; do
+        _n=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
+        _v=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
+        [ -z "$_n" ] && continue
+        # stats 名称格式：inbound>>>{节点名 后缀}>>>traffic>>>{downlink|uplink}，
+        # 后缀前是空格（完整 tag 是 "节点名 后缀"），因此模式为 " ${_ts}>>>"
+        case "$_n" in
+          *" ${_ts}>>>traffic>>>downlink" ) _dl=$((_dl + _v)) ;;
+          *" ${_ts}>>>traffic>>>uplink" )   _ul=$((_ul + _v)) ;;
+        esac
+      done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
+    fi
+    echo "  ⬇$(format_traffic $_dl) ⬆$(format_traffic $_ul)"
+  }
 
   local EXISTED_PROTOCOLS=() NOT_EXISTED_PROTOCOLS=()
   for tag in "${CURRENT_PROTOCOLS[@]}"; do
@@ -4409,7 +4508,8 @@ change_protocols() {
 
   hint "\n $(text 88) (${#EXISTED_PROTOCOLS[@]})"
   for h in "${!EXISTED_PROTOCOLS[@]}"; do
-    hint " $(printf "\\$(printf '%03o' $((h+97)))"). ${EXISTED_PROTOCOLS[h]}"
+    # 协议名按 29 列左对齐（最长名 "VLESS + XHTTP HTTP/3 Direct" 为 27 字符 + 2 空格间隔），使 ⬇ 对齐
+    hint " $(printf "\\$(printf '%03o' $((h+97)))"). $(printf '%-29s' "${EXISTED_PROTOCOLS[h]}")$(_proto_traffic_str "${EXISTED_PROTOCOLS[h]}")"
   done
   reading "\n $(text 89) " REMOVE_SELECT
 
@@ -5776,7 +5876,7 @@ menu_setting() {
     if [ -s "${ARGO_DAEMON_FILE}" ]; then
       if [ "${STATUS[0]}" = "$(text 28)" ]; then
         local ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
-        [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf \"%.1f\", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
+        [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
         OPTION[_opt]="$(printf '%3d.' $_opt) $(text 27) Argo (argox -a)"
       else
         OPTION[_opt]="$(printf '%3d.' $_opt) $(text 28) Argo (argox -a)"
@@ -5797,11 +5897,11 @@ menu_setting() {
 
     if [ -s $WORK_DIR/nginx.conf ]; then
       local NGINX_PID=$(pgrep -f "nginx: master process")
-      [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf \"%.1f\", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
+      [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
     fi
     if [ "${STATUS[1]}" = "$(text 28)" ]; then
       local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
-      [ -n "$XRAY_PID" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf \"%.1f\", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
+      [ -n "$XRAY_PID" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
       OPTION[_opt]="$(printf '%3d.' $_opt) $(text 27) Xray (argox -x)"
     else
       OPTION[_opt]="$(printf '%3d.' $_opt) $(text 28) Xray (argox -x)"
@@ -5891,7 +5991,22 @@ menu() {
   local _AV; printf -v _AV '%-26s' "$ARGO_VERSION"
   local _XV; printf -v _XV '%-26s' "$XRAY_VERSION"
   local _NV; printf -v _NV '%-26s' "$NGINX_VERSION"
-  info "\t Argo:  $(_sv "${STATUS[0]}")  ${_AV}${ARGO_MEMORY}\t ${ARGO_CHECKHEALTH}\n\t Xray:  $(_sv "${STATUS[1]}")  ${_XV}${XRAY_MEMORY}"
+  info "\t Argo:  $(_sv "${STATUS[0]}")  ${_AV}${ARGO_MEMORY}\t ${ARGO_CHECKHEALTH}"
+  local _xray_traffic=""
+  if ensure_stats_data 2>/dev/null; then
+    local _in_sum=0 _out_sum=0 _line _name _val
+    while IFS= read -r _line; do
+      _name=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
+      _val=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
+      [ -z "$_name" ] && continue
+      case "$_name" in
+        inbound*traffic*downlink ) _in_sum=$((_in_sum + _val)) ;;
+        outbound*traffic*uplink )  _out_sum=$((_out_sum + _val)) ;;
+      esac
+    done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
+    _xray_traffic="  ⬇$(format_traffic $_in_sum) ⬆$(format_traffic $_out_sum)"
+  fi
+  info "\t Xray:  $(_sv "${STATUS[1]}")  ${_XV}${XRAY_MEMORY}${_xray_traffic}"
   [ -s $WORK_DIR/nginx.conf ] && info "\t Nginx: $(_sv "${STATUS[2]}")  ${_NV}${NGINX_MEMORY}"
   echo -e "\n======================================================================================================================\n"
   for ((b=1;b<${#OPTION[*]};b++)); do hint " ${OPTION[b]} "; done
@@ -5923,9 +6038,18 @@ if [ -s $WORK_DIR/nginx.conf ] && grep -q 'v2rayN|Neko|Throne' $WORK_DIR/nginx.c
   export_list >/dev/null 2>&1
 fi
 
-###### 为了给旧版本 inbound.json 补全 Xray API 配置块，将于 2026年9月30日移除
-if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%d)" < "20260930" ]]; then
-  grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -e '.api' >/dev/null 2>&1 || {
+###### 为了给旧版本 inbound.json 补全 Xray API 配置块与流量统计配置，将于 2026年10月31日移除
+if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%d)" < "20261031" ]]; then
+  # 三个配置块（api / stats / policy）任一缺失即统一补全并重排：
+  #   - api 仅在缺失时生成（已有 api 对象原样保留）
+  #   - stats 缺失时补 {}，已有时保留
+  #   - policy 缺失或缺少 system 时合并补全，保留已有字段，只添四个统计开关
+  #   - 最后 {api, stats, policy} + . 将三者按 api→stats→policy 顺序置于 JSON 最顶（与新装模板一致）
+  grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -e '
+    (has("api")) and
+    (has("stats") and (.stats | type) == "object") and
+    (has("policy") and ((.policy.system?) | type) == "object")
+  ' >/dev/null 2>&1 || {
     # 旧版本升级默认开启 isSub/isArgo，并补全 bind_interface（仅当 custom 中不存在时）
     grep -q '^isSub=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'isSub' 'is_sub'
     grep -q '^isArgo=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'isArgo' 'is_argo'
@@ -5938,12 +6062,31 @@ if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%
     fi
     _api_listen="127.0.0.1:${_api_port}"
     grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --arg listen "$_api_listen" '
-      .api = {
-        "tag": "api",
-        "listen": $listen,
-        "services": ["HandlerService", "LoggerService", "StatsService", "RoutingService"]
-      }
-    ' > "$TEMP_DIR/inbound_api_tmp.json" 2>/dev/null && mv "$TEMP_DIR/inbound_api_tmp.json" "$WORK_DIR/inbound.json"
+      .api = (if has("api") then .api
+              else { "tag": "api", "listen": $listen,
+                     "services": ["HandlerService", "LoggerService", "StatsService", "RoutingService"] }
+              end) |
+      .stats = (.stats // {}) |
+      .policy = ((.policy // {}) + {
+        "system": (((.policy // {}).system // {}) + {
+          "statsInboundUplink": true,
+          "statsInboundDownlink": true,
+          "statsOutboundUplink": true,
+          "statsOutboundDownlink": true
+        })
+      }) |
+      {api, stats, policy} + .
+    ' > "$TEMP_DIR/inbound_stats_tmp.json" 2>/dev/null && mv "$TEMP_DIR/inbound_stats_tmp.json" "$WORK_DIR/inbound.json" && {
+      # 补全了 api/stats/policy，xray 需重启才能加载 API 监听。
+      # 必须后台执行：若经 xray 代理连接 SSH，重启瞬间连接断开，
+      # 前台等待会因 SSH 中断导致命令未跑完。
+      # 此处在 check_system_info() 之前，SYSTEM 未设置，用 openrc/rc-service 检测区分 Alpine 与 systemd。
+      if [ -d /run/openrc ] || command -v rc-service >/dev/null 2>&1; then
+        ( nohup rc-service xray restart >/dev/null 2>&1 & )
+      else
+        ( nohup systemctl restart xray >/dev/null 2>&1 & )
+      fi
+    }
   }
 fi
 
