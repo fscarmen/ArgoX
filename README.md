@@ -20,6 +20,8 @@
 
 * * *
 ## 更新信息
+2026.08.02 v2.1.2 新增 VLESS + XHTTP HTTP/2 Reality 直连协议（xhttp-h2-reality）
+
 2026.07.31 v2.1.1 Xray 实时流量统计 (-n / -r / 主菜单)
 
 2026.07.24 v2.1.0 1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关
@@ -110,7 +112,7 @@
 * 使用 CloudFlare 的 Argo 隧道，使用 TLS 加密通信，可以将应用程序流量安全地传输到 Cloudflare 网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel 也可以防止 IP 泄露和 DDoS 攻击等网络威胁；
 * Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守 443 被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
 * Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
-* **安装时可按需多选协议**，支持 11 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
+* **安装时可按需多选协议**，支持 12 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP HTTP/2 Reality、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
 * Hysteria2、VLESS + XHTTP Direct、Trojan Direct 使用自签证书直连；更换 TLS 域名时会自动同步重新生成自签证书；
 * **Hysteria2 Realm 模式**：支持 finalmask 配置及 WARP 辅助 NAT 打洞，专为 NAT VPS 场景设计，显著提升 UDP 穿透性能；
 * **自定义 WARP 出站路由规则**：支持域名后缀匹配或 geosite 分类两种规则类型，可分别路由到 warp-IPv4 或 warp-IPv6 出站，灵活实现分流策略；
@@ -169,7 +171,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 | 参数 | 说明 |
 | ---- | ---- |
 | `--LANGUAGE` | c=中文; e=英文 |
-| `--CHOOSE_PROTOCOLS` | 可多选，如 bcef<br> a=全部<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP Direct<br> k=Trojan Direct<br> l=Shadowsocks 2022 Direct |
+| `--CHOOSE_PROTOCOLS` | 可多选，如 bcef<br> a=全部<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP HTTP/2 Reality<br> k=VLESS + XHTTP Direct<br> l=Trojan Direct<br> m=Shadowsocks 2022 Direct |
 | `--START_PORT` | 起始端口，100 - 65520 |
 | `--NGINX_PORT` | Nginx 端口（订阅服务），100 - 65520；n=不需要订阅 |
 | `--SERVER_IP` | 服务器公网 IPv4 或 IPv6 地址 |

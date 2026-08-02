@@ -21,6 +21,8 @@
 * * *
 
 ## Update Information
+2026.08.02 v2.1.2 Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality)
+
 2026.07.31 v2.1.1  Xray real-time traffic stats (-n / -r / main menu)
 
 2026.07.24 v2.1.0 1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu
@@ -111,7 +113,7 @@
 * Using CloudFlare's Argo Tunnel with TLS encrypted communication, application traffic can be securely transmitted to the Cloudflare network, improving application security and reliability. In addition, Argo Tunnel can also prevent network threats such as IP leaks and DDoS attacks;
 * Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
 * Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
-* **Select protocols on demand during installation**, supporting 11 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
+* **Select protocols on demand during installation**, supporting 12 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP HTTP/2 Reality, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
 * Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
 * **Hysteria2 Realm mode**: Supports finalmask config with WARP-assisted NAT piercing, purpose-built for NAT VPS scenarios, significantly improving UDP traversal performance;
 * **Custom WARP outbound routing rules**: Supports domain suffix matching or geosite category as rule types, routing to warp-IPv4 or warp-IPv6 outbounds — flexible policy-based traffic steering;
@@ -170,7 +172,7 @@ Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided v
 | Parameter | Description |
 | --------- | ----------- |
 | `--LANGUAGE` | c=Chinese; e=English |
-| `--CHOOSE_PROTOCOLS` | Multi-select, e.g. bcef<br> a=all<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP Direct<br> k=Trojan Direct<br> l=Shadowsocks 2022 Direct |
+| `--CHOOSE_PROTOCOLS` | Multi-select, e.g. bcef<br> a=all<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP HTTP/2 Reality<br> k=VLESS + XHTTP Direct<br> l=Trojan Direct<br> m=Shadowsocks 2022 Direct |
 | `--START_PORT` | Start port, 100 - 65520 |
 | `--NGINX_PORT` | Nginx port (subscription service), 100 - 65520; n=no subscription |
 | `--SERVER_IP` | Server public IPv4 or IPv6 address |
