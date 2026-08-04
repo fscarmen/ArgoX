@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.2 (2026.08.02)'
+VERSION='2.1.2 (2026.08.05)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -311,18 +311,18 @@ E[132]="1. Add rule\n 2. View rules\n 3. Delete rule\n 0. Back"
 C[132]="1. 添加规则\n 2. 查看规则\n 3. 删除规则\n 0. 返回"
 E[133]="Select rule type:\n 1. domain (domain suffix match)\n 2. geosite (site category)"
 C[133]="选择规则类型:\n 1. domain (域名匹配)\n 2. geosite (站点分类)"
-E[134]="Enter domain suffix (comma-separated, e.g. google.com,telegram.org):"
-C[134]="输入域名后缀 (逗号分隔，如 google.com,telegram.org):"
-E[135]="Enter geosite name (comma-separated, e.g. google,telegram):"
-C[135]="输入 geosite 分类名称 (逗号分隔，如 google,telegram):"
+E[134]="Enter domain suffix (separators: , 、 ; or |, e.g. google.com,telegram.org):"
+C[134]="输入域名后缀（分隔：, 、 ; 或 |，如 google.com,telegram.org）:"
+E[135]="Enter geosite name (separators: , 、 ; or |, e.g. google,telegram):"
+C[135]="输入 geosite 分类名称（分隔：, 、 ; 或 |，如 google,telegram）:"
 E[136]="Select outbound:\n 1. warp-IPv4\n 2. warp-IPv6"
 C[136]="选择出站:\n 1. warp-IPv4\n 2. warp-IPv6"
 E[137]="Custom route rule added successfully."
 C[137]="自定义路由规则添加成功。"
 E[138]="No custom route rules configured."
 C[138]="未配置自定义路由规则。"
-E[139]="Enter custom route rule number(s) to delete (comma-separated):"
-C[139]="输入要删除的自定义路由规则编号 (逗号分隔):"
+E[139]="Enter rule number(s) to delete (separators: , 、 ; or |; range: 2-4, e.g. 1,3,5 or 2-4):"
+C[139]="输入要删除的规则编号（分隔：, 、 ; 或 |；范围：2-4，如 1,3,5 或 2-4）:"
 E[140]="Custom route rule(s) deleted."
 C[140]="自定义路由规则已删除。"
 E[141]="Invalid domain format."
@@ -699,7 +699,7 @@ WantedBy=multi-user.target"
 
 # ============================================================
 # write_xray_daemon() - 统一写入 Xray 守护进程文件
-#   依赖调用方作用域的变量: $SYSTEM $WORK_DIR $INSTALL_NGINX $IS_CENTOS7 $XRAY_DAEMON_FILE
+#   依赖调用方作用域的变量: $SYSTEM $WORK_DIR $INSTALL_NGINX $XRAY_DAEMON_FILE
 #   OpenRC 模板仅此一份，通过 start_pre 处理 nginx；systemd 按 $INSTALL_NGINX 写 ExecStartPre
 # ============================================================
 write_xray_daemon() {
@@ -782,7 +782,7 @@ After=network.target
 
 [Service]
 User=root"
-    [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
+    [[ "$INSTALL_NGINX" != 'n' ]] && XRAY_SERVICE+="
 ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
     XRAY_SERVICE+="
 ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
@@ -1152,7 +1152,7 @@ check_install() {
   fi
   STATUS[2]=$(text 26)
   if [ -s $WORK_DIR/nginx.conf ]; then
-    local _NGINX_PID=$(pgrep -f "nginx: master process" 2>/dev/null)
+    local _NGINX_PID=$(nginx_pid)
     [ -n "$_NGINX_PID" ] && STATUS[2]=$(text 28) || STATUS[2]=$(text 27)
   fi
 
@@ -1179,25 +1179,12 @@ check_install() {
 
 # 为了适配 alpine，定义 cmd_systemctl 的函数
 cmd_systemctl() {
-  nginx_run() {
-    $(command -v nginx) -c $WORK_DIR/nginx.conf
-  }
-
-  nginx_stop() {
-    local NGINX_PID=$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '$0~(work_dir"/nginx.conf"){print $1;exit}')
-    ss -nltp | awk -v p="$NGINX_PID" '$0 ~ "pid=" p "," {print $6}' | tr ',' '\n' | awk -F= '/^pid=/{print $2}' | sort -u | xargs -r kill -9 >/dev/null 2>&1
-  }
-
   local ENABLE_DISABLE=$1
   local APP=$2
   if [ "$ENABLE_DISABLE" = 'enable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
       rc-service $APP start >/dev/null 2>&1
       rc-update add $APP default >/dev/null 2>&1
-    elif [ "$IS_CENTOS" = 'CentOS7' ]; then
-      systemctl daemon-reload
-      systemctl enable --now $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
     else
       systemctl daemon-reload
       systemctl enable --now $APP >/dev/null 2>&1
@@ -1207,19 +1194,13 @@ cmd_systemctl() {
     if [ "$SYSTEM" = 'Alpine' ]; then
       rc-service $APP stop >/dev/null 2>&1
       rc-update del $APP default >/dev/null 2>&1
-    elif [ "$IS_CENTOS" = 'CentOS7' ]; then
-      systemctl disable --now $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_stop
     else
+      systemctl daemon-reload
       systemctl disable --now $APP >/dev/null 2>&1
     fi
   elif [ "$ENABLE_DISABLE" = 'restart' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
       rc-service $APP restart >/dev/null 2>&1
-    elif [ "$IS_CENTOS" = 'CentOS7' ]; then
-      systemctl daemon-reload
-      systemctl restart $APP >/dev/null 2>&1
-      [[ "$APP" = 'xray' ]] && [ -s $WORK_DIR/nginx.conf ] && nginx_run
     else
       systemctl daemon-reload
       systemctl restart $APP >/dev/null 2>&1
@@ -1268,9 +1249,7 @@ check_system_info() {
   fi
 
   ARGO_DAEMON_FILE='/etc/systemd/system/argo.service'; XRAY_DAEMON_FILE='/etc/systemd/system/xray.service'; DAEMON_RUN_PATTERN="ExecStart="
-  if [ "$SYSTEM" = 'CentOS' ]; then
-    IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
-  elif [ "$SYSTEM" = 'Alpine' ]; then
+  if [ "$SYSTEM" = 'Alpine' ]; then
     ARGO_DAEMON_FILE='/etc/init.d/argo'; XRAY_DAEMON_FILE='/etc/init.d/xray'; DAEMON_RUN_PATTERN="command_args="
   fi
 
@@ -2889,6 +2868,39 @@ handle_hy2_realm() {
 
 # 处理防火墙规则
 
+# ===================== nginx 进程管理（统一 WORK_DIR 限定检测）=====================
+# 获取本脚本管理的 nginx master PID（限定 $WORK_DIR/nginx.conf）
+nginx_pid() {
+  ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}'
+}
+
+# 仅重载已运行的脚本 nginx
+nginx_reload() {
+  local _NGINX_PID=$(nginx_pid)
+  [ -n "$_NGINX_PID" ] && nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
+}
+
+# 同步脚本 nginx：nginx.conf 存在时，已在运行则 reload，未运行则启动（失败不阻塞）
+nginx_sync() {
+  [ -s $WORK_DIR/nginx.conf ] || return
+  local _NGINX_PID=$(nginx_pid)
+  if [ -n "$_NGINX_PID" ]; then
+    nginx_reload
+  else
+    $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
+  fi
+}
+
+# 停止脚本管理的 nginx（优雅退出后强杀兜底）
+nginx_stop() {
+  local _NGINX_PID=$(nginx_pid)
+  if [ -n "$_NGINX_PID" ]; then
+    kill -QUIT "$_NGINX_PID" 2>/dev/null
+    sleep 1
+    kill -9 "$_NGINX_PID" 2>/dev/null || true
+  fi
+}
+
 # Nginx 配置文件（新架构：Nginx 作为唯一对外分流入口，按已安装协议动态生成 location）
 json_nginx() {
   local PROTOCOLS_NOW
@@ -3421,7 +3433,7 @@ After=network.target
 
 [Service]
 User=root"
-    [[ "$INSTALL_NGINX" != 'n' && "$IS_CENTOS" != 'CentOS7' ]] && XRAY_SERVICE+="
+    [[ "$INSTALL_NGINX" != 'n' ]] && XRAY_SERVICE+="
 ExecStartPre=/bin/bash -c 'nginx -c $WORK_DIR/nginx.conf -s reload 2>/dev/null || nginx -c $WORK_DIR/nginx.conf'"
     XRAY_SERVICE+="
 ExecStart=$WORK_DIR/xray run -c $WORK_DIR/inbound.json -c $WORK_DIR/outbound.json
@@ -4163,7 +4175,7 @@ export_list() {
   local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
   [ -n "$XRAY_PID" ] && XRAY_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
   if [ -s $WORK_DIR/nginx.conf ]; then
-    local NGINX_PID=$(pgrep -f "nginx: master process")
+    local NGINX_PID=$(nginx_pid)
     [ -n "$NGINX_PID" ] && NGINX_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
   fi
 
@@ -4999,21 +5011,11 @@ EOF
   # 不再需要 nginx 时停止脚本管理的 nginx 进程
   if $_NEED_NGINX; then
     if command -v nginx >/dev/null 2>&1; then
-      local _NGINX_PID=$(pgrep -f "nginx: master process" 2>/dev/null)
-      if [ -n "$_NGINX_PID" ]; then
-        nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
-      else
-        $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
-      fi
+      nginx_sync
     fi
   else
     # 停止脚本管理的 nginx（匹配 $WORK_DIR/nginx.conf）
-    local _NGINX_PID=$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '$0~(work_dir"/nginx.conf") && /nginx: master process/{print $1;exit}')
-    if [ -n "$_NGINX_PID" ]; then
-      kill -QUIT "$_NGINX_PID" 2>/dev/null
-      sleep 1
-      kill -9 "$_NGINX_PID" 2>/dev/null || true
-    fi
+    nginx_stop
   fi
 
   # 当 IS_ARGO=is_argo 但守护进程文件不存在时（如之前被清理），需要完整重建 Argo
@@ -5161,7 +5163,9 @@ change_argo() {
       exit 0
   esac
 
+  # 隧道类型变化后 nginx 反代目标可能变化，同步脚本 nginx
   [ -s $WORK_DIR/nginx.conf ] && json_nginx
+  nginx_sync
   [ -s "$WORK_DIR/tunnel.json" ] && json_argo
   cmd_systemctl enable argo
   export_list
@@ -5187,7 +5191,9 @@ change_start_port() {
   grep -v '^//' "$WORK_DIR/inbound.json"     | $WORK_DIR/jq --argjson start "$START_PORT" '.inbounds |= (to_entries | map(.value.port = ($start + .key) | .value))'     > "$TEMP_DIR/inbound_tmp.json"     && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
 
   fetch_nodes_value
+  # proxy_pass 端口已更新，同步脚本 nginx（已在运行则 reload，未运行则启动）
   [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
+  nginx_sync
   [ -s "$WORK_DIR/tunnel.json" ] && json_argo
 
   # 提取所有 inbound tag 强制热更新（端口变更但 tag 不变，增量 diff 无法检测）
@@ -5224,11 +5230,16 @@ custom_route_sync() {
   grep -v '^//' "$_ob" > "$_ob_tmp.clean" 2>/dev/null || return 1
 
   if [ -s "$CUSTOM_ROUTE_FILE" ] && [ "$($WORK_DIR/jq -r 'length // 0' "$CUSTOM_ROUTE_FILE")" -gt 0 ]; then
+    # 兼容旧版：domain 为字符串的条目归一化为数组并落盘（只迁移一次）
+    if $WORK_DIR/jq -e '[.[] | select((.domain | type) != "array")] | length > 0' "$CUSTOM_ROUTE_FILE" >/dev/null 2>&1; then
+      $WORK_DIR/jq '[.[] | .domain = (if (.domain | type) == "array" then .domain else [.domain] end)]' "$CUSTOM_ROUTE_FILE" > "$_ob_tmp.migrate" 2>/dev/null \
+        && mv "$_ob_tmp.migrate" "$CUSTOM_ROUTE_FILE"
+    fi
     # 将 custom_route.json 条目转为 Xray 路由规则，合并到 outbound.json
     $WORK_DIR/jq -s '
       .[0] as $ob |
       .[1] as $custom |
-      ($custom | to_entries | map({type:"field", domain: [.value.domain], outboundTag: .value.outboundTag, _remark:"custom-route"})) as $new_rules |
+      ($custom | to_entries | map({type:"field", domain: (.value.domain | if type == "array" then . else [.] end), outboundTag: .value.outboundTag, _remark:"custom-route"})) as $new_rules |
       $ob | .routing.rules = ($new_rules + [.routing.rules[]? | select(._remark != "custom-route")])
     ' "$_ob_tmp.clean" "$CUSTOM_ROUTE_FILE" > "$_ob_tmp" 2>/dev/null && mv "$_ob_tmp" "$_ob"
   else
@@ -5267,15 +5278,18 @@ custom_route_add() {
     reading " $(text 134) " DOMAIN_INPUT
     [ -z "$DOMAIN_INPUT" ] && info " $(text 130) " && return
 
-    # 处理输入：支持逗号、空格、中文逗号等分隔
+    # 处理输入：支持逗号、顿号、分号、竖线等分隔（全角/半角）
     local DOMAINS=()
-    mapfile -t DOMAINS < <(printf '%s\n' "$DOMAIN_INPUT" | sed 's/[，、；;|]/,/g; s/,/\n/g; /^$/d' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
+    while IFS= read -r _seg; do
+      _seg=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' <<< "$_seg")
+      [ -n "$_seg" ] && DOMAINS+=("$_seg")
+    done < <(printf '%s\n' "$DOMAIN_INPUT" | sed -e 's/，/,/g' -e 's/、/,/g' -e 's/；/,/g' -e 's/｜/,/g' -e 's/[;|]/,/g' | tr ',' '\n')
     [ "${#DOMAINS[@]}" -eq 0 ] && info " $(text 130) " && return
 
     # 验证域名格式
     local DOMAIN
     for DOMAIN in "${DOMAINS[@]}"; do
-      DOMAIN=$(sed 's/。/./g' <<< "${DOMAIN,,}")
+      DOMAIN=$(sed -e 's/。/./g' -e 's/．/./g' <<< "$DOMAIN" | tr '[:upper:]' '[:lower:]')
       if [[ "$DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]]; then
         VALIDATED_VALUES+=("$DOMAIN")
       else
@@ -5291,32 +5305,36 @@ custom_route_add() {
 
     # 解析逗号分隔输入
     local GEOSITES=()
-    mapfile -t GEOSITES < <(printf '%s\n' "$GEOSITE_INPUT" | sed 's/[，、；;|]/,/g; s/,/\n/g; /^$/d' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
+    while IFS= read -r _seg; do
+      _seg=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' <<< "$_seg")
+      [ -n "$_seg" ] && GEOSITES+=("$_seg")
+    done < <(printf '%s\n' "$GEOSITE_INPUT" | sed -e 's/，/,/g' -e 's/、/,/g' -e 's/；/,/g' -e 's/｜/,/g' -e 's/[;|]/,/g' | tr ',' '\n')
     [ "${#GEOSITES[@]}" -eq 0 ] && info " $(text 130) " && return
 
     local GS
     for GS in "${GEOSITES[@]}"; do
-      GS=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' <<< "${GS,,}")
+      GS=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' <<< "$GS" | tr '[:upper:]' '[:lower:]')
       # 统一格式：去掉 geosite- 或 geosite: 前缀再重新添加
       GS=$(sed -E 's/^geosite[-:]//I' <<< "$GS")
-      [[ -n "$GS" ]] && VALIDATED_VALUES+=("geosite:${GS}")
+      # 校验 geosite 名称：仅字母数字、下划线、连字符
+      [[ "$GS" =~ ^[a-z0-9][a-z0-9_-]*$ ]] && VALIDATED_VALUES+=("geosite:${GS}") || warning " $(text 141) "
     done
     [ "${#VALIDATED_VALUES[@]}" -eq 0 ] && info " $(text 130) " && return
   fi
 
-  # 构建新规则 JSON（Xray 路由格式）
-  local NEW_JSON='[]'
-  local VAL
+  # 构建新规则 JSON（Xray 路由格式：domain 为数组，多值归并为一条规则）
+  local NEW_JSON='[]' DOMAIN_JSON='[]' VAL
   for VAL in "${VALIDATED_VALUES[@]}"; do
-    NEW_JSON=$(echo "$NEW_JSON" | $WORK_DIR/jq --arg d "$VAL" --arg t "$OUTBOUND_TAG" \
-      '. + [{"domain": $d, "outboundTag": $t}]')
+    DOMAIN_JSON=$(echo "$DOMAIN_JSON" | $WORK_DIR/jq --arg d "$VAL" '. + [$d]')
   done
+  NEW_JSON=$(echo "$NEW_JSON" | $WORK_DIR/jq --argjson d "$DOMAIN_JSON" --arg t "$OUTBOUND_TAG" \
+    '. + [{"domain": $d, "outboundTag": $t}]')
 
-  # 读现有规则，去重合并（domain + outboundTag 联合去重）
+  # 读现有规则，去重合并（domain 数组内容 + outboundTag 联合去重）
   if [ -s "$CUSTOM_ROUTE_FILE" ]; then
     $WORK_DIR/jq -s '
       .[0] + .[1] |
-      unique_by(.domain, .outboundTag)
+      unique_by((.domain | if type == "array" then . else [.] end | join(",")), .outboundTag)
     ' "$CUSTOM_ROUTE_FILE" <(echo "$NEW_JSON") > "$CUSTOM_ROUTE_FILE.tmp" 2>/dev/null \
       && mv "$CUSTOM_ROUTE_FILE.tmp" "$CUSTOM_ROUTE_FILE"
   else
@@ -5342,7 +5360,7 @@ custom_route_view() {
   local IDX=0
   while IFS= read -r _item; do
     ((IDX++))
-    local _d=$(echo "$_item" | $WORK_DIR/jq -r '.domain // ""')
+    local _d=$(echo "$_item" | $WORK_DIR/jq -r '.domain | if type == "array" then join(", ") else . end')
     local _t=$(echo "$_item" | $WORK_DIR/jq -r '.outboundTag // "warp-IPv4"')
     printf "  %-4s %-20s %s\n" "$IDX" "$_t" "$_d"
   done < <($WORK_DIR/jq -c '.[]?' "$CUSTOM_ROUTE_FILE" 2>/dev/null)
@@ -5357,9 +5375,22 @@ custom_route_delete() {
   reading " $(text 139) " DELETE_INPUT
   [ -z "$DELETE_INPUT" ] && info " $(text 130) " && return
 
-  # 解析编号
+  # 解析编号：全角/半角分隔符（，、；;|｜）统一为半角逗号后按 `,` 切分；
+  # 逐段去除首尾空格，段内含非数字/非连字符则整段丢弃，防止粘连误删；
+  # 支持范围段：2-4 / 2－4 表示 2、3、4 连续，反向如 4-2 无效
   local DELETE_NUMS=()
-  mapfile -t DELETE_NUMS < <(printf '%s\n' "$DELETE_INPUT" | sed 's/[，、；;|]/,/g; s/,/\n/g; /^$/d' | sed 's/[^0-9]//g; /^$/d')
+  while IFS= read -r _seg; do
+    _seg=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' <<< "$_seg")
+    [ -z "$_seg" ] && continue
+    if [[ "$_seg" =~ ^[0-9]+$ ]]; then
+      DELETE_NUMS+=("$_seg")
+    elif [[ "$_seg" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+      local _range_s="${BASH_REMATCH[1]}" _range_e="${BASH_REMATCH[2]}"
+      [ "$_range_s" -le "$_range_e" ] || continue
+      local _i
+      for _i in $(seq "$_range_s" "$_range_e"); do DELETE_NUMS+=("$_i"); done
+    fi
+  done < <(printf '%s\n' "$DELETE_INPUT" | sed -e 's/，/,/g' -e 's/、/,/g' -e 's/；/,/g' -e 's/｜/,/g' -e 's/[;|]/,/g' -e 's/－/-/g' | tr ',' '\n')
   [ "${#DELETE_NUMS[@]}" -eq 0 ] && info " $(text 130) " && return
 
   local TOTAL
@@ -5371,14 +5402,17 @@ custom_route_delete() {
   done
   [ "${#TO_DELETE[@]}" -eq 0 ] && info " $(text 130) " && return
 
-  # 排序去重（降序）
-  mapfile -t TO_DELETE < <(printf '%s\n' "${TO_DELETE[@]}" | sort -ru)
+  # 排序去重（数字降序；同步读取避免进程替换在 bash 3.2 下的竞态）
+  local SORTED_NUMS
+  SORTED_NUMS=$(printf '%s\n' "${TO_DELETE[@]}" | sort -rn -u)
+  TO_DELETE=()
+  while IFS= read -r NUM; do [ -n "$NUM" ] && TO_DELETE+=("$NUM"); done <<< "$SORTED_NUMS"
 
   # 删除指定索引的条目（jq 索引从 0 开始）
   local DEL_FILTER='del('
   local FIRST=true
   for NUM in "${TO_DELETE[@]}"; do
-    $FIRST || DEL_FILTER+=' | '
+    $FIRST || DEL_FILTER+=', '
     DEL_FILTER+=".[$((NUM-1))]"
     FIRST=false
   done
@@ -5392,7 +5426,7 @@ custom_route_delete() {
 
   custom_route_sync
   api_hot_reload custom_routes
-  info " $(text 140) "
+  [ "${#TO_DELETE[@]}" -gt 1 ] && info " $(text 140) (${#TO_DELETE[@]})" || info " $(text 140) "
 }
 
 # 自定义路由规则子菜单
@@ -5654,8 +5688,7 @@ change_config() {
 
       if ! $_HAS_WS; then
         # 没有任何 WS/XHTTP → nginx 不再需要，停止并清理
-        local _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}')
-        [ -n "$_NGINX_PID" ] && { kill -QUIT "$_NGINX_PID" 2>/dev/null; sleep 1; kill -9 "$_NGINX_PID" 2>/dev/null || true; }
+        nginx_stop
         rm -f $WORK_DIR/nginx.conf
         # 重写 xray.service 去掉 ExecStartPre（仅 systemd）
         if [ "$SYSTEM" != 'Alpine' ]; then
@@ -5664,10 +5697,7 @@ change_config() {
         fi
       else
         # 还有 WS/XHTTP，重载 nginx（新配置不包含订阅路由）
-        local _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}')
-        if [ -n "$_NGINX_PID" ]; then
-          nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
-        fi
+        nginx_reload
       fi
 
       # 清理旧的订阅文件及 qrencode
@@ -5707,8 +5737,8 @@ change_config() {
 
       json_nginx
 
-      # 确保 xray.service 包含 ExecStartPre（仅 systemd，且 CentOS7 不支持 nginx）
-      if [ "$SYSTEM" != 'Alpine' ] && [ "$IS_CENTOS" != 'CentOS7' ]; then
+      # 确保 xray.service 包含 ExecStartPre（仅 systemd，含 CentOS7）
+      if [ "$SYSTEM" != 'Alpine' ]; then
         if ! grep -q 'ExecStartPre.*nginx' ${XRAY_DAEMON_FILE} 2>/dev/null; then
           sed -i '/^ExecStart=/i ExecStartPre=/bin/bash -c '\''nginx -c '"$WORK_DIR"'/nginx.conf -s reload 2>/dev/null || nginx -c '"$WORK_DIR"'/nginx.conf'\' "${XRAY_DAEMON_FILE}"
           cmd_systemctl daemon-reload 2>/dev/null || true
@@ -5716,12 +5746,7 @@ change_config() {
       fi
 
       # 启动/重载 nginx
-      local _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf") && /nginx: master process/{print $1;exit}')
-      if [ -n "$_NGINX_PID" ]; then
-        nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
-      else
-        $(command -v nginx) -c $WORK_DIR/nginx.conf >/dev/null 2>&1 || true
-      fi
+      nginx_sync
 
       write_custom 'isSub' "${IS_SUB}"
       export_list
@@ -5824,11 +5849,7 @@ change_config() {
       # UUID 用于 nginx.conf 的 location 路径，需重新生成 nginx.conf
       UUID="$NEW_VAL"
       json_nginx
-      local _NGINX_PID
-      _NGINX_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/nginx.conf"){print $1;exit}')
-      if [ -n "$_NGINX_PID" ]; then
-        nginx -c "$WORK_DIR/nginx.conf" -s reload >/dev/null 2>&1 || true
-      fi
+      nginx_reload
       api_hot_reload inbounds "${_force_update_tags[@]}"
       ;;
     sni)
@@ -5875,6 +5896,10 @@ change_config() {
         # argo tunnel 出站和订阅地址也要同步更新端口
         # customroute 需要重新绑定路由
       fi
+
+      # nginx.conf 的 proxy_pass 指向 ws 端口，需重新生成并同步 nginx
+      [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
+      nginx_sync
       api_hot_reload inbounds "${_force_update_tags[@]}"
       ;;
   esac
@@ -5895,13 +5920,7 @@ uninstall() {
     cmd_systemctl disable argo >/dev/null 2>&1
     cmd_systemctl disable xray >/dev/null 2>&1
     purge_managed_firewall_rules >/dev/null 2>&1 || true
-    local _NGINX_MASTER
-    _NGINX_MASTER=$(ps -eo pid,args | awk '/nginx: master process.*\/etc\/argox\/nginx.conf/{print $1;exit}')
-    if [ -n "$_NGINX_MASTER" ]; then
-      kill -QUIT "$_NGINX_MASTER" 2>/dev/null
-      sleep 1
-      kill -9 "$_NGINX_MASTER" 2>/dev/null || true
-    fi
+    nginx_stop
     # 仅当 WORK_DIR/nginx.conf 存在时（即本脚本管理的 nginx 实例）才询问是否卸载
     [ -s $WORK_DIR/nginx.conf ] && command -v nginx >/dev/null 2>&1 && {
       reading "\n $(text 65) " REMOVE_NGINX
@@ -5995,7 +6014,7 @@ menu_setting() {
     fi
 
     if [ -s $WORK_DIR/nginx.conf ]; then
-      local NGINX_PID=$(pgrep -f "nginx: master process")
+      local NGINX_PID=$(nginx_pid)
       [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
     fi
     if [ "${STATUS[1]}" = "$(text 28)" ]; then
