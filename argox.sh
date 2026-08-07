@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.2 (2026.08.05)'
+VERSION='2.1.3 (2026.08.07)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -28,7 +28,7 @@ START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此�
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='26.7.11'
+DEFAULT_XRAY_VERSION='26.7.28'
 IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
 IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
 
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality); 2. On-demand nginx/cloudflared; 3. Xray API hot reload with zero interruption; 4. Subscription toggle in -d menu; 5. Xray real-time traffic stats (-n / -r / main menu)"
-C[1]="1. 新增 VLESS + XHTTP HTTP/2 Reality 直连协议（xhttp-h2-reality）; 2. nginx/cloudflared 按需安装; 3. Xray API 热加载零中断; 4. -d 菜单订阅开关; 5. Xray 实时流量统计 (-n / -r / 主菜单)"
+E[1]="1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation via -d to keep the install flow unchanged; 2. Server address accepts an IP or a domain (for NAT VPS whose public IP changes daily, use a DDNS domain), available both during install and afterwards via -d"
+C[1]="1. [argox -d] 支持为各协议设置独立（非连续）端口，仅在安装后通过 -d 修改，不影响常规安装流程; 2. 服务器地址支持填写 IP 或域名（NAT VPS 公网 IP 易变化时可用 DDNS 域名），新安装和安装后修改均可适用"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -151,8 +151,8 @@ E[52]="Memory Usage"
 C[52]="内存占用"
 E[53]="The xray service is detected to be installed. Script exits."
 C[53]="检测到已安装 xray 服务，脚本退出!"
-E[54]="Warp / warp-go was detected to be running. Please enter the correct server IP:"
-C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器 IP:"
+E[54]="Warp / warp-go was detected to be running. Please enter the correct server address (IP or domain):"
+C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器地址（IP 或域名）:"
 E[55]="The script runs today: \${TODAY}. Total: \${TOTAL}"
 C[55]="脚本当天运行次数: \${TODAY}，累计运行次数: \${TOTAL}"
 E[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter the starting port for all protocols. Must be \${MIN_PORT}-\${MAX_PORT}, need \${NUM} consecutive free ports (Default: \${START_PORT_DEFAULT}):"
@@ -161,8 +161,8 @@ E[57]="Install sba scripts (argo + sing-box) [https://github.com/fscarmen/sba]"
 C[57]="安装 sba 脚本 (argo + sing-box) [https://github.com/fscarmen/sba]"
 E[58]="Xray config syntax check failed, details:"
 C[58]="Xray 配置文件语法错误，详情："
-E[59]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter VPS IP (Default is: \${SERVER_IP_DEFAULT}):"
-C[59]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 VPS IP (默认为: \${SERVER_IP_DEFAULT}):"
+E[59]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter server address, IP or domain (Default is: \${SERVER_IP_DEFAULT}):"
+C[59]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入服务器地址（IP 或域名）(默认为: \${SERVER_IP_DEFAULT}):"
 E[60]="Please enter new value (press Enter to skip):"
 C[60]="请输入新值 (回车跳过):"
 E[61]="Port already in use:"
@@ -265,10 +265,10 @@ E[109]="Node name (current: \${_val})"
 C[109]="节点名称 (当前：\${_val})"
 E[110]="UUID / Password (current: \${_val})"
 C[110]="UUID / 密码 (当前：\${_val})"
-E[111]="Server IP (current: \${_val})"
-C[111]="服务器 IP (当前：\${_val})"
-E[112]="Invalid IP address format"
-C[112]="IP 地址格式错误"
+E[111]="Server address (current: \${_val})"
+C[111]="服务器地址 (当前：\${_val})"
+E[112]="Invalid server address (IPv4 / IPv6 / domain)"
+C[112]="服务器地址格式错误（IPv4 / IPv6 / 域名）"
 E[113]="(VLESS + XHTTP not supported)"
 C[113]="（不支持 VLESS + XHTTP）"
 E[114]="Port range out of bounds. Start must be \${MIN_HOPPING_PORT}–\${MAX_HOPPING_PORT}, end must be \${MIN_HOPPING_PORT}–\${MAX_HOPPING_PORT}, and start < end."
@@ -357,6 +357,32 @@ E[155]="API replace routing rules failed"
 C[155]="API 替换路由规则失败"
 E[156]="Routing rules file is empty"
 C[156]="路由规则文件为空"
+E[157]="Port modification mode:\n 1. Modify start port (protocols occupy sequential ports, default)\n 2. Set an independent port for each protocol"
+C[157]="端口修改方式:\n 1. 修改开始端口（各协议按顺序占用，默认）\n 2. 修改为各协议独立端口"
+E[158]="Select the protocols whose ports to change (multi-select, e.g. bcf; asked in the same order as typed; blank = nothing to change):\n a. all (default)"
+C[158]="多选需要修改端口的协议（如 bcf，询问顺序与输入顺序一致，留空表示不修改）:\n a. all (默认)"
+E[159]="Enter the new port for \${PROTO} (current: \${PORT}, leave blank to keep):"
+C[159]="请输入「\${PROTO}」的新端口 (当前: \${PORT}，留空保持不变):"
+E[160]="Listening ports (current: \${PORTS})"
+C[160]="监听端口 (当前: \${PORTS})"
+E[161]="Ports unchanged, nothing to modify."
+C[161]="端口未变化，未做任何修改。"
+E[162]="Port \${PORT} is occupied by another protocol or service."
+C[162]="端口 \${PORT} 已被其他协议或服务占用。"
+E[163]="Port change preview:"
+C[163]="端口变更预览:"
+E[164]="Apply the changes [y/N] (default N):"
+C[164]="是否应用以上修改 [y/N] (默认为 N):"
+E[165]="\${PROTO}: \${OLD} -> \${NEW}"
+C[165]="\${PROTO}: \${OLD} -> \${NEW}"
+E[166]="Ports updated and hot-reloaded."
+C[166]="端口已更新并已热加载。"
+E[167]="Port \${PORT} is already in use by \${PROTO}."
+C[167]="端口 \${PORT} 已被 \${PROTO} 使用。"
+E[168]="\${LETTER}. \${PROTO} (\${PORT})"
+C[168]="\${LETTER}. \${PROTO} (\${PORT})"
+E[169]="Start port \${OLD_START} -> \${NEW_START}: \${NUM} protocol ports will become \${NEW_START} - \${NEW_END}."
+C[169]="起始端口 \${OLD_START} -> \${NEW_START}: \${NUM} 个协议端口将变为 \${NEW_START} - \${NEW_END}。"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -400,6 +426,15 @@ refresh_port_snapshot() {
 is_port_in_use() {
   local _PORT="$1"
   grep -qE "(^|[[:space:]])[^[:space:]]*:${_PORT}([[:space:]]|$)" <<< "$PORT_SNAPSHOT"
+}
+
+# 校验服务器地址：IPv4 / IPv6 / 域名（域名须含至少一个点，NAT 场景可用 DDNS 域名）
+is_valid_server_addr() {
+  local _ADDR="$1"
+  [[ "$_ADDR" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && return 0
+  [[ "$_ADDR" =~ ^[0-9a-fA-F:]+$ && "$_ADDR" =~ : ]] && return 0
+  [[ "$_ADDR" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$ ]] && return 0
+  return 1
 }
 
 # 查找空闲端口（复用 refresh_port_snapshot + is_port_in_use）
@@ -1319,7 +1354,7 @@ check_system_ip() {
       SERVER_IP_DEFAULT=$WAN6
     elif [ -s "$CUSTOM_FILE" ]; then
       local a=6
-      until [ -n "$SERVER_IP" ]; do
+      until [ -n "$SERVER_IP" ] && is_valid_server_addr "$SERVER_IP"; do
         ((a--)) || true
         [ "$a" = 0 ] && error "\n $(text 3) \n"
         reading "\n $(text 54) " SERVER_IP
@@ -1568,7 +1603,15 @@ xray_variable() {
   if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
     if [ "$SKIP_MENU" != 'skip_menu' ] || [ -z "$SERVER_IP" ]; then
       (( STEP_NUM++ )) || true
-      reading "\n $(text 59) " SERVER_IP
+      local IP_ERROR_TIME=6
+      while true; do
+        reading "\n $(text 59) " SERVER_IP
+        [ -z "$SERVER_IP" ] && break
+        is_valid_server_addr "$SERVER_IP" && break
+        (( IP_ERROR_TIME-- )) || true
+        [ "$IP_ERROR_TIME" = 0 ] && error "\n $(text 3) \n"
+        warning " $(text 112) "
+      done
     fi
   fi
   SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
@@ -3254,7 +3297,14 @@ install_argox() {
   fi
 
   # ChatGPT 解锁检测，决定 OpenAI 路由的 outboundTag（direct / warp-IPv4 / warp-IPv6）
-  [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && CHATGPT_STACK='-4' || CHATGPT_STACK='-6'
+  if [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    CHATGPT_STACK='-4'
+  elif [[ "$SERVER_IP" =~ ^[0-9a-fA-F:]+$ && "$SERVER_IP" =~ : ]]; then
+    CHATGPT_STACK='-6'
+  else
+    # 域名为 NAT 场景的动态地址，交由 wget 按系统默认栈解析
+    CHATGPT_STACK=''
+  fi
   if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
     CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
   else
@@ -5192,25 +5242,85 @@ change_argo() {
   export_list
 }
 
-# 更换起始端口
-change_start_port() {
-  local OLD_PORTS OLD_START_PORT OLD_CONSECUTIVE_PORTS
-  local _STEP_NUM_BAK="${STEP_NUM-}" _TOTAL_STEPS_BAK="${TOTAL_STEPS-}"
-  [ ! -s "$WORK_DIR/inbound.json" ] && error " $(text 70) "
-  OLD_PORTS=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
-  [ -z "$OLD_PORTS" ] && error " $(text 70) "
-  OLD_START_PORT=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$OLD_PORTS")
-  OLD_CONSECUTIVE_PORTS=$(awk 'END { print NR }' <<< "$OLD_PORTS")
-  unset STEP_NUM TOTAL_STEPS
-  START_PORT=''
-  input_start_port "$OLD_CONSECUTIVE_PORTS"
-  STEP_NUM="$_STEP_NUM_BAK"
-  TOTAL_STEPS="$_TOTAL_STEPS_BAK"
-  [ -z "$START_PORT" ] && info " $(text 103) " && return
-  [ "$START_PORT" = "$OLD_START_PORT" ] && info " $(text 103) " && return
+# 端口列表压缩为连续段显示（方案 C）：排序去重后按连续段显示，单段 "a - b"，多段逗号分隔；
+# 段数 >4 时只显示前 4 段，末尾追加 "等 N 个"（N = 未显示的端口总数）
+format_ports_display() {
+  local -a PORTS=("$@") SEGS=()
+  local -i TOTAL=0 i a b
+  local PREV='' SEG_START='' OUT=''
+  [ "${#PORTS[@]}" -eq 0 ] && { echo; return; }
+  PORTS=($(printf '%s\n' "${PORTS[@]}" | sort -n | uniq))
+  TOTAL=${#PORTS[@]}
+  SEG_START=${PORTS[0]}
+  PREV=${PORTS[0]}
+  for ((i=1; i<TOTAL; i++)); do
+    if [ $((PREV + 1)) -eq ${PORTS[i]} ]; then
+      PREV=${PORTS[i]}
+    else
+      SEGS+=("$SEG_START $PREV")
+      SEG_START=${PORTS[i]}
+      PREV=${PORTS[i]}
+    fi
+  done
+  SEGS+=("$SEG_START $PREV")
+  if [ "${#SEGS[@]}" -eq 1 ]; then
+    read -r a b <<< "${SEGS[0]}"
+    [ "$a" -eq "$b" ] && OUT="$a" || OUT="${a} - ${b}"
+    if [ "$TOTAL" -gt 6 ]; then
+      [ "$L" = 'C' ] && OUT="${OUT}，共 ${TOTAL} 个" || OUT="${OUT}, ${TOTAL} in total"
+    fi
+  elif [ "${#SEGS[@]}" -le 4 ]; then
+    local -a PARTS=()
+    for s in "${SEGS[@]}"; do
+      read -r a b <<< "$s"
+      [ "$a" -eq "$b" ] && PARTS+=("$a") || PARTS+=("${a} - ${b}")
+    done
+    OUT="${PARTS[0]}"
+    for s in "${PARTS[@]:1}"; do OUT="${OUT}, ${s}"; done
+  else
+    local -a PARTS=()
+    local -i SHOWN=0
+    for ((i=0; i<4; i++)); do
+      read -r a b <<< "${SEGS[i]}"
+      SHOWN=$(( SHOWN + b - a + 1 ))
+      [ "$a" -eq "$b" ] && PARTS+=("$a") || PARTS+=("${a} - ${b}")
+    done
+    OUT="${PARTS[0]}"
+    for s in "${PARTS[@]:1}"; do OUT="${OUT}, ${s}"; done
+    if [ "$L" = 'C' ]; then
+      OUT="${OUT} ... 等 $(( TOTAL - SHOWN )) 个"
+    else
+      OUT="${OUT} ... $(( TOTAL - SHOWN )) more"
+    fi
+  fi
+  echo "$OUT"
+}
 
-  grep -v '^//' "$WORK_DIR/inbound.json"     | $WORK_DIR/jq --argjson start "$START_PORT" '.inbounds |= (to_entries | map(.value.port = ($start + .key) | .value))'     > "$TEMP_DIR/inbound_tmp.json"     && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
+# -d 菜单：监听端口 → 方式选择（1. 修改开始端口，默认 / 2. 各协议独立端口）
+change_port_mode() {
+  local PORTS_MODE='' MODE_ERROR=6
+  while true; do
+    hint "\n $(text 157) "
+    reading "\n $(text 24) " PORTS_MODE
+    case "${PORTS_MODE:-1}" in
+      1 ) change_start_port; return ;;
+      2 ) change_independent_port; return ;;
+      * ) (( MODE_ERROR-- )) || true
+          [ "$MODE_ERROR" = 0 ] && error "\n $(text 3) \n"
+          warning " $(text 123) " ;;
+    esac
+  done
+}
 
+# 读取 hysteria2 当前监听端口（未安装时输出为空）
+get_hy2_port() {
+  [ -s "$WORK_DIR/inbound.json" ] || return
+  grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "hysteria2") | .port] | .[0] // empty' 2>/dev/null
+}
+
+# 端口应用后的通用后处理（方式 1 / 2 共用）：nginx / argo / 热加载 / hy2 端口跳跃目标重建 / 防火墙 / 订阅
+apply_ports_post() {
+  local HY2_OLD="$1" HY2_NEW="$2"
   fetch_nodes_value
   # proxy_pass 端口已更新，同步脚本 nginx（已在运行则 reload，未运行则启动）
   [ -s "$WORK_DIR/nginx.conf" ] && json_nginx
@@ -5225,6 +5335,15 @@ change_start_port() {
   api_hot_reload inbounds "${_force_all_tags[@]}"
   info "\n $(text 128) \n"
 
+  # Hysteria2 端口跳跃目标同步（hy2 端口变化且跳跃已启用时，显式重建 dnat 目标）
+  if [ -n "$HY2_OLD" ] && [ -n "$HY2_NEW" ] && [ "$HY2_OLD" != "$HY2_NEW" ]; then
+    check_port_hopping_nat
+    if [ -n "$PORT_HOPPING_START" ] && [ -n "$PORT_HOPPING_END" ]; then
+      del_port_hopping_nat
+      FIREWALL_SILENT=1 add_port_hopping_nat "$PORT_HOPPING_START" "$PORT_HOPPING_END" "$HY2_NEW" >/dev/null 2>&1
+    fi
+  fi
+
   FIREWALL_SILENT=1 sync_firewall_rules >/dev/null 2>&1 || true
   [ -s "$WORK_DIR/tunnel.json" ] && cmd_systemctl restart argo
   export_list
@@ -5233,6 +5352,153 @@ change_start_port() {
 " || warning "
  Xray $(text 27) $(text 38)
 "
+  # 显示新端口列表
+  local PORTS=$(format_ports_display $(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | .port // empty' 2>/dev/null))
+  [ -n "$PORTS" ] && hint " $(text 160) "
+  info " $(text 166) "
+}
+
+# 方式 2：各协议独立端口（多选协议 → 逐项询问端口 → 校验 → 预览确认 → 应用）
+change_independent_port() {
+  local -a LETTERS=() PROTOS=() PORTS=() PROTO_IDX=()
+  local -A OWNER=()
+  local -i i j
+  local letter proto port json
+  json=$(grep -v '^//' "$WORK_DIR/inbound.json" 2>/dev/null)
+  [ -z "$json" ] && { info " $(text 130) "; return; }
+  for ((i=0; i<${#PROTOCOL_LIST[@]}; i++)); do
+    port=$(echo "$json" | $WORK_DIR/jq -r --arg tag "${NODE_TAG[i]}" '[.inbounds[] | select(.tag | split(" ")[-1] == $tag) | .port] | .[0] // empty' 2>/dev/null)
+    [ -z "$port" ] && continue
+    letter=$(asc $((i+98)))
+    LETTERS+=("$letter"); PROTOS+=("${PROTOCOL_LIST[i]}"); PORTS+=("$port"); PROTO_IDX+=("$i")
+    OWNER[$port]="${PROTOCOL_LIST[i]}"
+  done
+  [ "${#LETTERS[@]}" -eq 0 ] && { info " $(text 130) "; return; }
+
+  # 多选需要修改端口的协议（a = 全部，b.. = 逐协议，留空 = 不修改，顺序 = 输入顺序）
+  local MAX_LETTER=$(asc $(( ${#PROTOCOL_LIST[@]} + 97 )))
+  local CHOOSE='' SELECTED=()
+  hint "\n $(text 158) "
+  for ((i=0; i<${#LETTERS[@]}; i++)); do
+    local LETTER="${LETTERS[i]}" PROTO="${PROTOS[i]}" PORT="${PORTS[i]}"
+    hint " $(text 168) "
+  done
+  reading "\n $(text 24) " CHOOSE
+  if [ -z "$CHOOSE" ]; then
+    info " $(text 130) "
+    return
+  fi
+  if [[ "${CHOOSE,,}" =~ ^[aA]$ ]]; then
+    SELECTED=("${LETTERS[@]}")
+  else
+    local FILTERED=$(grep -o . <<< "${CHOOSE,,}" | sed "/[^b-$MAX_LETTER]/d" | awk '!seen[$0]++' | tr -d '\n')
+    local TMP=() ch
+    while IFS= read -r -n1 ch; do
+      [ -n "$ch" ] && [[ " ${LETTERS[*]} " =~ " $ch " ]] && TMP+=("$ch")
+    done <<< "$FILTERED"
+    SELECTED=("${TMP[@]}")
+  fi
+  [ "${#SELECTED[@]}" -eq 0 ] && { info " $(text 130) "; return; }
+
+  # 逐协议询问新端口（留空 = 不变；校验：数字范围 / 与他协议重复 / 系统占用，错误即时提示，上限 6 次）
+  local -a CHG_LETTERS=() CHG_OLDS=() CHG_NEWS=()
+  local chg_letter proto oldport newport conflict new_port err_time
+  for ((j=0; j<${#SELECTED[@]}; j++)); do
+    chg_letter="${SELECTED[j]}"
+    for ((i=0; i<${#LETTERS[@]}; i++)); do
+      [ "${LETTERS[i]}" = "$chg_letter" ] && break
+    done
+    proto="${PROTOS[i]}"; oldport="${PORTS[i]}"
+    new_port=''
+    err_time=6
+    while true; do
+      local PROTO="$proto" PORT="$oldport"
+      reading " $(text 159) " new_port
+      if [ -z "$new_port" ]; then
+        newport="$oldport"; break
+      fi
+      if [[ "$new_port" =~ ^[1-9][0-9]{2,4}$ && "$new_port" -ge "$MIN_PORT" && "$new_port" -le "$MAX_PORT" ]]; then
+        conflict="${OWNER[$new_port]-}"
+        if [ -n "$conflict" ] && [ "$conflict" != "$proto" ]; then
+          local PORT="$new_port" PROTO="$conflict"
+          warning " $(text 167) "
+          (( err_time-- )) || true
+          [ "$err_time" = 0 ] && error "\n $(text 3) \n"
+          continue
+        fi
+        if [ "$new_port" != "$oldport" ]; then
+          refresh_port_snapshot
+          if is_port_in_use "$new_port"; then
+            local PORT="$new_port"
+            warning " $(text 162) "
+            (( err_time-- )) || true
+            [ "$err_time" = 0 ] && error "\n $(text 3) \n"
+            continue
+          fi
+        fi
+        newport="$new_port"; break
+      else
+        local PORT="$new_port"
+        warning " $(text 162) "
+        (( err_time-- )) || true
+        [ "$err_time" = 0 ] && error "\n $(text 3) \n"
+      fi
+    done
+    [ "$newport" != "$oldport" ] && { unset "OWNER[$oldport]"; OWNER[$newport]="$proto"; }
+    [ "$newport" != "$oldport" ] && { CHG_LETTERS+=("$chg_letter"); CHG_OLDS+=("$oldport"); CHG_NEWS+=("$newport"); }
+  done
+
+  [ "${#CHG_LETTERS[@]}" -eq 0 ] && { info " $(text 161) "; return; }
+
+  # 变更预览（只列变更项）与确认
+  hint "\n $(text 163) "
+  for ((j=0; j<${#CHG_LETTERS[@]}; j++)); do
+    for ((i=0; i<${#LETTERS[@]}; i++)); do
+      [ "${LETTERS[i]}" = "${CHG_LETTERS[j]}" ] && break
+    done
+    local PROTO="${PROTOS[i]}" OLD="${CHG_OLDS[j]}" NEW="${CHG_NEWS[j]}"
+    hint " $(text 165) "
+  done
+  reading " $(text 164) " PORTS_CONFIRM
+  [ "${PORTS_CONFIRM,,}" != 'y' ] && { info " $(text 130) "; return; }
+
+  # 应用（按 tag 映射逐一改写 inbound.json，避免端口号在其他字段重复出现时误伤）
+  local HY2_OLD=$(get_hy2_port)
+  for ((j=0; j<${#CHG_LETTERS[@]}; j++)); do
+    for ((i=0; i<${#LETTERS[@]}; i++)); do
+      [ "${LETTERS[i]}" = "${CHG_LETTERS[j]}" ] && break
+    done
+    grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --arg tag "${NODE_TAG[PROTO_IDX[i]]}" --argjson port "${CHG_NEWS[j]}"       '.inbounds |= map(if (.tag | split(" ")[-1] == $tag) then .port = $port else . end)'       > "$TEMP_DIR/inbound_tmp.json" && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
+  done
+  apply_ports_post "$HY2_OLD" "$(get_hy2_port)"
+}
+
+# 方式 1：修改开始端口（各协议按顺序占用，现有逻辑 + 预览确认 + hy2 跳跃联动）
+change_start_port() {
+  local OLD_PORTS OLD_START_PORT OLD_CONSECUTIVE_PORTS
+  local _STEP_NUM_BAK="${STEP_NUM-}" _TOTAL_STEPS_BAK="${TOTAL_STEPS-}"
+  [ ! -s "$WORK_DIR/inbound.json" ] && error " $(text 70) "
+  OLD_PORTS=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
+  [ -z "$OLD_PORTS" ] && error " $(text 70) "
+  OLD_START_PORT=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$OLD_PORTS")
+  OLD_CONSECUTIVE_PORTS=$(awk 'END { print NR }' <<< "$OLD_PORTS")
+  local HY2_OLD=$(get_hy2_port)
+  unset STEP_NUM TOTAL_STEPS
+  START_PORT=''
+  input_start_port "$OLD_CONSECUTIVE_PORTS"
+  STEP_NUM="$_STEP_NUM_BAK"
+  TOTAL_STEPS="$_TOTAL_STEPS_BAK"
+  [ -z "$START_PORT" ] && info " $(text 103) " && return
+  [ "$START_PORT" = "$OLD_START_PORT" ] && info " $(text 103) " && return
+  # 预览确认（方式 1 / 方式 2 同一套确认交互）
+  local NUM="$OLD_CONSECUTIVE_PORTS" OLD_START="$OLD_START_PORT" NEW_START="$START_PORT" NEW_END=$((START_PORT + OLD_CONSECUTIVE_PORTS - 1))
+  hint "\n $(text 169) "
+  reading " $(text 164) " PORTS_CONFIRM
+  [ "${PORTS_CONFIRM,,}" != 'y' ] && { info " $(text 130) "; return; }
+
+  grep -v '^//' "$WORK_DIR/inbound.json"     | $WORK_DIR/jq --argjson start "$START_PORT" '.inbounds |= (to_entries | map(.value.port = ($start + .key) | .value))'     > "$TEMP_DIR/inbound_tmp.json"     && mv "$TEMP_DIR/inbound_tmp.json" "$WORK_DIR/inbound.json" || error " $(text 38) "
+
+  apply_ports_post "$HY2_OLD" "$(get_hy2_port)"
 }
 
 # ===================== 自定义路由规则（Xray 版本）=====================
@@ -5480,12 +5746,9 @@ change_config() {
 
   [[ -n "$SERVER" && "$SERVER" != '__CDN_UNSET__' ]] && MENU_IDX+=(107) && MENU_KEY+=(cdn) && MENU_VAL+=("${SERVER_DISPLAY:-$SERVER}")
   [ -n "$TLS_SERVER" ] && MENU_IDX+=(108) && MENU_KEY+=(sni) && MENU_VAL+=("$TLS_SERVER")
-  local PORTS_NOW=$(grep -v '^//' "$WORK_DIR/inbound.json" 2>/dev/null | $WORK_DIR/jq -r '.inbounds[].port' 2>/dev/null)
+  local PORTS_NOW=$(grep -v '^//' "$WORK_DIR/inbound.json" 2>/dev/null | $WORK_DIR/jq -r '.inbounds[] | .port // empty' 2>/dev/null)
   if [ -n "$PORTS_NOW" ]; then
-    local PORTS_NOW_START=$(awk 'NR == 1 { min = $0 } { if ($0 < min) min = $0 } END {print min}' <<< "$PORTS_NOW")
-    local PORTS_NOW_COUNT=$(awk 'END { print NR }' <<< "$PORTS_NOW")
-    local PORTS_NOW_END=$((PORTS_NOW_START + PORTS_NOW_COUNT - 1))
-    MENU_IDX+=(119) && MENU_KEY+=(ports) && MENU_VAL+=("${PORTS_NOW_START} - ${PORTS_NOW_END}")
+    MENU_IDX+=(119) && MENU_KEY+=(ports) && MENU_VAL+=("$(format_ports_display ${PORTS_NOW})")
   fi
   [ -n "$NODE_NAME" ] && MENU_IDX+=(109) && MENU_KEY+=(name) && MENU_VAL+=("$NODE_NAME")
   [ -n "$UUID" ] && MENU_IDX+=(110) && MENU_KEY+=(uuid) && MENU_VAL+=("$UUID")
@@ -5555,7 +5818,7 @@ change_config() {
 
   # 特殊操作路由（不走通用 reading/sed 替换）
   if [ "$KEY" = "ports" ]; then
-    change_start_port
+    change_port_mode
     return
   elif [ "$KEY" = "hy2bw" ]; then
     # 修改 Hysteria2 带宽 - 内联实现
@@ -5832,7 +6095,7 @@ change_config() {
   if [ "$KEY" = "sni" ]; then
     ssl_certificate "$NEW_VAL"
   elif [ "$KEY" = "serverip" ]; then
-    [[ ! "$NEW_VAL" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && [[ ! "$NEW_VAL" =~ ^[0-9a-fA-F:]+$ ]] && error " $(text 112) "
+    is_valid_server_addr "$NEW_VAL" || error " $(text 112) "
   fi
 
   # 按字段定点更新，不再全目录暴力 sed 替换

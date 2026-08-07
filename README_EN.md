@@ -21,18 +21,20 @@
 * * *
 
 ## Update Information
+2026.08.07 v2.1.3 1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation so the install flow stays unchanged; 2. Server address accepts an IP or a domain (use DDNS for NAT VPS whose public IP changes daily)
+
 2026.08.02 v2.1.2 Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality)
 
 2026.07.31 v2.1.1  Xray real-time traffic stats (-n / -r / main menu)
-
-2026.07.24 v2.1.0 1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu
-
-2026.07.19 v2.0.9 1. Add long-parameter support for semi-interactive install. Support 16 long parameters covering protocols, ports, CDN, UUID, paths, Argo, TLS, Reality, Hysteria2; 2. Add minClientVer to realitySettings for Xray v26.7.11 compatibility
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.07.24 v2.1.0 1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu
+>
+>2026.07.19 v2.0.9 1. Add long-parameter support for semi-interactive install. Support 16 long parameters covering protocols, ports, CDN, UUID, paths, Argo, TLS, Reality, Hysteria2; 2. Add minClientVer to realitySettings for Xray v26.7.11 compatibility
+>
 >2026.07.18 v2.0.8 1. Add Hysteria2 Realm with finalmask config and WARP-assisted NAT piercing for NAT VPS; 2. Add custom WARP outbound routing rules (domain/geosite + warp-IPv4/warp-IPv6); 3. Add bind network interface option for multi-homed servers
 >
 >2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
@@ -119,6 +121,8 @@
 * **Custom WARP outbound routing rules**: Supports domain suffix matching or geosite category as rule types, routing to warp-IPv4 or warp-IPv6 outbounds — flexible policy-based traffic steering;
 * **Bind network interface**: Allows specifying a particular network interface (e.g., eth0, eth1) for Xray outbound traffic on multi-homed servers, adapting to complex network topologies;
 * **Client fingerprint configuration**: Customize TLS client fingerprint (e.g., Chrome, Firefox) for Reality/WS protocols to enhance censorship resistance;
+* **Independent ports per protocol**: After installation, use -d to change listening ports — either a start port (protocols occupy sequential ports) or an independent (non-consecutive) port per protocol; port changes sync to the nginx reverse proxy and hot-reload automatically;
+* **Domain support for server address**: For NAT VPS whose public IP changes daily, enter a DDNS domain during installation or via -d — no daily client updates needed;
 * Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
 * Built-in warp chained proxy to unlock chatGPT;
 * Node information output to V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;

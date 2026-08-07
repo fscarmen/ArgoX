@@ -20,18 +20,20 @@
 
 * * *
 ## 更新信息
+2026.08.07 v2.1.3 1. [argox -d] 支持为各协议设置独立（非连续）端口，仅在安装后修改，不影响常规安装流程; 2. 服务器地址支持填写 IP 或域名（NAT VPS 公网 IP 易变化时可用 DDNS 域名）
+
 2026.08.02 v2.1.2 新增 VLESS + XHTTP HTTP/2 Reality 直连协议（xhttp-h2-reality）
 
 2026.07.31 v2.1.1 Xray 实时流量统计 (-n / -r / 主菜单)
 
-2026.07.24 v2.1.0 1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关
-
-2026.07.19 v2.0.9 1. 新增长参数半交互安装模，支持 16 个长参数：协议、端口、CDN、UUID、路径、Argo、TLS、Reality、Hysteria2; 2. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段
-
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
-
+>
+>2026.07.24 v2.1.0 1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关
+>
+>2026.07.19 v2.0.9 1. 新增长参数半交互安装模，支持 16 个长参数：协议、端口、CDN、UUID、路径、Argo、TLS、Reality、Hysteria2; 2. 适配 Xray v26.7.11，realitySettings 新增 minClientVer 字段
+>
 >2026.07.18 v2.0.8 1. 新增 Hysteria2 Realm 功能，支持 finalmask 配置及 WARP 辅助 NAT 打洞; 2. 新增自定义 WARP 出站路由规则（域名匹配 / geosite + warp-IPv4/warp-IPv6）; 3. 新增绑定网络出口选项，适配多网卡服务器
 >
 >2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
@@ -118,6 +120,8 @@
 * **自定义 WARP 出站路由规则**：支持域名后缀匹配或 geosite 分类两种规则类型，可分别路由到 warp-IPv4 或 warp-IPv6 出站，灵活实现分流策略；
 * **绑定网络出口接口**：支持在多网卡服务器上指定 Xray 流量从特定网络接口（如 eth0、eth1）出站，适配复杂网络拓扑；
 * **客户端指纹配置**：支持在 Reality / WS 等协议中自定义 TLS 客户端指纹（如 Chrome、Firefox），增强抗审查能力；
+* **各协议独立端口**：安装后通过 -d 可修改监听端口，支持修改开始端口（各协议按顺序占用）或为各协议设置独立（非连续）端口，端口变更自动同步 nginx 反代并热加载；
+* **服务器地址支持域名**：NAT VPS 公网 IP 每日变化时，新安装或 -d 修改均可直接填写 DDNS 域名，无需每日更新客户端；
 * Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality、Hysteria2、Trojan Direct、Shadowsocks 2022 Direct 与 XHTTP Direct 可按各自模式直连，架构简洁；
 * 内置 warp 链式代理解锁 chatGPT；
 * 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Throne / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
