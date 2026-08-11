@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.3 (2026.08.07)'
+VERSION='2.1.4 (2026.08.11)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation via -d to keep the install flow unchanged; 2. Server address accepts an IP or a domain (for NAT VPS whose public IP changes daily, use a DDNS domain), available both during install and afterwards via -d"
-C[1]="1. [argox -d] 支持为各协议设置独立（非连续）端口，仅在安装后通过 -d 修改，不影响常规安装流程; 2. 服务器地址支持填写 IP 或域名（NAT VPS 公网 IP 易变化时可用 DDNS 域名），新安装和安装后修改均可适用"
+E[1]="1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]"
+C[1]="1. 安装期后台预注册 WARP 账户，失败回退共享密钥; 2. [argox -d] 菜单新增「更换 WARP 账户」，支持重新注册 / 手动输入; 3. Hysteria2 Realm 与端口跳跃互斥，安装与 [argox -d] 均先提示确认再切换"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -383,6 +383,36 @@ E[168]="\${LETTER}. \${PROTO} (\${PORT})"
 C[168]="\${LETTER}. \${PROTO} (\${PORT})"
 E[169]="Start port \${OLD_START} -> \${NEW_START}: \${NUM} protocol ports will become \${NEW_START} - \${NEW_END}."
 C[169]="起始端口 \${OLD_START} -> \${NEW_START}: \${NUM} 个协议端口将变为 \${NEW_START} - \${NEW_END}。"
+E[170]="Change WARP account"
+C[170]="更换 WARP 账户"
+E[171]="Select WARP account operation:\n 1. Register a new free account\n 2. Enter account info manually\n 0. Back"
+C[171]="请选择 WARP 账户操作:\n 1. 重新注册免费账户\n 2. 手动输入信息\n 0. 返回"
+E[172]="New account registration failed. Please try again later. The existing account is kept."
+C[172]="注册新账户失败，请稍后再试。已保留原有账户。"
+E[173]="Enter the WARP IPv6 address:"
+C[173]="请输入 WARP IPv6 地址:"
+E[174]="Enter the WARP private key:"
+C[174]="请输入 WARP Private Key:"
+E[175]="Enter WARP reserved values (format: 123,456,789):"
+C[175]="请输入 WARP reserved 保留值（格式: 123,456,789）:"
+E[176]="Invalid reserved format. Please enter 3 numbers like 123,456,789"
+C[176]="reserved 格式错误，请输入 3 个数字，如 123,456,789"
+E[177]="Checking configuration..."
+C[177]="正在校验配置..."
+E[178]="Change WARP endpoint"
+C[178]="更换 warp endpoint"
+E[179]="Invalid private key format. Please enter a 43-character base64 key ending with \"=\"."
+C[179]="Private Key 格式错误，请输入 43 位 base64 密钥且以 \"=\" 结尾"
+E[180]="Invalid IPv6 address format."
+C[180]="IPv6 地址格式错误"
+E[181]="New WARP endpoint:\n IPv6: \${ADDRESS6}\n Private Key: \${PRIVATE_KEY}\n Reserved: [\${R1}, \${R2}, \${R3}]"
+C[181]="新 WARP 端点:\n IPv6: \${ADDRESS6}\n Private Key: \${PRIVATE_KEY}\n Reserved: [\${R1}, \${R2}, \${R3}]"
+E[182]="Hysteria2 Realm and port hopping cannot be used together (choose one). Realm is for NAT VPS without public inbound access. If you enable Realm, port hopping will be skipped."
+C[182]="Hysteria2 Realm 与端口跳跃不能同时使用（二选一）。Realm 适用于没有公网入站的 NAT 机器；启用 Realm 后将跳过端口跳跃。"
+E[183]="Port hopping is enabled. Enabling Realm will disable port hopping. Continue? [y/N] (default N):"
+C[183]="端口跳跃已开启，启用 Realm 将关闭端口跳跃。是否继续？[y/N]（默认 N）:"
+E[184]="Realm is enabled. Enabling port hopping will disable Realm. Continue? [y/N] (default N):"
+C[184]="Realm 已开启，启用端口跳跃将关闭 Realm。是否继续？[y/N]（默认 N）:"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -606,7 +636,7 @@ _should_use_supervise_daemon() {
 
   # 1) 容器环境变量（container= 是 systemd / LXC / Docker / podman 约定）
   case " $_lxc_env " in
-    *"container=lxc"*|*"container=docker"*|*"container=podman"*|*"container=systemd-nspawn"*|*"container=libvirt-lxc"*) 
+    *"container=lxc"*|*"container=docker"*|*"container=podman"*|*"container=systemd-nspawn"*|*"container=libvirt-lxc"*)
       echo yes; return ;;
   esac
 
@@ -835,10 +865,10 @@ WantedBy=multi-user.target"
 # ============================================================
 # api_hot_reload() - 统一的 Xray API 热更新入口
 # 用法:
-#   api_hot_reload inbounds [tag...]     # 增量更新入站（可指定强制更新的 tag）
-#   api_hot_reload outbound <tag>        # 热更新单个出站
-#   api_hot_reload custom_routes         # 全量替换路由规则（来自 outbound.json）
-#   api_hot_reload routing_rules [file]  # 全量替换路由规则（备选）
+#   api_hot_reload inbounds [tag...]       # 增量更新入站（可指定强制更新的 tag）
+#   api_hot_reload outbound <tag> [force]  # 热更新单个出站；force 时无条件 rmo + ado（适用于密钥类字段变更）
+#   api_hot_reload custom_routes           # 全量替换路由规则（来自 outbound.json）
+#   api_hot_reload routing_rules [file]    # 全量替换路由规则（备选）
 # ============================================================
 api_hot_reload() {
   local action="$1" _tag="$2"
@@ -963,7 +993,7 @@ api_hot_reload() {
       local _cfg_tag
       _cfg_tag=$(grep -v '^//' "$_ib" | $WORK_DIR/jq -r ".inbounds[$_i].tag" 2>/dev/null)
       [ -n "$_cfg_tag" ] && _config_tags+=("$_cfg_tag")
-      
+
       grep -v '^//' "$_ib" | $WORK_DIR/jq -c "{inbounds: [.inbounds[$_i]]}" > "$_tmp_dir/inbound_$_i.json" 2>/dev/null
     done
 
@@ -982,14 +1012,14 @@ api_hot_reload() {
           break
         fi
       done
-      
+
       # 检查是否强制更新
       for _ftag in "${_force_tags[@]}"; do
         if [ "$_ltag" = "$_ftag" ]; then
           _found=0 # 假装没在 config 里，以便强制 rmi
         fi
       done
-      
+
       if [ $_found -eq 0 ]; then
         _tags_to_delete+=("$_ltag")
       fi
@@ -1005,7 +1035,7 @@ api_hot_reload() {
           break
         fi
       done
-      
+
       for _ftag in "${_force_tags[@]}"; do
         if [ "$_ctag" = "$_ftag" ]; then
            _found=0 # 强制加入
@@ -1046,6 +1076,9 @@ api_hot_reload() {
     # 1. 检查配置文件中有没有这个 tag
     [ -s "$_ob" ] && grep -v '^//' "$_ob" | $WORK_DIR/jq -e ".outbounds[] | select(.tag == \"$_tag\")" &>/dev/null && _in_config=1
 
+    # 第 3 个参数为 force 时强制更新（如更换 WARP 账户，secretKey/address/reserved 变更无法通过 interface 比对发现）
+    [ "${3:-}" = 'force' ] && [ "$_in_config" = 1 ] && _need_update=1
+
     # 2. 检查运行中有没有这个 tag
     _live_full=$($WORK_DIR/xray api lso --server="$_api_addr" 2>/dev/null)
     _live_tags_str=$(echo "$_live_full" | $WORK_DIR/jq -r '.outbounds[].tag' 2>/dev/null)
@@ -1053,13 +1086,13 @@ api_hot_reload() {
       [ "$_live_tag" = "$_tag" ] && { _in_live=1; break; }
     done <<< "$_live_tags_str"
 
-    # 3. 两者都存在时，比较 interface 是否一致
-    if [ $_in_config -eq 1 ] && [ $_in_live -eq 1 ]; then
+    # 3. 两者都存在且非强制时，比较 interface 是否一致
+    if [ "$_need_update" = 0 ] && [ $_in_config -eq 1 ] && [ $_in_live -eq 1 ]; then
       # 配置文件的路径：streamSettings.sockopt.interface
       _cfg_iface=$(grep -v '^//' "$_ob" | $WORK_DIR/jq -r ".outbounds[] | select(.tag == \"$_tag\") | .streamSettings.sockopt.interface // empty" 2>/dev/null)
       # API lso 的路径：senderSettings.streamSettings.socketSettings.interface
       _live_iface=$(echo "$_live_full" | $WORK_DIR/jq -r ".outbounds[] | select(.tag == \"$_tag\") | .senderSettings.streamSettings.socketSettings.interface // empty" 2>/dev/null)
-      
+
       if [ "$_cfg_iface" != "$_live_iface" ]; then
         # interface 不同 → 需要更新
         _need_update=1
@@ -1212,6 +1245,11 @@ check_install() {
   }&
   [ ! -s $WORK_DIR/jq ] && { wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1; }&
   [ ! -s $WORK_DIR/qrencode ] && { wget --no-check-certificate --continue -qO $TEMP_DIR/qrencode ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/qrencode >/dev/null 2>&1; }&
+
+  # 任务 4: 注册 warp 账号
+  {
+    wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register" > $TEMP_DIR/warp_account.json 2>/dev/null
+  } &
 }
 
 # 为了适配 alpine，定义 cmd_systemctl 的函数
@@ -1396,7 +1434,7 @@ argo_variable() {
 }
 
 # 根据 INSTALL_PROTOCOLS 计算安装流程总步骤数
-# Hysteria2 Realm / WARP / Port Hopping 属于协议子选项，不计入安装步骤（参照 sing-box.sh）
+# Hysteria2 Realm / WARP / Port Hopping 属于协议子选项，不计入安装步骤
 calc_install_steps() {
   local _total=5  # 固定步骤：协议选择、起始端口、VPS IP、UUID、节点名
   local _has_ws_xhttp=false
@@ -1408,7 +1446,7 @@ calc_install_steps() {
     (( _total++ ))
   fi
   grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && (( _total-- ))  # 非交互安装时不单独询问 VPS IP
-  # Argo 域名、Reality 密钥、CDN 优选地址、WS 路径等属于协议子参数，不计入安装步骤（参照 sing-box.sh）
+  # Argo 域名、Reality 密钥、CDN 优选地址、WS 路径等属于协议子参数，不计入安装步骤
   TOTAL_STEPS=$_total
 }
 
@@ -1746,6 +1784,8 @@ xray_variable() {
   fi
 
   if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
+    # Realm 与端口跳跃互斥：先提示；开启 Realm 后跳过端口跳跃交互
+    hint "\n $(text 182) \n"
     # Hysteria2 Realm 交互（在端口跳跃之前询问，需要先 Realm 再端口跳跃）
     input_hy2_realm
     input_hy2_warp
@@ -1756,14 +1796,18 @@ xray_variable() {
       # 长参数模式：未传 --PORT_HOPPING_RANGE，视为禁用端口跳跃
       IS_HOPPING=no_hopping
     elif ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-      input_hopping_port
+      [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && input_hopping_port
     elif [ -n "$PORT_HOPPING_RANGE" ]; then
-      # 非交互模式：config.conf 填了 PORT_HOPPING_RANGE，直接解析
-      local _R=${PORT_HOPPING_RANGE//-/:}
-      PORT_HOPPING_RANGE=$_R
-      PORT_HOPPING_START=${_R%:*}
-      PORT_HOPPING_END=${_R#*:}
-      IS_HOPPING=is_hopping
+      # 非交互模式：config.conf 填了 PORT_HOPPING_RANGE，直接解析；Realm 开启时强制忽略
+      if [ "$IS_HY2_REALM" != 'is_hy2_realm' ]; then
+        local _R=${PORT_HOPPING_RANGE//-/:}
+        PORT_HOPPING_RANGE=$_R
+        PORT_HOPPING_START=${_R%:*}
+        PORT_HOPPING_END=${_R#*:}
+        IS_HOPPING=is_hopping
+      else
+        IS_HOPPING=no_hopping
+      fi
     fi
     IS_HOPPING=${IS_HOPPING:-no_hopping}
   fi
@@ -2662,6 +2706,8 @@ del_port_hopping_nat() {
     alpine-iptables )
       iptables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
       ip6tables --table nat -D PREROUTING -p udp --dport ${PORT_HOPPING_START}:${PORT_HOPPING_END} -m comment --comment "$COMMENT" -j DNAT --to-destination :${PORT_HOPPING_TARGET} 2>/dev/null
+      rc-service iptables save >/dev/null 2>&1
+      rc-service ip6tables save >/dev/null 2>&1
       ;;
     firewalld )
       firewall-cmd --zone=public --permanent --remove-forward-port=port=${PORT_HOPPING_START}-${PORT_HOPPING_END}:proto=udp:toport=${PORT_HOPPING_TARGET} >/dev/null 2>&1
@@ -4037,6 +4083,31 @@ ${INBOUNDS_JSON}
 }
 EOF
 
+  # 生成 outbound 配置：优先使用已注册的 WARP 账户（后台任务 4 预注册），否则现场注册；失败回退内置共享密钥
+  if [ -s $TEMP_DIR/warp_account.json ] && grep -q '"id"' $TEMP_DIR/warp_account.json; then
+    local WARP_ACCOUNT=$(< "$TEMP_DIR/warp_account.json")
+    rm -f "$TEMP_DIR/warp_account.json"
+  else
+    local WARP_ACCOUNT=$(wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register")
+  fi
+
+  if grep -q '"id"' <<< "$WARP_ACCOUNT"; then
+    local WARP_PRIVATE=$(awk -F'"' '/"private_key"/{print $4}' <<< "$WARP_ACCOUNT")
+    local WARP_V6=$(awk -F'"' '/"v6":/ && $4 !~ /^\[/ {print $4}' <<< "$WARP_ACCOUNT")
+    local WARP_R1=$(awk '/"reserved":/ {getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+    local WARP_R2=$(awk '/"reserved":/ {getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+    local WARP_R3=$(awk '/"reserved":/ {getline; getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+  fi
+
+  # 兜底：注册失败或接口返回格式异常导致提取为空时，回退内置共享密钥
+  if [ -z "${WARP_PRIVATE:-}" ] || [ -z "${WARP_V6:-}" ] || [ -z "${WARP_R1:-}" ] || [ -z "${WARP_R2:-}" ] || [ -z "${WARP_R3:-}" ]; then
+    local WARP_PRIVATE="YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY="
+    local WARP_V6="2606:4700:110:8a36:df92:102a:9602:fa18"
+    local WARP_R1=78
+    local WARP_R2=135
+    local WARP_R3=76
+  fi
+
   cat > $WORK_DIR/outbound.json << EOF
 {
     "outbounds": [
@@ -4055,10 +4126,10 @@ EOF
             "protocol": "wireguard",
             "tag": "wireguard",
             "settings": {
-                "secretKey": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+                "secretKey": "${WARP_PRIVATE}",
                 "address": [
                     "172.16.0.2/32",
-                    "2606:4700:110:8a36:df92:102a:9602:fa18/128"
+                    "${WARP_V6}/128"
                 ],
                 "peers": [
                     {
@@ -4071,9 +4142,9 @@ EOF
                     }
                 ],
                 "reserved": [
-                    78,
-                    135,
-                    76
+                    ${WARP_R1},
+                    ${WARP_R2},
+                    ${WARP_R3}
                 ],
                 "mtu": 1280
             }
@@ -4740,7 +4811,7 @@ change_protocols() {
     [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="$UUID"
     # 先收集端口跳跃范围，再写 NAT 规则（原逻辑顺序颠倒，NAT 参数为空）
     unset IS_HOPPING PORT_HOPPING_RANGE PORT_HOPPING_START PORT_HOPPING_END
-    input_hopping_port
+    [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && input_hopping_port
   fi
 
   local _HAS_XHTTP_DIRECT_ADD=false
@@ -5737,6 +5808,119 @@ custom_route_menu() {
 }
 # ===================== 自定义路由规则 END =====================
 
+# ===================== 更换 WARP 账户 START =====================
+
+# 更换 WARP 账户：二级菜单（重新注册 / 手动输入）
+change_warp_account() {
+  local WARP_ACCOUNT_CHOICE
+  while true; do
+    hint "\n $(text 171) \n"
+    reading " $(text 24) " WARP_ACCOUNT_CHOICE
+
+    case "$WARP_ACCOUNT_CHOICE" in
+      1 ) change_warp_account_register ;;
+      2 ) change_warp_account_manual ;;
+      0 ) return ;;
+      * ) info " $(text 103) " ;;
+    esac
+  done
+}
+
+# 方式1：重新注册免费账户
+change_warp_account_register() {
+  local WARP_ACCOUNT PRIVATE_KEY ADDRESS6 R1 R2 R3
+  WARP_ACCOUNT=$(wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register")
+
+  if ! grep -q '"id"' <<< "$WARP_ACCOUNT"; then
+    warning "\n $(text 172) \n"
+    return
+  fi
+
+  PRIVATE_KEY=$(awk -F'"' '/"private_key"/{print $4}' <<< "$WARP_ACCOUNT")
+  ADDRESS6=$(awk -F'"' '/"v6":/ && $4 !~ /^\[/ {print $4}' <<< "$WARP_ACCOUNT")
+  R1=$(awk '/"reserved":/ {getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+  R2=$(awk '/"reserved":/ {getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+  R3=$(awk '/"reserved":/ {getline; getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+
+  # 兜底：接口返回格式异常导致提取为空时，按注册失败处理，保留原账户
+  if [ -z "$PRIVATE_KEY" ] || [ -z "$ADDRESS6" ] || [ -z "$R1" ] || [ -z "$R2" ] || [ -z "$R3" ]; then
+    warning "\n $(text 172) \n"
+    return
+  fi
+
+  change_warp_account_apply "$ADDRESS6" "$PRIVATE_KEY" "$R1" "$R2" "$R3"
+}
+
+# 方式2：手动输入账户信息（IPv6 / Private Key / Reserved）
+change_warp_account_manual() {
+  local ADDRESS6 PRIVATE_KEY RESERVED_INPUT R1 R2 R3 RESERVED_ERROR_TIME=5
+
+  # 第 1 步：IPv6 地址（校验含冒号）
+  while true; do
+    reading "\n $(text 173) " ADDRESS6
+    [[ "$ADDRESS6" =~ : ]] && break
+    warning " $(text 180) "
+  done
+
+  # 第 2 步：Private Key（43 位 base64 字符 + 结尾 =）
+  while true; do
+    reading " $(text 174) " PRIVATE_KEY
+    [[ "$PRIVATE_KEY" =~ ^[A-Za-z0-9+/_-]{43}=$ ]] && break
+    warning " $(text 179) "
+  done
+
+  # 第 3 步：Reserved（先读取一次，再进入校验循环；捕获组提取 3 组连续数字，错误计数复用 uuid 的 a=5 风格）
+  reading " $(text 175) " RESERVED_INPUT
+  until [[ "$RESERVED_INPUT" =~ ([0-9]+)[^0-9]*([0-9]+)[^0-9]*([0-9]+) ]] || [ "$RESERVED_ERROR_TIME" = 0 ]; do
+    (( RESERVED_ERROR_TIME-- )) || true
+    [ "$RESERVED_ERROR_TIME" = 0 ] && { warning "\n $(text 176) \n"; return; }
+    warning " $(text 176) "
+    reading " $(text 175) " RESERVED_INPUT
+  done
+  R1="${BASH_REMATCH[1]}"; R2="${BASH_REMATCH[2]}"; R3="${BASH_REMATCH[3]}"
+
+  change_warp_account_apply "$ADDRESS6" "$PRIVATE_KEY" "$R1" "$R2" "$R3"
+}
+
+# 替换 outbound.json + xray -test + API 热更 + 结果提示
+change_warp_account_apply() {
+  local ADDRESS6="$1" PRIVATE_KEY="$2" R1="$3" R2="$4" R3="$5"
+  local OB_FILE="$WORK_DIR/outbound.json"
+  local OB_TMP="$TEMP_DIR/outbound_warp_tmp.json"
+
+  [ -s "$OB_FILE" ] && grep -q '"wireguard"' "$OB_FILE" || return 1
+
+  cp "$OB_FILE" "$OB_FILE.bak"
+
+  sed -i "s|\"secretKey\":[ ]*\".*\"|\"secretKey\": \"${PRIVATE_KEY}\"|" "$OB_FILE"
+  sed -i -E "s|\"([0-9a-fA-F:]+)/128\"|\"${ADDRESS6}/128\"|" "$OB_FILE"
+  # reserved 为多行数组，sed 单行正则无法覆盖，用 jq 原子更新（失败不落盘）
+  $WORK_DIR/jq --argjson res "[${R1},${R2},${R3}]" \
+    '(.outbounds[] | select(.tag == "wireguard") | .settings.reserved) = $res' \
+    "$OB_FILE" > "$OB_TMP" 2>/dev/null && mv "$OB_TMP" "$OB_FILE"
+
+  # 直接热更单个出站（内部已含 API 不可用时降级 restart 的兜底）；force 强制替换 wireguard 账户字段
+  if api_hot_reload outbound "wireguard" force; then
+    sleep 1
+    if cmd_systemctl status xray &>/dev/null; then
+      rm -f "$OB_FILE.bak"
+      info "\n $(text 178) $(text 37) \n"
+      info " $(text 181) "
+      exit 0
+    else
+      mv -f "$OB_FILE.bak" "$OB_FILE"
+      cmd_systemctl restart xray >/dev/null 2>&1 || true
+      warning "\n $(text 178) $(text 38) \n"
+    fi
+  else
+    mv -f "$OB_FILE.bak" "$OB_FILE"
+    cmd_systemctl restart xray >/dev/null 2>&1 || true
+    warning "\n $(text 178) $(text 38) \n"
+  fi
+}
+
+# ===================== 更换 WARP 账户 END =====================
+
 change_config() {
   [ ! -d "${WORK_DIR}" ] && error " $(text 70) "
 
@@ -5769,7 +5953,7 @@ change_config() {
       MENU_VAL+=("$(text 67)")
     fi
 
-    # Hysteria2 Realm 开关（当前状态由 IS_HY2_REALM 决定，参照 sing-box.sh 使用 167/168 风格）
+    # Hysteria2 Realm 开关（当前状态由 IS_HY2_REALM 决定）
     if [ "$IS_HY2_REALM" = 'is_hy2_realm' ]; then
       MENU_IDX+=(127) && MENU_KEY+=(hy2realm) && MENU_VAL+=("$(text 127)")
     else
@@ -5786,6 +5970,11 @@ change_config() {
   # 自定义 warp 出站路由规则（使用 custom_route_count 统计）
   CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
   MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
+
+  # 更换 WARP 账户（仅当 outbound.json 中存在 wireguard 出站时显示）
+  grep -q '"wireguard"' ${WORK_DIR}/outbound.json 2>/dev/null && {
+    MENU_IDX+=(170) && MENU_KEY+=(warpaccount) && MENU_VAL+=("")
+  }
 
   # 订阅开关（始终显示，判断当前状态；显示的是可执行的操作：已开启 → 关闭，已关闭 → 开启）
   if [ "$IS_SUB" = 'is_sub' ]; then
@@ -5833,7 +6022,8 @@ change_config() {
       [[ "$HY2_DOWN" =~ ^[1-9][0-9]*$ ]] && break
       warning " $(text 123) "
     done
-    sed -i -E "s/(up: \")([0-9]+)( Mbps\")/\1${HY2_UP}\3/g; s/(down: \")([0-9]+)( Mbps\")/\1${HY2_DOWN}\3/g" ${WORK_DIR}/subscribe/proxies
+    HY2_UP_NOW="$HY2_UP"; HY2_DOWN_NOW="$HY2_DOWN"
+    [ -s ${WORK_DIR}/subscribe/proxies ] && sed -i -E "s/(up: \")([0-9]+)( Mbps\")/\1${HY2_UP}\3/g; s/(down: \")([0-9]+)( Mbps\")/\1${HY2_DOWN}\3/g" ${WORK_DIR}/subscribe/proxies
     export_list
     return
   elif [ "$KEY" = "hopping" ]; then
@@ -5842,6 +6032,17 @@ change_config() {
     # 提前保存 TARGET，del_port_hopping_nat / sync_firewall_rules 内部检查可能会重置相关变量
     local _HOP_TARGET="${PORT_HOPPING_TARGET:-$HY2_PORT}"
     unset IS_HOPPING PORT_HOPPING_RANGE PORT_HOPPING_START PORT_HOPPING_END
+    # Realm 与端口跳跃互斥：Realm 已开启时先确认，确认后才进入输入流程
+    if detect_hy2_realm_status; then
+      local HY2_CONFIRM
+      reading "\n $(text 184) " HY2_CONFIRM
+      [[ "${HY2_CONFIRM,,}" =~ ^(y|yes)$ ]] || return
+      set_hy2_realm_config disable
+      sync_hy2_warp_route disable
+      local _HY2_TAG=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
+      api_hot_reload inbounds ${_HY2_TAG:+"$_HY2_TAG"}
+      api_hot_reload routing_rules
+    fi
     input_hopping_port
     # 保存用户输入的起止端口，后续删除旧规则时内部检测可能会清空
     local _NEW_HOP_START="$PORT_HOPPING_START" _NEW_HOP_END="$PORT_HOPPING_END"
@@ -5875,6 +6076,15 @@ change_config() {
       handle_hy2_realm disable
     else
       # 未开启 → 先设置 Realm，再询问 WARP 辅助打洞
+      # Realm 与端口跳跃互斥：端口跳跃已开启时需确认，确认后先关闭端口跳跃
+      check_port_hopping_nat
+      if [ -n "$PORT_HOPPING_START" ]; then
+        local HY2_CONFIRM
+        reading "\n $(text 183) " HY2_CONFIRM
+        [[ "${HY2_CONFIRM,,}" =~ ^(y|yes)$ ]] || return
+        del_port_hopping_nat
+        unset PORT_HOPPING_START PORT_HOPPING_END PORT_HOPPING_RANGE
+      fi
       IS_HY2_REALM=is_hy2_realm
       HY2_REALM_ID="${HY2_REALM_ID:-$UUID}"
       input_hy2_warp
@@ -5957,6 +6167,9 @@ change_config() {
     return
   elif [ "$KEY" = "customroute" ]; then
     custom_route_menu
+    return
+  elif [ "$KEY" = "warpaccount" ]; then
+    change_warp_account
     return
   elif [ "$KEY" = "subscribe" ]; then
     if [ "$IS_SUB" = 'is_sub' ]; then
@@ -6138,7 +6351,7 @@ change_config() {
           or
           (.streamSettings.finalmask.udp[]?.settings.url | strings | contains($old))
         ) | .tag' 2>/dev/null)
-        
+
         grep -v '^//' "$_IB" \
           | $WORK_DIR/jq --arg old "$OLD" --arg new "$NEW_VAL" \
               '(.inbounds[].settings.clients[]? | (.id, .password, .auth) | select(. == $old)) = $new
@@ -6161,7 +6374,7 @@ change_config() {
             (.streamSettings.tlsSettings.serverName == $old) or
             (.streamSettings.realitySettings.serverNames[]? == $old)
           ) | .tag' 2>/dev/null)
-          
+
         grep -v '^//' "$_IB" \
           | $WORK_DIR/jq --arg old "$OLD" --arg new "$NEW_VAL" \
               'walk(if type == "object" then
@@ -6182,7 +6395,7 @@ change_config() {
             (.port == ($old | tonumber)) or
             (.port == $old)
           ) | .tag' 2>/dev/null)
-          
+
         grep -v '^//' "$_IB" \
           | $WORK_DIR/jq --arg old "$OLD" --arg new "$NEW_VAL" \
               'walk(if type == "object"
@@ -6190,7 +6403,7 @@ change_config() {
                          (if has("port") and .port == $old then .port = $new else . end)
                     else . end)' \
           > "$_IB_TMP" && mv "$_IB_TMP" "$_IB"
-        
+
         # argo tunnel 出站和订阅地址也要同步更新端口
         # customroute 需要重新绑定路由
       fi

@@ -21,6 +21,8 @@
 * * *
 
 ## Update Information
+2026.08.11 v2.1.4 1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]
+
 2026.08.07 v2.1.3 1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation so the install flow stays unchanged; 2. Server address accepts an IP or a domain (use DDNS for NAT VPS whose public IP changes daily)
 
 2026.08.02 v2.1.2 Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality)
