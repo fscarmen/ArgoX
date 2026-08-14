@@ -20,17 +20,19 @@
 
 * * *
 ## 更新信息
+2026.08.14 v2.1.5 cloudflared 隧道统一使用 HTTP/2 传输
+
 2026.08.11 v2.1.4 1. 安装期后台预注册 WARP 账户，失败回退共享密钥; 2. [argox -d] 菜单新增「更换 WARP 账户」，支持重新注册 / 手动输入; 3. Hysteria2 Realm 与端口跳跃互斥，安装与 [argox -d] 均先提示确认再切换
 
 2026.08.07 v2.1.3 1. [argox -d] 支持为各协议设置独立（非连续）端口，仅在安装后修改，不影响常规安装流程; 2. 服务器地址支持填写 IP 或域名（NAT VPS 公网 IP 易变化时可用 DDNS 域名）
 
-2026.08.02 v2.1.2 新增 VLESS + XHTTP HTTP/2 Reality 直连协议（xhttp-h2-reality）
-
-2026.07.31 v2.1.1 Xray 实时流量统计 (-n / -r / 主菜单)
-
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
+
+>2026.08.02 v2.1.2 新增 VLESS + XHTTP HTTP/2 Reality 直连协议（xhttp-h2-reality）
+>
+>2026.07.31 v2.1.1 Xray 实时流量统计 (-n / -r / 主菜单)
 >
 >2026.07.24 v2.1.0 1. nginx/cloudflared 按需安装; 2. Xray API 热加载零中断; 3. -d 菜单订阅开关
 >

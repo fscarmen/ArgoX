@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.4 (2026.08.11)'
+VERSION='2.1.5 (2026.08.14)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]"
-C[1]="1. 安装期后台预注册 WARP 账户，失败回退共享密钥; 2. [argox -d] 菜单新增「更换 WARP 账户」，支持重新注册 / 手动输入; 3. Hysteria2 Realm 与端口跳跃互斥，安装与 [argox -d] 均先提示确认再切换"
+E[1]="Force HTTP/2 transport for cloudflared tunnels"
+C[1]="cloudflared 隧道统一使用 HTTP/2 传输"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -397,8 +397,8 @@ E[175]="Enter WARP reserved values (format: 123,456,789):"
 C[175]="请输入 WARP reserved 保留值（格式: 123,456,789）:"
 E[176]="Invalid reserved format. Please enter 3 numbers like 123,456,789"
 C[176]="reserved 格式错误，请输入 3 个数字，如 123,456,789"
-E[177]="Checking configuration..."
-C[177]="正在校验配置..."
+E[177]=""
+C[177]=""
 E[178]="Change WARP endpoint"
 C[178]="更换 warp endpoint"
 E[179]="Invalid private key format. Please enter a 43-character base64 key ending with \"=\"."
@@ -1250,6 +1250,10 @@ check_install() {
   {
     wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register" > $TEMP_DIR/warp_account.json 2>/dev/null
   } &
+
+  # 已安装且 Xray 开启时，预取流量统计缓存（STATS_JSON），
+  # 菜单 / -n / -r 均经 check_install，可复用该缓存，避免重复查询
+  ensure_stats_data 2>/dev/null
 }
 
 # 为了适配 alpine，定义 cmd_systemctl 的函数
@@ -1450,23 +1454,64 @@ calc_install_steps() {
   TOTAL_STEPS=$_total
 }
 
-# 生成 Reality 密钥对
-generate_reality_keypair() {
-  local KEYPAIR
-  local _XRAY_BIN="$TEMP_DIR/xray"
-  [ ! -x "$_XRAY_BIN" ] && _XRAY_BIN="$WORK_DIR/xray"
+# 从私钥推导 Reality 公钥：依次尝试 xray 二进制（TEMP_DIR → WORK_DIR）、openssl 本地、远程 API；
+# 成功输出公钥，全部失败输出空串。不依赖某个特定工具，任何环境都可用。
+derive_reality_public() {
+  local _priv="$1" _pub='' _bin
+  # 方法1：xray 二进制（优先 TEMP_DIR，兜底 WORK_DIR）
+  for _bin in "$TEMP_DIR/xray" "$WORK_DIR/xray"; do
+    [ -x "$_bin" ] || continue
+    _pub=$($_bin x25519 -i "$_priv" 2>/dev/null | awk '/Public/{print $NF}')
+    [ -n "$_pub" ] && { echo "$_pub"; return 0; }
+  done
+  # 方法2：openssl 本地推导（依赖 xxd）
+  if command -v xxd >/dev/null 2>&1; then
+    local B64 MOD PREFIX_HEX PRIV_HEX PRIV_LEN
+    B64=$(printf '%s' "$_priv" | tr '_-' '/+')
+    MOD=$(( ${#B64} % 4 ))
+    if [ "$MOD" -eq 2 ]; then
+      B64="${B64}=="
+    elif [ "$MOD" -eq 3 ]; then
+      B64="${B64}="
+    elif [ "$MOD" -ne 0 ]; then
+      B64=''
+    fi
+    if [ -n "$B64" ] && echo "$B64" | base64 -d > "$TEMP_DIR/_X25519_PRIV_RAW" 2>/dev/null; then
+      PRIV_LEN=$(stat -c%s "$TEMP_DIR/_X25519_PRIV_RAW" 2>/dev/null || stat -f%z "$TEMP_DIR/_X25519_PRIV_RAW")
+      if [ "$PRIV_LEN" -eq 32 ]; then
+        PREFIX_HEX="302e020100300506032b656e04220420"
+        PRIV_HEX=$(xxd -p -c 256 "$TEMP_DIR/_X25519_PRIV_RAW" | tr -d '\n')
+        printf "%s%s" "$PREFIX_HEX" "$PRIV_HEX" | xxd -r -p > "$TEMP_DIR/_X25519_PRIV_DER"
+        if openssl pkcs8 -inform DER -in "$TEMP_DIR/_X25519_PRIV_DER" -nocrypt -out "$TEMP_DIR/_X25519_PRIV_PEM" 2>/dev/null && \
+           openssl pkey -in "$TEMP_DIR/_X25519_PRIV_PEM" -pubout -outform DER > "$TEMP_DIR/_X25519_PUB_DER" 2>/dev/null; then
+          tail -c 32 "$TEMP_DIR/_X25519_PUB_DER" > "$TEMP_DIR/_X25519_PUB_RAW"
+          _pub=$(base64 -w0 "$TEMP_DIR/_X25519_PUB_RAW" | tr '+/' '-_' | sed -E 's/=+$//')
+          [ -n "$_pub" ] && { echo "$_pub"; return 0; }
+        fi
+      fi
+    fi
+  fi
+  # 方法3：远程 API
+  echo "$(wget --no-check-certificate -qO- --tries=3 --timeout=2 \
+    "https://realitykey.cloudflare.now.cc/?privateKey=$_priv" \
+    | awk -F '"' '/publicKey/{print $4}')"
+}
 
-  # 如果 xray 二进制文件尚不可用（如非交互式安装且下载未完成），则回退到 openssl 生成
-  if [ -x "$_XRAY_BIN" ]; then
-    KEYPAIR=$($_XRAY_BIN x25519)
+# 生成 Reality 密钥对：xray 二进制（TEMP_DIR → WORK_DIR）优先，不可用时 openssl 生成私钥并尽力推导公钥
+generate_reality_keypair() {
+  local KEYPAIR _bin
+  for _bin in "$TEMP_DIR/xray" "$WORK_DIR/xray"; do
+    [ -x "$_bin" ] || continue
+    KEYPAIR=$($_bin x25519 2>/dev/null)
     REALITY_PRIVATE=$(awk '/Private/{print $NF}' <<< "$KEYPAIR")
     REALITY_PUBLIC=$(awk '/Public/{print $NF}' <<< "$KEYPAIR")
-  else
-    # 回退逻辑：使用 openssl 生成私钥并派生公钥
-    ! command -v openssl >/dev/null 2>&1 && return
-    REALITY_PRIVATE=$(openssl genpkey -algorithm x25519 -outform DER 2>/dev/null | tail -c 32 | base64 | tr '/+' '_-' | tr -d '=')
-    REALITY_PUBLIC=''
-  fi
+    [ -n "$REALITY_PRIVATE" ] && return 0
+  done
+  # xray 不可用（如非交互式安装且下载未完成）→ openssl 生成私钥，并尝试推导公钥
+  ! command -v openssl >/dev/null 2>&1 && return 1
+  REALITY_PRIVATE=$(openssl genpkey -algorithm x25519 -outform DER 2>/dev/null | tail -c 32 | base64 | tr '/+' '_-' | tr -d '=')
+  [ -z "$REALITY_PRIVATE" ] && return 1
+  REALITY_PUBLIC=$(derive_reality_public "$REALITY_PRIVATE")
 }
 
 # 输入节点名称（与全新安装一致；已有节点名称则沿用）
@@ -1685,41 +1730,8 @@ xray_variable() {
       if [ -z "$REALITY_PRIVATE" ]; then
         generate_reality_keypair
       else
-        # 从私钥生成公钥：优先使用 OpenSSL 本地生成，回退使用远程 API
-        if command -v xxd >/dev/null 2>&1; then
-          local B64 MOD PREFIX_HEX PRIV_HEX PRIV_LEN
-          B64=$(printf '%s' "$REALITY_PRIVATE" | tr '_-' '/+')
-          MOD=$(( ${#B64} % 4 ))
-          if [ "$MOD" -eq 2 ]; then
-            B64="${B64}=="
-          elif [ "$MOD" -eq 3 ]; then
-            B64="${B64}="
-          elif [ "$MOD" -ne 0 ]; then
-            B64=''
-          fi
-
-          if [ -n "$B64" ] && echo "$B64" | base64 -d > "$TEMP_DIR/_X25519_PRIV_RAW" 2>/dev/null; then
-            PRIV_LEN=$(stat -c%s "$TEMP_DIR/_X25519_PRIV_RAW" 2>/dev/null || stat -f%z "$TEMP_DIR/_X25519_PRIV_RAW")
-            if [ "$PRIV_LEN" -eq 32 ]; then
-              PREFIX_HEX="302e020100300506032b656e04220420"
-              PRIV_HEX=$(xxd -p -c 256 "$TEMP_DIR/_X25519_PRIV_RAW" | tr -d '\n')
-              printf "%s%s" "$PREFIX_HEX" "$PRIV_HEX" | xxd -r -p > "$TEMP_DIR/_X25519_PRIV_DER"
-              if openssl pkcs8 -inform DER -in "$TEMP_DIR/_X25519_PRIV_DER" -nocrypt -out "$TEMP_DIR/_X25519_PRIV_PEM" 2>/dev/null && \
-                 openssl pkey -in "$TEMP_DIR/_X25519_PRIV_PEM" -pubout -outform DER > "$TEMP_DIR/_X25519_PUB_DER" 2>/dev/null; then
-                tail -c 32 "$TEMP_DIR/_X25519_PUB_DER" > "$TEMP_DIR/_X25519_PUB_RAW"
-                REALITY_PUBLIC=$(base64 -w0 "$TEMP_DIR/_X25519_PUB_RAW" | tr '+/' '-_' | sed -E 's/=+$//')
-              fi
-            fi
-          fi
-        fi
-
-        # 方法 1 失败，尝试方法 2：远程 API
-        if [ -z "$REALITY_PUBLIC" ]; then
-          REALITY_PUBLIC=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 \
-            "https://realitykey.cloudflare.now.cc/?privateKey=$REALITY_PRIVATE" \
-            | awk -F '"' '/publicKey/{print $4}')
-        fi
-
+        # 从私钥推导公钥（统一走 derive_reality_public：xray → openssl → 远程 API）
+        REALITY_PUBLIC=$(derive_reality_public "$REALITY_PRIVATE")
         # 都失败，生成随机密钥对
         if [ -z "$REALITY_PUBLIC" ]; then
           warning " $(text 99) "
@@ -3326,19 +3338,15 @@ install_argox() {
   for _p in "${INSTALL_PROTOCOLS[@]}"; do [[ "$_p" =~ ^[bdj]$ ]] && _HAS_REALITY_INSTALL=true && break; done
   if $_HAS_REALITY_INSTALL; then
     if [ -n "$REALITY_PRIVATE" ] && [ -z "$REALITY_PUBLIC" ]; then
-      # 有私钥无公钥（如 config.conf 只填了私钥）→ xray 已就位，从私钥推导公钥
-      REALITY_PUBLIC=$($TEMP_DIR/xray x25519 -i "$REALITY_PRIVATE" | awk '/Public/{print $NF}')
+      # 有私钥无公钥（如 config.conf 只填了私钥）→ 统一推导
+      REALITY_PUBLIC=$(derive_reality_public "$REALITY_PRIVATE")
       if [ -z "$REALITY_PUBLIC" ]; then
         warning " $(text 99) "
-        REALITY_KEYPAIR=$($TEMP_DIR/xray x25519)
-        REALITY_PRIVATE=$(awk '/Private/{print $NF}' <<< "$REALITY_KEYPAIR")
-        REALITY_PUBLIC=$(awk '/Public|Password/{print $NF}' <<< "$REALITY_KEYPAIR")
+        generate_reality_keypair
       fi
     elif [ -z "$REALITY_PRIVATE" ]; then
       # 私钥也为空 → 随机生成一对
-      REALITY_KEYPAIR=$($TEMP_DIR/xray x25519)
-      REALITY_PRIVATE=$(awk '/Private/{print $NF}' <<< "$REALITY_KEYPAIR")
-      REALITY_PUBLIC=$(awk '/Public|Password/{print $NF}' <<< "$REALITY_KEYPAIR")
+      generate_reality_keypair
     fi
   fi
 
@@ -3377,12 +3385,12 @@ install_argox() {
   if [ "$IS_ARGO" = 'is_argo' ]; then
     [[ ! -s $WORK_DIR/cloudflared && -x $TEMP_DIR/cloudflared ]] && mv $TEMP_DIR/cloudflared $WORK_DIR
     if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
-      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --config $WORK_DIR/tunnel.yml run"
       json_argo
     elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
-      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}"
     else
-      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://localhost:${NGINX_PORT}"
     fi
 
     if [ "$SYSTEM" = 'Alpine' ]; then
@@ -4283,6 +4291,31 @@ ensure_stats_data() {
     done
   fi
   [ -z "$STATS_JSON" ] && return 1
+  return 0
+}
+
+# 遍历 STATS_JSON，按两个 name 模式分别累加 value，输出 "SUM1 SUM2"（供汇总/逐协议复用）
+sum_stats() {
+  local _p1="$1" _p2="$2" _s1=0 _s2=0 _line _n _v
+  while IFS= read -r _line; do
+    _n=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
+    _v=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
+    [ -z "$_n" ] && continue
+    case "$_n" in
+      $_p1 ) _s1=$((_s1 + _v)) ;;
+      $_p2 ) _s2=$((_s2 + _v)) ;;
+    esac
+  done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
+  echo "$_s1 $_s2"
+}
+
+# 返回 Xray 总流量统计，输出 "IN_SUM OUT_SUM"（inbound 下行 / outbound 上行），
+# 与 -n 的 Inbound (total) / Outbound (total) 口径一致；API 不可用时输出 "0 0"
+traffic_summary() {
+  local _in_sum _out_sum
+  ensure_stats_data 2>/dev/null || { echo "0 0"; return; }
+  read -r _in_sum _out_sum < <(sum_stats 'inbound*traffic*downlink' 'outbound*traffic*uplink')
+  echo "$_in_sum $_out_sum"
 }
 
 export_list() {
@@ -4537,8 +4570,8 @@ ${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/sing-box"
   local CLASH_DISPLAY=$(echo -e "$CLASH" | sed '1d')
 
   check_system_info
-  local ARGO_V=$([ -s "$WORK_DIR/cloudflared" ] && $WORK_DIR/cloudflared -v 2>/dev/null | awk '{print $3}')
-  local XRAY_V=$($WORK_DIR/xray version | awk 'NR==1 {print $2}')
+  local ARGO_V=$([ -s "$WORK_DIR/cloudflared" ] && $WORK_DIR/cloudflared -v 2>/dev/null | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}')
+  local XRAY_V=$($WORK_DIR/xray version | awk '{for (i=1; i<NF; i++) if ($i=="Xray") {print $(i+1); exit}}')
   local NGINX_V=$(nginx -v 2>&1 | sed "s#.*/##")
   local SYS_INFO=" $(text 19):\n\t $(text 20): $SYS\n\t $(text 21): $(uname -r)\n\t $(text 22): $ARGO_ARCH\n\t $(text 23): $VIRT\n\t IPv4: $WAN4 $COUNTRY4 $ASNORG4\n\t IPv6: $WAN6 $COUNTRY6 $ASNORG6\n\t Argo: ${STATUS[0]}\t Version: ${ARGO_V}\t $(text 52): ${ARGO_MEM}\n\t Xray: ${STATUS[1]}\t Version: ${XRAY_V}\t $(text 52): ${XRAY_MEM}"
   [ -s $WORK_DIR/nginx.conf ] && SYS_INFO+="\n\t Nginx: ${STATUS[2]}\t Version: ${NGINX_V}\t $(text 52): ${NGINX_MEM}"
@@ -4634,19 +4667,10 @@ $([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMA
 
   EXPORT_LIST_FILE="${EXPORT_LIST_FILE}${SUB_URL_BLOCK}"
 
-  # === 流量统计块（仅 API 可用时显示；流量为 0 时显示 0 B） ===
-  if ensure_stats_data; then
-    local _in_sum=0 _out_sum=0 _line _name _val
-    while IFS= read -r _line; do
-      _name=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
-      _val=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
-      [ -z "$_name" ] && continue
-      case "$_name" in
-        inbound*traffic*downlink ) _in_sum=$((_in_sum + _val)) ;;
-        outbound*traffic*uplink )  _out_sum=$((_out_sum + _val)) ;;
-      esac
-    done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
-    EXPORT_LIST_FILE="${EXPORT_LIST_FILE}
+  # === 流量统计块（与主菜单同一口径：inbound 下行 / outbound 上行；流量为 0 时显示 0 B） ===
+  local _in_sum _out_sum
+  read -r _in_sum _out_sum < <(traffic_summary)
+  EXPORT_LIST_FILE="${EXPORT_LIST_FILE}
 
 *******************************************
 ┌────────────────┐
@@ -4659,7 +4683,6 @@ $([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMA
 $(info "⬇ Inbound  (total):  $(format_traffic $_in_sum)")
 $(hint "⬆ Outbound (total):  $(format_traffic $_out_sum)")
 "
-  fi
   # === 结束 ===
 
   echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
@@ -4683,24 +4706,16 @@ change_protocols() {
   # 可用时始终显示（流量为 0 时显示 0 B）
   _proto_traffic_str() {
     [ -z "$STATS_JSON" ] && { echo ''; return; }
-    local _p="$1" _ts='' _dl=0 _ul=0 _line _n _v _idx
+    local _p="$1" _ts='' _dl=0 _ul=0 _idx
     for _idx in "${!NODE_TAG[@]}"; do
       local _pn="${PROTOCOL_LIST[$_idx]}"
       [ "$_idx" = '7' ] && _pn=$(text 101)
       [ "$_p" = "$_pn" ] && { _ts="${NODE_TAG[$_idx]}"; break; }
     done
     if [ -n "$_ts" ]; then
-      while IFS= read -r _line; do
-        _n=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
-        _v=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
-        [ -z "$_n" ] && continue
-        # stats 名称格式：inbound>>>{节点名 后缀}>>>traffic>>>{downlink|uplink}，
-        # 后缀前是空格（完整 tag 是 "节点名 后缀"），因此模式为 " ${_ts}>>>"
-        case "$_n" in
-          *" ${_ts}>>>traffic>>>downlink" ) _dl=$((_dl + _v)) ;;
-          *" ${_ts}>>>traffic>>>uplink" )   _ul=$((_ul + _v)) ;;
-        esac
-      done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
+      # stats 名称格式：inbound>>>{节点名 后缀}>>>traffic>>>{downlink|uplink}，
+      # 后缀前是空格（完整 tag 是 "节点名 后缀"），因此模式为 " ${_ts}>>>"
+      read -r _dl _ul < <(sum_stats "* ${_ts}>>>traffic>>>downlink" "* ${_ts}>>>traffic>>>uplink")
     fi
     echo "  ⬇$(format_traffic $_dl) ⬆$(format_traffic $_ul)"
   }
@@ -4842,7 +4857,7 @@ change_protocols() {
       if [ -z "$REALITY_PRIVATE" ]; then
         generate_reality_keypair
       else
-        REALITY_PUBLIC=$($WORK_DIR/xray x25519 -i "$REALITY_PRIVATE" | awk '/Public/{print $NF}')
+        REALITY_PUBLIC=$(derive_reality_public "$REALITY_PRIVATE")
         if [ -z "$REALITY_PUBLIC" ]; then
           warning " $(text 99) "
           generate_reality_keypair
@@ -5181,12 +5196,12 @@ EOF
 
     # 构造 ARGO_RUNS 命令
     if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
-      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --config $WORK_DIR/tunnel.yml run"
       json_argo
     elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
-      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}"
     else
-      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
+      ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://localhost:${NGINX_PORT}"
     fi
 
     # 创建守护进程文件：统一走 write_argo_daemon，避免 Alpine/systemd 双份手写模板
@@ -5266,10 +5281,10 @@ change_argo() {
       cmd_systemctl disable argo
       [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
       if [ "$SYSTEM" = 'Alpine' ]; then
-        local ARGS="--edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}"
+        local ARGS="--edge-ip-version auto --protocol http2 --no-autoupdate --url http://localhost:${NGINX_PORT}"
         sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
       else
-        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --url http://localhost:${NGINX_PORT}@g" ${ARGO_DAEMON_FILE}
+        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://localhost:${NGINX_PORT}@g" ${ARGO_DAEMON_FILE}
       fi
       ;;
     2 )
@@ -5285,19 +5300,19 @@ change_argo() {
       if [ -n "$ARGO_TOKEN" ]; then
         [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
         if [ "$SYSTEM" = 'Alpine' ]; then
-          local ARGS="--edge-ip-version auto run --token ${ARGO_TOKEN}"
+          local ARGS="--edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}"
           sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
         else
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" ${ARGO_DAEMON_FILE}
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}@g" ${ARGO_DAEMON_FILE}
         fi
       elif [ -n "$ARGO_JSON" ]; then
         [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
         json_argo
         if [ "$SYSTEM" = 'Alpine' ]; then
-          local ARGS="--edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+          local ARGS="--edge-ip-version auto --protocol http2 --config $WORK_DIR/tunnel.yml run"
           sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
         else
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" ${ARGO_DAEMON_FILE}
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --config $WORK_DIR/tunnel.yml run@g" ${ARGO_DAEMON_FILE}
         fi
       fi
       ;;
@@ -6448,13 +6463,13 @@ uninstall() {
 version() {
   local ONLINE=$(wget --no-check-certificate -qO- "${GH_PROXY}https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
   [ -z "$ONLINE" ] && error " $(text 74) "
-  local LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=0; i<NF; i++) if ($i=="version") {print $(i+1)}}')
+  local LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}')
   local APP=ARGO && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
 
   ONLINE=$(wget --no-check-certificate -qO- "${GH_PROXY}https://api.github.com/repos/XTLS/Xray-core/releases" | awk -F '["v]' '/tag_name/{print $5}' | sort -rV | sed -n 1p)
   [ -z "$ONLINE" ] && error " $(text 74) "
-  LOCAL=$($WORK_DIR/xray version | awk '{for (i=0; i<NF; i++) if ($i=="Xray") {print $(i+1)}}')
+  LOCAL=$($WORK_DIR/xray version | awk '{for (i=1; i<NF; i++) if ($i=="Xray") {print $(i+1); exit}}')
   local APP=Xray && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
 
@@ -6490,12 +6505,12 @@ menu_setting() {
   ARGO_VERSION='' XRAY_VERSION='' NGINX_VERSION='' ARGO_CHECKHEALTH='' ARGO_MEMORY='' XRAY_MEMORY='' NGINX_MEMORY=''
   if [[ "${STATUS[*]}" =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
-      ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
+      ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}' | sed "s@^@Version: &@g")
       local ARGO_PID=$(awk '/cloudflared/{print $1}' <<< "$PS_LIST")
       local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=${ARGO_PID} '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
       ss -nltp | grep -q "cloudflared.*pid=${ARGO_PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
-    [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk 'NR==1 {print $2}' | sed "s@^@Version: &@g")
+    [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk '{for (i=1; i<NF; i++) if ($i=="Xray") {print $(i+1); exit}}' | sed "s@^@Version: &@g")
     [ -s $WORK_DIR/nginx.conf ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/##; s/ (.*)//" | sed "s@^@Version: &@g")
 
     local _opt=1
@@ -6623,20 +6638,12 @@ menu() {
   local _XV; printf -v _XV '%-26s' "$XRAY_VERSION"
   local _NV; printf -v _NV '%-26s' "$NGINX_VERSION"
   info "\t Argo:  $(_sv "${STATUS[0]}")  ${_AV}${ARGO_MEMORY}\t ${ARGO_CHECKHEALTH}"
+  # === 计算 Xray 行流量（与 -n 同一口径：inbound 下行 / outbound 上行，复用 traffic_summary）；API 不可用时显示 0 B ===
   local _xray_traffic=""
-  if ensure_stats_data 2>/dev/null; then
-    local _in_sum=0 _out_sum=0 _line _name _val
-    while IFS= read -r _line; do
-      _name=$(echo "$_line" | $WORK_DIR/jq -r '.name // empty' 2>/dev/null)
-      _val=$(echo "$_line" | $WORK_DIR/jq -r '.value // 0' 2>/dev/null)
-      [ -z "$_name" ] && continue
-      case "$_name" in
-        inbound*traffic*downlink ) _in_sum=$((_in_sum + _val)) ;;
-        outbound*traffic*uplink )  _out_sum=$((_out_sum + _val)) ;;
-      esac
-    done < <(echo "$STATS_JSON" | $WORK_DIR/jq -c '.stat[]' 2>/dev/null)
-    _xray_traffic="  ⬇$(format_traffic $_in_sum) ⬆$(format_traffic $_out_sum)"
-  fi
+  local _in_sum _out_sum
+  read -r _in_sum _out_sum < <(traffic_summary)
+  _xray_traffic="  ⬇$(format_traffic $_in_sum) ⬆$(format_traffic $_out_sum)"
+  # === 结束 ===
   info "\t Xray:  $(_sv "${STATUS[1]}")  ${_XV}${XRAY_MEMORY}${_xray_traffic}"
   [ -s $WORK_DIR/nginx.conf ] && info "\t Nginx: $(_sv "${STATUS[2]}")  ${_NV}${NGINX_MEMORY}"
   echo -e "\n======================================================================================================================\n"
