@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.5 (2026.08.14)'
+VERSION='2.1.5 (2026.08.15)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -478,11 +478,21 @@ find_free_port() {
 }
 
 # 检测是否启用 Github CDN
+# 优化策略：
+#   1. 持久化缓存：选中的 GH_PROXY 写入 $CUSTOM_FILE（cdn_proxy=...），后续直接复用，跳过全部探测
+#   2. 直连只测 releases 域：raw.githubusercontent.com 全球可达率极高，releases 域才是真正的黑洞点
+#   3. 代理探测用 wait -n 等首个成功者，不轮询
 check_cdn() {
-  local PROXY CODE PID CMD
-  local _WAIT_COUNT=120
-  local PIDS=()
-  local RAW_URL='https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh'
+  local PROXY CODE CMD _cached_proxy
+
+  # 1. 读缓存：$CUSTOM_FILE 可能不存在（首次安装），容错处理
+  if [ -s "$CUSTOM_FILE" ]; then
+    _cached_proxy=$(grep -v '^//' "$CUSTOM_FILE" 2>/dev/null | sed -n 's/^cdn_proxy=//p' | head -1)
+    [ -n "$_cached_proxy" ] && { GH_PROXY="$_cached_proxy"; return; }
+  fi
+
+  # 探测点：github releases 域（cloudflared / jq / Xray.zip 等二进制真实下载路径）
+  local REL_URL='https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64'
 
   # 确定下载工具：优先 wget，次选 curl
   if command -v wget >/dev/null 2>&1; then
@@ -504,33 +514,36 @@ check_cdn() {
     fi
   }
 
-  # 直连检测
-  CODE=$(get_code "$RAW_URL")
+  # 2. 直连检测：只测 releases 域（raw 域全球可达率极高，releases 域才是 IPv6-only 黑洞点）
+  CODE=$(get_code "$REL_URL")
   if [ "$CODE" = '200' ]; then
     GH_PROXY=''
+    # 直连可达也写缓存，避免后续重复探测
+    [ -d "$WORK_DIR" ] && write_custom 'cdn_proxy' ''
     return
   fi
 
-  # 并发探测代理
+  # 3. 直连失败 → 并发探测代理镜像，用 wait -n 等首个成功者
   for PROXY in "${GITHUB_PROXY[@]}"; do
     {
-      CODE=$(get_code "${PROXY}${RAW_URL}")
+      CODE=$(get_code "${PROXY}${REL_URL}")
       [ "$CODE" = '200' ] && [ ! -e "${TEMP_DIR}/cdn_proxy" ] && printf '%s' "$PROXY" > "${TEMP_DIR}/cdn_proxy"
     } &
-    PIDS+=("$!")
   done
 
-  # 等待探测结果或超时
-  while [ ! -e "${TEMP_DIR}/cdn_proxy" ] && [ "$_WAIT_COUNT" -gt 0 ]; do
-    sleep 0.05
-    (( _WAIT_COUNT-- )) || true
-  done
+  # wait -n 等最快完成的子任务（Bash 4.3+），老版本兜底 sleep 1
+  wait -n 2>/dev/null || sleep 1
 
-  [ -e "${TEMP_DIR}/cdn_proxy" ] && GH_PROXY=$(cat "${TEMP_DIR}/cdn_proxy") || GH_PROXY=''
+  if [ -e "${TEMP_DIR}/cdn_proxy" ]; then
+    GH_PROXY=$(cat "${TEMP_DIR}/cdn_proxy")
+    # 写缓存：后续运行直接复用，跳过全部探测
+    [ -d "$WORK_DIR" ] && write_custom 'cdn_proxy' "$GH_PROXY"
+  else
+    GH_PROXY=''
+  fi
 
   # 清理后台任务和临时文件
-  for PID in "${PIDS[@]}"; do kill "$PID" >/dev/null 2>&1 || true; done
-  for PID in "${PIDS[@]}"; do wait "$PID" 2>/dev/null || true; done
+  kill $(jobs -p) 2>/dev/null; wait $(jobs -p) 2>/dev/null
   rm -f "${TEMP_DIR}/cdn_proxy"
 }
 
@@ -809,7 +822,7 @@ start_pre() {
     chmod 755 ${WORK_DIR}
     rm -f "\$pidfile"
     if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
-        pgrep -f "nginx.*${WORK_DIR}/nginx.conf" >/dev/null 2>&1 || /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
+        ps -eo pid,args | grep -q "[n]ginx.*${WORK_DIR}/nginx.conf" || /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
     fi
     return 0
 }
@@ -3498,7 +3511,7 @@ start_pre() {
     chmod 755 ${WORK_DIR}
     rm -f "\$pidfile"
     if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
-        pgrep -f "nginx.*${WORK_DIR}/nginx.conf" >/dev/null 2>&1 || /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
+        ps -eo pid,args | grep -q "[n]ginx.*${WORK_DIR}/nginx.conf" || /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
     fi
     return 0
 }
@@ -4085,7 +4098,7 @@ ${INBOUNDS_JSON}
   ],
   "dns": {
     "servers": [
-      "https+local://8.8.8.8/dns-query"
+      "localhost"
     ]
   }
 }
@@ -4325,9 +4338,9 @@ export_list() {
   check_install
 
   local ARGO_MEM='' XRAY_MEM='' NGINX_MEM=''
-  local ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
+  local ARGO_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/cloudflared"){print $1;exit}')
   [ -n "$ARGO_PID" ] && ARGO_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
-  local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
+  local XRAY_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/xray"){print $1;exit}')
   [ -n "$XRAY_PID" ] && XRAY_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
   if [ -s $WORK_DIR/nginx.conf ]; then
     local NGINX_PID=$(nginx_pid)
@@ -4344,9 +4357,9 @@ export_list() {
       [ "${STATUS[1]}" != "$(text 28)" ] && cmd_systemctl enable xray
       sleep 2
       check_install
-      [ "$IS_ARGO" = 'is_argo' ] && ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
+      [ "$IS_ARGO" = 'is_argo' ] && ARGO_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/cloudflared"){print $1;exit}')
       [ -n "$ARGO_PID" ] && ARGO_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status) MB"
-      XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
+      XRAY_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/xray"){print $1;exit}')
       [ -n "$XRAY_PID" ] && XRAY_MEM="$(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status) MB"
     else
       exit
@@ -4667,10 +4680,11 @@ $([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMA
 
   EXPORT_LIST_FILE="${EXPORT_LIST_FILE}${SUB_URL_BLOCK}"
 
-  # === 流量统计块（与主菜单同一口径：inbound 下行 / outbound 上行；流量为 0 时显示 0 B） ===
-  local _in_sum _out_sum
-  read -r _in_sum _out_sum < <(traffic_summary)
-  EXPORT_LIST_FILE="${EXPORT_LIST_FILE}
+  # === 流量统计块（与主菜单同一口径：inbound 下行 / outbound 上行；仅 Xray 运行时显示） ===
+  if [ "${STATUS[1]}" = "$(text 28)" ]; then
+    local _in_sum _out_sum
+    read -r _in_sum _out_sum < <(traffic_summary)
+    EXPORT_LIST_FILE="${EXPORT_LIST_FILE}
 
 *******************************************
 ┌────────────────┐
@@ -4683,6 +4697,7 @@ $([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMA
 $(info "⬇ Inbound  (total):  $(format_traffic $_in_sum)")
 $(hint "⬆ Outbound (total):  $(format_traffic $_out_sum)")
 "
+  fi
   # === 结束 ===
 
   echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
@@ -5117,7 +5132,7 @@ change_protocols() {
   "inbounds": [],
   "dns": {
     "servers": [
-      "https+local://8.8.8.8/dns-query"
+      "localhost"
     ]
   }
 }
@@ -6507,7 +6522,7 @@ menu_setting() {
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}' | sed "s@^@Version: &@g")
       local ARGO_PID=$(awk '/cloudflared/{print $1}' <<< "$PS_LIST")
-      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=${ARGO_PID} '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
+      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=${ARGO_PID} '$0 ~ "pid="pid"," {n=split($4, a, ":"); print a[n]}')
       ss -nltp | grep -q "cloudflared.*pid=${ARGO_PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/xray ] && XRAY_VERSION=$($WORK_DIR/xray version | awk '{for (i=1; i<NF; i++) if ($i=="Xray") {print $(i+1); exit}}' | sed "s@^@Version: &@g")
@@ -6521,7 +6536,7 @@ menu_setting() {
     # Argo 选项：仅当 Argo 守护进程文件存在时才显示
     if [ -s "${ARGO_DAEMON_FILE}" ]; then
       if [ "${STATUS[0]}" = "$(text 28)" ]; then
-        local ARGO_PID=$(pgrep -f "$WORK_DIR/cloudflared")
+        local ARGO_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/cloudflared"){print $1;exit}')
         [ -n "$ARGO_PID" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${ARGO_PID%% *}/status 2>/dev/null) MB"
         OPTION[_opt]="$(printf '%3d.' $_opt) $(text 27) Argo (argox -a)"
       else
@@ -6546,7 +6561,7 @@ menu_setting() {
       [ -n "$NGINX_PID" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${NGINX_PID%% *}/status 2>/dev/null) MB"
     fi
     if [ "${STATUS[1]}" = "$(text 28)" ]; then
-      local XRAY_PID=$(pgrep -f "$WORK_DIR/xray")
+      local XRAY_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/xray"){print $1;exit}')
       [ -n "$XRAY_PID" ] && XRAY_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f", $2/1024}' /proc/${XRAY_PID%% *}/status 2>/dev/null) MB"
       OPTION[_opt]="$(printf '%3d.' $_opt) $(text 27) Xray (argox -x)"
     else
@@ -6638,11 +6653,13 @@ menu() {
   local _XV; printf -v _XV '%-26s' "$XRAY_VERSION"
   local _NV; printf -v _NV '%-26s' "$NGINX_VERSION"
   info "\t Argo:  $(_sv "${STATUS[0]}")  ${_AV}${ARGO_MEMORY}\t ${ARGO_CHECKHEALTH}"
-  # === 计算 Xray 行流量（与 -n 同一口径：inbound 下行 / outbound 上行，复用 traffic_summary）；API 不可用时显示 0 B ===
+  # === 计算 Xray 行流量（与 -n 同一口径：inbound 下行 / outbound 上行，复用 traffic_summary）；仅 Xray 运行时显示 ===
   local _xray_traffic=""
-  local _in_sum _out_sum
-  read -r _in_sum _out_sum < <(traffic_summary)
-  _xray_traffic="  ⬇$(format_traffic $_in_sum) ⬆$(format_traffic $_out_sum)"
+  if [ "${STATUS[1]}" = "$(text 28)" ]; then
+    local _in_sum _out_sum
+    read -r _in_sum _out_sum < <(traffic_summary)
+    _xray_traffic="  ⬇$(format_traffic $_in_sum) ⬆$(format_traffic $_out_sum)"
+  fi
   # === 结束 ===
   info "\t Xray:  $(_sv "${STATUS[1]}")  ${_XV}${XRAY_MEMORY}${_xray_traffic}"
   [ -s $WORK_DIR/nginx.conf ] && info "\t Nginx: $(_sv "${STATUS[2]}")  ${_NV}${NGINX_MEMORY}"
