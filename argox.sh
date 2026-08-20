@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.5 (2026.08.15)'
+VERSION='2.1.5 (2026.08.20)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -833,7 +833,7 @@ stop() {
     local RETVAL=\$?
     if [ \$RETVAL -ne 0 ]; then
         local XRAY_PIDS
-        XRAY_PIDS="\$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '\$0~(work_dir"/xray run"){print \$1;exit}')"
+        XRAY_PIDS="\$(ps -eo pid,args | grep "[x]ray run -c ${WORK_DIR}/inbound.json" | awk '{print \$1}')"
         if [ -n "\$XRAY_PIDS" ]; then
             for pid in \$XRAY_PIDS; do
                 kill -9 "\$pid" 2>/dev/null
@@ -842,7 +842,7 @@ stop() {
     fi
     if [ -s ${WORK_DIR}/nginx.conf ] && command -v /usr/sbin/nginx >/dev/null 2>&1; then
         local NGINX_MASTER
-        NGINX_MASTER="\$(ps -eo pid,args | awk -v d='${WORK_DIR}' '\$0~(d\"/nginx.conf\") && /nginx: master process/{print \$1;exit}')"
+        NGINX_MASTER="\$(ps -eo pid,args | grep "[n]ginx: master process.*${WORK_DIR}/nginx.conf" | awk '{print \$1}')"
         if [ -n "\$NGINX_MASTER" ]; then
             kill -QUIT \$NGINX_MASTER 2>/dev/null
             sleep 1
@@ -1356,6 +1356,12 @@ check_system_info() {
   else
     command -v virt-what >/dev/null 2>&1 && ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
     command -v virt-what >/dev/null 2>&1 && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
+  fi
+
+  if [ -c /dev/net/tun ] || cat /dev/net/tun 2>&1 | grep -q "in bad state\|处于错误状态"; then
+    IS_TUN='is_tun'
+  else
+    IS_TUN='no_tun'
   fi
 }
 
@@ -2872,6 +2878,8 @@ input_hy2_realm() {
 
 # 交互输入是否启用 WARP 辅助打洞
 input_hy2_warp() {
+  # 无 TUN 时没有 WARP 出站，WARP 辅助打洞不可用，不询问
+  [ "$IS_TUN" != 'is_tun' ] && return
   # 仅在 Realm 已启用且非交互模式下询问
   [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && return
   # 长参数模式：--HY2_WARP 已传参（无论 true/false），跳过交互
@@ -2920,6 +2928,8 @@ set_hy2_realm_config() {
 # 注意 2：WARP 打洞需要同时添加 warp-IPv4 和 warp-IPv6 两条规则，否则 UDP 打洞可能失败
 sync_hy2_warp_route() {
   local _action="$1"
+  # 无 TUN 时无 warp-IPv4/warp-IPv6 出站，WARP 辅助打洞无可指向，直接跳过，防止写入无效路由
+  [ "$IS_TUN" != 'is_tun' ] && return 0
   # inbound.json 用于获取 hysteria2 的 inboundTag 名称
   local _ib="$WORK_DIR/inbound.json"
   # outbound.json 用于读写 WARP 路由规则
@@ -2977,7 +2987,8 @@ handle_hy2_realm() {
   # 提取受影响的 hysteria2 inbound tag，强制热更新（因增量 diff 只对比 tag，不对比内容）
   _hy2_tag=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
   api_hot_reload inbounds ${_hy2_tag:+"$_hy2_tag"}
-  api_hot_reload routing_rules
+  # 无 TUN 时无 WARP 路由可同步（sync_hy2_warp_route 已跳过），且 RoutingService 未启用，跳过全量路由同步以免误报 adrules 失败
+  [ "$IS_TUN" = 'is_tun' ] && api_hot_reload routing_rules
   info "\n $(text 128) \n"
   export_list
 }
@@ -3364,18 +3375,21 @@ install_argox() {
   fi
 
   # ChatGPT 解锁检测，决定 OpenAI 路由的 outboundTag（direct / warp-IPv4 / warp-IPv6）
-  if [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-    CHATGPT_STACK='-4'
-  elif [[ "$SERVER_IP" =~ ^[0-9a-fA-F:]+$ && "$SERVER_IP" =~ : ]]; then
-    CHATGPT_STACK='-6'
-  else
-    # 域名为 NAT 场景的动态地址，交由 wget 按系统默认栈解析
-    CHATGPT_STACK=''
-  fi
-  if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
-    CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
-  else
-    CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
+  # 仅 TUN 支持（IS_TUN=is_tun）时才有 WARP 出口与 ChatGPT 分流路由；无 TUN 时无需探测
+  if [ "$IS_TUN" = 'is_tun' ]; then
+    if [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+      CHATGPT_STACK='-4'
+    elif [[ "$SERVER_IP" =~ ^[0-9a-fA-F:]+$ && "$SERVER_IP" =~ : ]]; then
+      CHATGPT_STACK='-6'
+    else
+      # 域名为 NAT 场景的动态地址，交由 wget 按系统默认栈解析
+      CHATGPT_STACK=''
+    fi
+    if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
+      CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
+    else
+      CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
+    fi
   fi
 
   [ ! -d /etc/systemd/system ] && mkdir -p /etc/systemd/system
@@ -4067,17 +4081,21 @@ JSONEOF
   local _api_port
   _api_port=$(find_free_port 10000 65535)
 
+  local _api_services='[
+        "HandlerService",
+        "LoggerService",
+        "StatsService"'
+  [ "$IS_TUN" = 'is_tun' ] && _api_services+=',
+        "RoutingService"'
+  _api_services+='
+      ]'
+
   cat > $WORK_DIR/inbound.json << EOF
 {
   "api": {
     "tag": "api",
     "listen": "127.0.0.1:${_api_port}",
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService",
-      "RoutingService"
-    ]
+    "services": ${_api_services}
   },
   "stats": {},
   "policy": {
@@ -4129,6 +4147,82 @@ EOF
     local WARP_R3=76
   fi
 
+  local WARP_OUTBOUND_JSON=""
+  if [ "$IS_TUN" = 'is_tun' ]; then
+    WARP_OUTBOUND_JSON=",
+        {
+            \"protocol\": \"wireguard\",
+            \"tag\": \"wireguard\",
+            \"settings\": {
+                \"secretKey\": \"${WARP_PRIVATE}\",
+                \"address\": [
+                    \"172.16.0.2/32\",
+                    \"${WARP_V6}/128\"
+                ],
+                \"peers\": [
+                    {
+                        \"publicKey\": \"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=\",
+                        \"allowedIPs\": [
+                            \"0.0.0.0/0\",
+                            \"::/0\"
+                        ],
+                        \"endpoint\": \"engage.cloudflareclient.com:2408\"
+                    }
+                ],
+                \"reserved\": [
+                    ${WARP_R1},
+                    ${WARP_R2},
+                    ${WARP_R3}
+                ],
+                \"mtu\": 1280
+            }
+        },
+        {
+            \"protocol\": \"freedom\",
+            \"tag\": \"warp-IPv4\",
+            \"settings\": {
+                \"domainStrategy\": \"UseIPv4\"
+            },
+            \"proxySettings\": {
+                \"tag\": \"wireguard\"
+            }
+        },
+        {
+            \"protocol\": \"freedom\",
+            \"tag\": \"warp-IPv6\",
+            \"settings\": {
+                \"domainStrategy\": \"UseIPv6\"
+            },
+            \"proxySettings\": {
+                \"tag\": \"wireguard\"
+            }
+        }"
+  fi
+
+  local ROUTING_JSON=""
+  if [ "$IS_TUN" = 'is_tun' ]; then
+    ROUTING_JSON=",
+    \"routing\": {
+        \"domainStrategy\": \"AsIs\",
+        \"rules\": [
+            {
+                \"type\": \"field\",
+                \"domain\": [
+                    \"api.openai.com\"
+                ],
+                \"outboundTag\": \"${CHAT_GPT_OUT_V4}\"
+            },
+            {
+                \"type\": \"field\",
+                \"domain\": [
+                    \"geosite:openai\"
+                ],
+                \"outboundTag\": \"${CHAT_GPT_OUT_V6}\"
+            }
+        ]
+    }"
+  fi
+
   cat > $WORK_DIR/outbound.json << EOF
 {
     "outbounds": [
@@ -4142,74 +4236,8 @@ EOF
 
             },
             "tag": "block"
-        },
-        {
-            "protocol": "wireguard",
-            "tag": "wireguard",
-            "settings": {
-                "secretKey": "${WARP_PRIVATE}",
-                "address": [
-                    "172.16.0.2/32",
-                    "${WARP_V6}/128"
-                ],
-                "peers": [
-                    {
-                        "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
-                        "allowedIPs": [
-                            "0.0.0.0/0",
-                            "::/0"
-                        ],
-                        "endpoint": "engage.cloudflareclient.com:2408"
-                    }
-                ],
-                "reserved": [
-                    ${WARP_R1},
-                    ${WARP_R2},
-                    ${WARP_R3}
-                ],
-                "mtu": 1280
-            }
-        },
-        {
-            "protocol": "freedom",
-            "tag": "warp-IPv4",
-            "settings": {
-                "domainStrategy": "UseIPv4"
-            },
-            "proxySettings": {
-                "tag": "wireguard"
-            }
-        },
-        {
-            "protocol": "freedom",
-            "tag": "warp-IPv6",
-            "settings": {
-                "domainStrategy": "UseIPv6"
-            },
-            "proxySettings": {
-                "tag": "wireguard"
-            }
-        }
-    ],
-    "routing": {
-        "domainStrategy": "AsIs",
-        "rules": [
-            {
-                "type": "field",
-                "domain": [
-                    "api.openai.com"
-                ],
-                "outboundTag": "${CHAT_GPT_OUT_V4}"
-            },
-            {
-                "type": "field",
-                "domain": [
-                    "geosite:openai"
-                ],
-                "outboundTag": "${CHAT_GPT_OUT_V6}"
-            }
-        ]
-    }
+        }${WARP_OUTBOUND_JSON}
+    ]${ROUTING_JSON}
 }
 EOF
 
@@ -5103,17 +5131,21 @@ change_protocols() {
   _api_port=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')
   [ -z "$_api_port" ] && _api_port=$(find_free_port 10000 65535)
 
+  local _api_services='[
+        "HandlerService",
+        "LoggerService",
+        "StatsService"'
+  [ "$IS_TUN" = 'is_tun' ] && _api_services+=',
+        "RoutingService"'
+  _api_services+='
+      ]'
+
   cat > $WORK_DIR/inbound.json << EOF
 {
   "api": {
     "tag": "api",
     "listen": "127.0.0.1:${_api_port}",
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService",
-      "RoutingService"
-    ]
+    "services": ${_api_services}
   },
   "stats": {},
   "policy": {
@@ -5997,9 +6029,11 @@ change_config() {
   # 指定网络出口（始终显示，默认空 = 不指定）
   MENU_IDX+=(75) && MENU_KEY+=(bindinterface) && MENU_VAL+=("${BIND_IFACE:-default}")
 
-  # 自定义 warp 出站路由规则（使用 custom_route_count 统计）
-  CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
-  MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
+  # 自定义 warp 出站路由规则（无 TUN 时无 WARP 出站，隐藏该入口）
+  if [ "$IS_TUN" = 'is_tun' ]; then
+    CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
+    MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
+  fi
 
   # 更换 WARP 账户（仅当 outbound.json 中存在 wireguard 出站时显示）
   grep -q '"wireguard"' ${WORK_DIR}/outbound.json 2>/dev/null && {
@@ -6071,7 +6105,8 @@ change_config() {
       sync_hy2_warp_route disable
       local _HY2_TAG=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
       api_hot_reload inbounds ${_HY2_TAG:+"$_HY2_TAG"}
-      api_hot_reload routing_rules
+      # 无 TUN 时无 WARP 路由可同步且 RoutingService 未启用，跳过全量路由同步以免误报 adrules 失败
+      [ "$IS_TUN" = 'is_tun' ] && api_hot_reload routing_rules
     fi
     input_hopping_port
     # 保存用户输入的起止端口，后续删除旧规则时内部检测可能会清空
@@ -6718,10 +6753,15 @@ if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%
       _api_port=$(find_free_port 10000 65535)
     fi
     _api_listen="127.0.0.1:${_api_port}"
-    grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --arg listen "$_api_listen" '
+    # 迁移期补全 api 块时按 TUN 能力决定是否启用 RoutingService（与 outbound 生成逻辑一致）
+    if [ -c /dev/net/tun ] || cat /dev/net/tun 2>&1 | grep -q "in bad state\|处于错误状态"; then
+      _mig_api_services='["HandlerService", "LoggerService", "StatsService", "RoutingService"]'
+    else
+      _mig_api_services='["HandlerService", "LoggerService", "StatsService"]'
+    fi
+    grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --arg listen "$_api_listen" --argjson services "$_mig_api_services" '
       .api = (if has("api") then .api
-              else { "tag": "api", "listen": $listen,
-                     "services": ["HandlerService", "LoggerService", "StatsService", "RoutingService"] }
+              else { "tag": "api", "listen": $listen, "services": $services }
               end) |
       .stats = (.stats // {}) |
       .policy = ((.policy // {}) + {
