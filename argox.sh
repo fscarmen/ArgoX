@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.5 (2026.08.20)'
+VERSION='2.1.5 (2026.08.21)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -1261,7 +1261,7 @@ check_install() {
 
   # 任务 4: 注册 warp 账号
   {
-    wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register" > $TEMP_DIR/warp_account.json 2>/dev/null
+    timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register > $TEMP_DIR/warp_account.json 2>/dev/null
   } &
 
   # 已安装且 Xray 开启时，预取流量统计缓存（STATS_JSON），
@@ -1345,17 +1345,20 @@ check_system_info() {
     ARGO_DAEMON_FILE='/etc/init.d/argo'; XRAY_DAEMON_FILE='/etc/init.d/xray'; DAEMON_RUN_PATTERN="command_args="
   fi
 
-  if command -v systemd-detect-virt >/dev/null 2>&1; then
+  # 判断虚拟化
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    command -v virt-what >/dev/null 2>&1 || ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
+    command -v virt-what >/dev/null 2>&1 && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
+  elif command -v systemd-detect-virt >/dev/null 2>&1; then
     VIRT=$(systemd-detect-virt)
+  elif command -v hostnamectl >/dev/null 2>&1; then
+    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
   elif grep -qa container= /proc/1/environ 2>/dev/null; then
     VIRT=$(tr '\0' '\n' </proc/1/environ | awk -F= '/container=/{print $2; exit}')
   elif grep -Eq '(lxc|docker|kubepods|containerd)' /proc/1/cgroup 2>/dev/null; then
     VIRT=$(grep -Eo '(lxc|docker|kubepods|containerd)' /proc/1/cgroup | sed -n 1p)
-  elif command -v hostnamectl >/dev/null 2>&1; then
-    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
   else
-    command -v virt-what >/dev/null 2>&1 && ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
-    command -v virt-what >/dev/null 2>&1 && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
+    VIRT=unknown
   fi
 
   if [ -c /dev/net/tun ] || cat /dev/net/tun 2>&1 | grep -q "in bad state\|处于错误状态"; then
@@ -4127,7 +4130,7 @@ EOF
     local WARP_ACCOUNT=$(< "$TEMP_DIR/warp_account.json")
     rm -f "$TEMP_DIR/warp_account.json"
   else
-    local WARP_ACCOUNT=$(wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register")
+    local WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register)
   fi
 
   if grep -q '"id"' <<< "$WARP_ACCOUNT"; then
@@ -5891,7 +5894,7 @@ change_warp_account() {
 # 方式1：重新注册免费账户
 change_warp_account_register() {
   local WARP_ACCOUNT PRIVATE_KEY ADDRESS6 R1 R2 R3
-  WARP_ACCOUNT=$(wget -qO- --tries=10 --waitretry=1 --timeout=2 "https://warp.cloudflare.nyc.mn/?run=register")
+  WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register)
 
   if ! grep -q '"id"' <<< "$WARP_ACCOUNT"; then
     warning "\n $(text 172) \n"
@@ -6525,7 +6528,7 @@ version() {
 
   [[ "${UPDATE[*],,}" =~ y ]] && check_system_info
   if [ "${UPDATE[0],,}" = 'y' ]; then
-    wget --no-check-certificate -O $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
+    wget --no-check-certificate -O $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH 2>/dev/null
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
@@ -6536,10 +6539,21 @@ version() {
     fi
   fi
   if [ "${UPDATE[1],,}" = 'y' ]; then
-    wget --no-check-certificate -O $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ${GH_PROXY}https://github.com/XTLS/Xray-core/releases/download/v${ONLINE}/Xray-linux-$XRAY_ARCH.zip
-    if [ -s $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip ]; then
+    # 直接使用文件路径，仅保留 URL 切换变量、循环计数变量。
+    # 先下载到临时 zip 并校验可解压，避免中断导致损坏的压缩包直接喂给 unzip 报错；失败自动重试（第2次起去掉代理直连）
+    local XRAY_ZIP_URL XRAY_TRY
+    for XRAY_TRY in 1 2 3; do
+      rm -f "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip"
+      XRAY_ZIP_URL="${GH_PROXY}https://github.com/XTLS/Xray-core/releases/download/v${ONLINE}/Xray-linux-$XRAY_ARCH.zip"
+      [ "$XRAY_TRY" -ge 2 ] && XRAY_ZIP_URL="https://github.com/XTLS/Xray-core/releases/download/v${ONLINE}/Xray-linux-$XRAY_ARCH.zip"
+      wget --no-check-certificate -qO "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip" "$XRAY_ZIP_URL" 2>/dev/null || { sleep 3; continue; }
+      [ -s "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip" ] || { sleep 3; continue; }
+      # unzip -t 完整解压校验：损坏/中断的 zip 会在这里被拦截；校验通过即结束重试
+      unzip -tq "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip" >/dev/null 2>&1 && break || { rm -f "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip"; sleep 3; }
+    done
+    if [ -s "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip" ]; then
       cmd_systemctl disable xray
-      unzip -qo $TEMP_DIR/Xray-linux-$XRAY_ARCH.zip xray *.dat -d $WORK_DIR; rm -f $TEMP_DIR/Xray*.zip
+      unzip -qo "$TEMP_DIR/Xray-linux-$XRAY_ARCH.zip" xray *.dat -d $WORK_DIR >/dev/null 2>&1; rm -f $TEMP_DIR/Xray*.zip
       cmd_systemctl enable xray
       cmd_systemctl status xray &>/dev/null && info " Xray $(text 28) $(text 37)" || error " Xray $(text 28) $(text 38) "
     else
