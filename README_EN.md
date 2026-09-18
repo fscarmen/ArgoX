@@ -21,18 +21,22 @@
 * * *
 
 ## Update Information
+2026.09.18 v2.1.6 Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9
+
+2026.08.14 v2.1.5 Force HTTP/2 transport for cloudflared tunnels
+
 2026.08.11 v2.1.4 1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]
-
-2026.08.07 v2.1.3 1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation so the install flow stays unchanged; 2. Server address accepts an IP or a domain (use DDNS for NAT VPS whose public IP changes daily)
-
-2026.08.02 v2.1.2 Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality)
-
-2026.07.31 v2.1.1  Xray real-time traffic stats (-n / -r / main menu)
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.08.07 v2.1.3 1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation so the install flow stays unchanged; 2. Server address accepts an IP or a domain (use DDNS for NAT VPS whose public IP changes daily)
+>
+>2026.08.02 v2.1.2 Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality)
+>
+>2026.07.31 v2.1.1  Xray real-time traffic stats (-n / -r / main menu)
+>
 >2026.07.24 v2.1.0 1. On-demand nginx/cloudflared; 2. Xray API hot reload with zero interruption; 3. Subscription toggle in -d menu
 >
 >2026.07.19 v2.0.9 1. Add long-parameter support for semi-interactive install. Support 16 long parameters covering protocols, ports, CDN, UUID, paths, Argo, TLS, Reality, Hysteria2; 2. Add minClientVer to realitySettings for Xray v26.7.11 compatibility

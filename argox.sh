@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.5 (2026.08.21)'
+VERSION='2.1.6 (2026.09.18)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -28,7 +28,7 @@ START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此�
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='26.7.28'
+DEFAULT_XRAY_VERSION='26.9.9'
 IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
 IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
 
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Force HTTP/2 transport for cloudflared tunnels"
-C[1]="cloudflared 隧道统一使用 HTTP/2 传输"
+E[1]="Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9"
+C[1]="兼容 Xray 26.9+：WARP 链式出站由 proxySettings 迁移到 streamSettings.sockopt.dialerProxy"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -1417,12 +1417,18 @@ check_system_ip() {
     elif grep -qi 'cloudflare' <<< "$ASNORG4" && [ -n "$WAN6" ] && ! grep -qi 'cloudflare' <<< "$ASNORG6"; then
       SERVER_IP_DEFAULT=$WAN6
     elif [ -s "$CUSTOM_FILE" ]; then
+      # 已有部署：校验/确认已保存的 serverIp（交互输入后写回 custom，供 fetch_nodes_value 读取）
       local a=6
       until [ -n "$SERVER_IP" ] && is_valid_server_addr "$SERVER_IP"; do
         ((a--)) || true
         [ "$a" = 0 ] && error "\n $(text 3) \n"
         reading "\n $(text 54) " SERVER_IP
       done
+      write_custom 'serverIp' "${SERVER_IP}"
+    else
+      # WAN4/WAN6 均为 Cloudflare（warp/warp-go 全隧穿）或未探测到时：
+      # 用任一非空出口 IP 作为默认，避免 SERVER_IP_DEFAULT 为空导致节点 server 缺失
+      SERVER_IP_DEFAULT=${WAN4:-$WAN6}
     fi
   elif [ -n "$WAN4" ]; then
     SERVER_IP_DEFAULT=$WAN4
@@ -1818,8 +1824,9 @@ xray_variable() {
   fi
 
   if [[ " ${INSTALL_PROTOCOLS[*]} " =~ " c " ]]; then
-    # Realm 与端口跳跃互斥：先提示；开启 Realm 后跳过端口跳跃交互
-    hint "\n $(text 182) \n"
+    # Realm 与端口跳跃互斥提示仅在交互安装时显示（快捷/非交互安装跳过，避免打断流水线）
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ "$SKIP_MENU" != 'skip_menu' ] && hint "\n $(text 182) \n"
+
     # Hysteria2 Realm 交互（在端口跳跃之前询问，需要先 Realm 再端口跳跃）
     input_hy2_realm
     input_hy2_warp
@@ -2084,6 +2091,11 @@ fetch_nodes_value() {
 
   [ -s "$CUSTOM_FILE" ] && . "$CUSTOM_FILE"
   SERVER_IP="${serverIp:-}"
+  # custom 中 serverIp 缺失/为空时（如 warp/warp-go 全隧穿、首次安装未写入），
+  # 回退到探测的出口 IP，避免节点 server 字段为空导致订阅不可用
+  if [ -z "$SERVER_IP" ] && { [ -n "$WAN4" ] || [ -n "$WAN6" ]; }; then
+    SERVER_IP="${WAN4:-$WAN6}"
+  fi
   REALITY_PRIVATE="${privateKey:-}"
   REALITY_PUBLIC="${publicKey:-}"
   SERVER="${cdn:-}"
@@ -4183,21 +4195,21 @@ EOF
         {
             \"protocol\": \"freedom\",
             \"tag\": \"warp-IPv4\",
-            \"settings\": {
-                \"domainStrategy\": \"UseIPv4\"
-            },
-            \"proxySettings\": {
-                \"tag\": \"wireguard\"
+            \"settings\": {},
+            \"streamSettings\": {
+                \"sockopt\": {
+                    \"dialerProxy\": \"wireguard\"
+                }
             }
         },
         {
             \"protocol\": \"freedom\",
             \"tag\": \"warp-IPv6\",
-            \"settings\": {
-                \"domainStrategy\": \"UseIPv6\"
-            },
-            \"proxySettings\": {
-                \"tag\": \"wireguard\"
+            \"settings\": {},
+            \"streamSettings\": {
+                \"sockopt\": {
+                    \"dialerProxy\": \"wireguard\"
+                }
             }
         }"
   fi
@@ -4577,7 +4589,12 @@ export_list() {
   # 写入订阅文件（仅 IS_SUB=is_sub 且有协议时生成；0 协议跳过，避免生成空订阅覆盖现有文件）
   if [ "$IS_SUB" = 'is_sub' ] && [ -n "$PROTOS_NOW" ]; then
     echo -e "$CLASH" > $WORK_DIR/subscribe/proxies
-    wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" > $WORK_DIR/subscribe/clash
+    # 优先用 check_dependencies 已后台缓存的模板，离线/缓存失效时再回退在线拉取
+    if [ -s "$TEMP_DIR/clash" ]; then
+      sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" "$TEMP_DIR/clash" > $WORK_DIR/subscribe/clash
+    else
+      wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" > $WORK_DIR/subscribe/clash
+    fi
     echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
     echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/v2rayn
     echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/throne
@@ -4587,7 +4604,13 @@ export_list() {
   local SINGBOX_DISPLAY='' SINGBOX_BLOCK='' SINGBOX_LINK_BLOCK=''
   if ! grep -Eq '^[[:space:]]*(xhttp-h1\.1-cdn|xhttp-h2-reality|xhttp-h3-direct)[[:space:]]*$' <<< "$PROTOS_NOW" || grep -Eq '(^|[[:space:]])(reality-vision|hysteria2|reality-grpc|vless-ws|vmess-ws|trojan-ws|ss-ws|trojan-direct|ss2022-direct)([[:space:]]|$)' <<< "$PROTOS_NOW"; then
     if [ -n "$SINGBOX_OUTBOUNDS" ]; then
-    local SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
+    # 优先用 check_dependencies 已后台缓存的模板，离线/缓存失效时再回退在线拉取
+    local SING_BOX_JSON=''
+    if [ -s "$TEMP_DIR/sing-box" ]; then
+      SING_BOX_JSON=$(<"$TEMP_DIR/sing-box")
+    else
+      SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
+    fi
     echo "$SING_BOX_JSON" | sed "s#\"<OUTBOUND_REPLACE>\"#${SINGBOX_OUTBOUNDS}#; s#\"<NODE_REPLACE>\"#${SINGBOX_TAGS}#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box
     SINGBOX_DISPLAY=$(echo "{ \"outbounds\":[ ${SINGBOX_OUTBOUNDS} ] }" | $WORK_DIR/jq 2>/dev/null)
     SINGBOX_BLOCK="*******************************************
@@ -6799,6 +6822,68 @@ if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%
       fi
     }
   }
+fi
+
+###### 旧版 WARP 链式出站迁移：Xray ≥26.9 已移除 outbound.proxySettings，改为 streamSettings.sockopt.dialerProxy,将于 2026年12月31日移除
+###### 将 warp-IPv4 / warp-IPv6 的 proxySettings 改写为 dialerProxy，并用 Xray API 热加载（失败则后台重启兑底）
+###### 此迁移发生时新 Xray 未能启动的概率高，因此必须用 API 热加载以免 SSH 断开，同时保留后台重启兑底
+if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/outbound.json" ] && [[ "$(date +%Y%m%d)" < "20270101" ]]; then
+  # 存在旧字段且缺 dialerProxy 才处理（幂等，burst 检测避免重复热载）
+  if grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq -e \
+    'any(.outbounds[]? | select(.tag == "warp-IPv4" or .tag == "warp-IPv6"); has("proxySettings")) and
+     any(.outbounds[]? | select(.tag == "warp-IPv4" or .tag == "warp-IPv6"); (.streamSettings.sockopt.dialerProxy) != null) | not' \
+    >/dev/null 2>&1; then
+
+    # 1) 用 jq 一次性重写：删 proxySettings，补齐 streamSettings.sockopt.dialerProxy，settings 置空
+    grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq '
+      .outbounds |= map(
+        if (.tag == "warp-IPv4" or .tag == "warp-IPv6") then
+          del(.proxySettings)
+          | .settings = {}
+          | .streamSettings.sockopt.dialerProxy = "wireguard"
+          | del(.streamSettings.sockopt.domainStrategy)   # dialerProxy 下 Freedom 不解析域名，移除无效字段
+        else . end
+      )
+    ' > "$TEMP_DIR/outbound_warp_mig.json" 2>/dev/null \
+      && mv "$TEMP_DIR/outbound_warp_mig.json" "$WORK_DIR/outbound.json" || true
+
+    # 2) 校验新配置可用（失败不打热加载，避免把坏配置注入运行中的实例）
+    _warp_cfg_ok=false
+    if [ -x "$WORK_DIR/xray" ] && [ -s "$WORK_DIR/inbound.json" ]; then
+      if $WORK_DIR/xray run -test -c "$WORK_DIR/inbound.json" -c "$WORK_DIR/outbound.json" >"$TEMP_DIR/xray_warp_test.err" 2>&1; then
+        _warp_cfg_ok=true
+      fi
+    fi
+
+    # 3) 配置有效则热加载；API 方案优先，失败才后台重启（后台重启是为避免 SSH 断开时命令中断）
+    if [ "$_warp_cfg_ok" = 'true' ]; then
+      _warp_loaded=false
+      if [ -x "$WORK_DIR/xray" ]; then
+        _warp_api_port=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')
+        if [ -n "$_warp_api_port" ] && $WORK_DIR/xray api lsi --server="127.0.0.1:${_warp_api_port}" --isOnlyTags=true &>/dev/null; then
+          # 逐个强制热更两个出站（rmo + ado，key 变更相关字段必须 force）
+          for _warp_tag in warp-IPv4 warp-IPv6; do
+            if ( cd / ; $WORK_DIR/xray api rmo --server="127.0.0.1:${_warp_api_port}" "$_warp_tag" &>/dev/null ); then :; fi
+            grep -v '^//' "$WORK_DIR/outbound.json" \
+              | $WORK_DIR/jq -c "{outbounds: [.outbounds[] | select(.tag == \"$_warp_tag\")]}" \
+              > "$TEMP_DIR/warp_${_warp_tag}.json" 2>/dev/null \
+              && $WORK_DIR/xray api ado --server="127.0.0.1:${_warp_api_port}" "$TEMP_DIR/warp_${_warp_tag}.json" &>/dev/null \
+              && _warp_loaded=true
+            rm -f "$TEMP_DIR/warp_${_warp_tag}.json"
+          done
+        fi
+      fi
+      # API 热加载未完成则后台重启兑底（不动到 SSH：nohup 后台、微秒内返回）
+      if [ "$_warp_loaded" != 'true' ]; then
+        if [ -d /run/openrc ] || command -v rc-service >/dev/null 2>&1; then
+          ( nohup rc-service xray restart >/dev/null 2>&1 & )
+        else
+          ( nohup systemctl restart xray >/dev/null 2>&1 & )
+        fi
+      fi
+    fi
+    unset _warp_cfg_ok _warp_loaded _warp_api_port _warp_tag
+  fi
 fi
 
 # ── 传参处理1: 语言识别 + SKIP_MENU 检测（在 select_language 之前） ──
