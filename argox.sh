@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.6 (2026.09.18)'
+VERSION='2.1.7 (2026.10.02)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
@@ -28,7 +28,7 @@ START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此�
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='26.9.9'
+DEFAULT_XRAY_VERSION='26.9.30'
 IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
 IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
 
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9"
-C[1]="兼容 Xray 26.9+：WARP 链式出站由 proxySettings 迁移到 streamSettings.sockopt.dialerProxy"
+E[1]="1. Adapt to Xray 26.7.11 dropping VMess 'none'/'zero' ciphers: vmess-ws links use cipher auto (Clash/Shadowrocket/v2rayN), Throne does not support auto and uses aes-128-gcm; 2. auto-rewrite legacy none/zero in existing subscription files (remove after 2026-12-31); 3. Standardize Shadowrocket Reality links (single-bracket IPv6, no auto:/obfs=none, add udp=1 & fingerprint=Chrome140); 4. remove minClientVer from realitySettings; 5. enable support-x25519mlkem768 in clash reality-opts"
+C[1]="1. 适配 Xray 26.7.11 移除 VMess none/zero：vmess-ws 链接加密方式改为 auto（Clash/Shadowrocket/v2rayN），Throne 不支持 auto，改为 aes-128-gcm; 2. 自动改写旧订阅文件中的 none/zero（2026年12月31日后移除）; 3. 规范化 Shadowrocket Reality 链接（IPv6 单括号、去掉 auto:/obfs=none、增加 udp=1 与 fingerprint=Chrome140）; 4. 移除 realitySettings 中的 minClientVer; 5. clash reality-opts 启用 support-x25519mlkem768"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -2087,7 +2087,7 @@ parse_preferred_addr() {
 
 # 从已安装的 inbound.json / protocols 等配置文件中读取各参数，供 export_list / change_protocols 复用
 fetch_nodes_value() {
-  unset IS_SUB IS_ARGO SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER SERVER_PORT SERVER_DISPLAY UUID WS_PATH NODE_NAME SS_WS_METHOD SS_DIRECT_METHOD SS2022_PASSWORD GRPC_PORT HY2_PORT VLESS_WS_PORT VMESS_WS_PORT TROJAN_WS_PORT SS_WS_PORT VLESS_XHTTP_PORT XHTTP_H2_PORT XHTTP_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 SERVER_IP_2 HY2_UP_NOW HY2_DOWN_NOW
+  unset IS_SUB IS_ARGO SERVER_IP REALITY_PORT REALITY_PUBLIC REALITY_PRIVATE TLS_SERVER SERVER SERVER_PORT SERVER_DISPLAY UUID WS_PATH NODE_NAME SS_WS_METHOD SS_DIRECT_METHOD SS2022_PASSWORD GRPC_PORT HY2_PORT VLESS_WS_PORT VMESS_WS_PORT TROJAN_WS_PORT SS_WS_PORT VLESS_XHTTP_PORT XHTTP_H2_PORT XHTTP_PORT TROJAN_PORT SS2022_PORT SERVER_IP_1 HY2_UP_NOW HY2_DOWN_NOW
 
   [ -s "$CUSTOM_FILE" ] && . "$CUSTOM_FILE"
   SERVER_IP="${serverIp:-}"
@@ -2175,13 +2175,7 @@ fetch_nodes_value() {
     SERVER_DISPLAY="$SERVER"
   fi
 
-  if [[ "$SERVER_IP" =~ : ]]; then
-    SERVER_IP_1="[$SERVER_IP]"
-    SERVER_IP_2="[[$SERVER_IP]]"
-  else
-    SERVER_IP_1="$SERVER_IP"
-    SERVER_IP_2="$SERVER_IP"
-  fi
+  [[ "$SERVER_IP" =~ : ]] && SERVER_IP_1="[$SERVER_IP]" || SERVER_IP_1="$SERVER_IP"
 
   # 读取 Hysteria2 带宽参数（从订阅文件 proxies 中解析）
   if [ -n "$HY2_PORT" ] && [ -s "${WORK_DIR}/subscribe/proxies" ]; then
@@ -3636,7 +3630,6 @@ WantedBy=multi-user.target"
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "minClientVer": "1.0.0",
           "dest": "${TLS_SERVER}:443",
           "serverNames": [
             "${TLS_SERVER}"
@@ -3715,7 +3708,6 @@ JSONEOF
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "minClientVer": "1.0.0",
           "dest": "${TLS_SERVER}:443",
           "xver": 0,
           "serverNames": [
@@ -3942,7 +3934,6 @@ JSONEOF
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "minClientVer": "1.0.0",
           "dest": "${TLS_SERVER}:443",
           "xver": 0,
           "serverNames": [
@@ -4458,8 +4449,8 @@ export_list() {
 
   # reality-vision
   grep -q 'reality-vision' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[0]}\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }" \
-    "vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[0]}&obfs=none&tls=1&peer=${TLS_SERVER}&xtls=2&pbk=${REALITY_PUBLIC}" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[0]}\", type: vless, server: ${SERVER_IP}, port: ${REALITY_PORT}, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\", support-x25519mlkem768: true} }" \
+    "vless://$(echo -n ":${UUID}@${SERVER_IP_1}:${REALITY_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[0]}&tls=1&peer=${TLS_SERVER}&udp=1&xtls=2&pbk=${REALITY_PUBLIC}&fingerprint=${FINGER_PRINT:-Chrome140}" \
     "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
     "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }" \
     "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=firefox&pbk=${REALITY_PUBLIC}&type=tcp&flow=xtls-rprx-vision&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
@@ -4498,8 +4489,8 @@ export_list() {
 
   # reality-grpc
   grep -q 'reality-grpc' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[2]}\", type: vless, server: ${SERVER_IP}, port: ${GRPC_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, grpc-opts: {grpc-service-name: \"grpc\"} }" \
-    "vless://$(echo -n "auto:${UUID}@${SERVER_IP_2}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[2]}&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&pbk=${REALITY_PUBLIC}" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[2]}\", type: vless, server: ${SERVER_IP}, port: ${GRPC_PORT}, uuid: ${UUID}, network: grpc, udp: true, tls: true, servername: ${TLS_SERVER}, flow: , client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\", support-x25519mlkem768: true}, grpc-opts: {grpc-service-name: \"grpc\"} }" \
+    "vless://$(echo -n ":${UUID}@${SERVER_IP_1}:${GRPC_PORT}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[2]}&path=grpc&obfs=grpc&tls=1&peer=${TLS_SERVER}&udp=1&pbk=${REALITY_PUBLIC}&fingerprint=${FINGER_PRINT:-Chrome140}" \
     "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
     "{ \"type\": \"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${GRPC_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"${FINGER_PRINT:-chrome}\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }" \
     "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&sid&type=grpc&serviceName=grpc&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
@@ -4516,11 +4507,11 @@ export_list() {
 
   # vmess-ws
   grep -q 'vmess-ws' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[4]}\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: none, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
-    "vmess://$(echo -n "none:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
-    "vmess://$(echo -n "{ \"v\": \"2\", \"ps\": \"${NODE_NAME} ${NODE_TAG[4]}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }" | base64 -w0)" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[4]}\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: auto, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
+    "vmess://$(echo -n "auto:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
+    "vmess://$(echo -n "{ \"v\": \"2\", \"ps\": \"${NODE_NAME} ${NODE_TAG[4]}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }" | base64 -w0)" \
     "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "vmess://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol#${NODE_NAME// /%20}%20${NODE_TAG[4]}" \
+    "vmess://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=aes-128-gcm&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol#${NODE_NAME// /%20}%20${NODE_TAG[4]}" \
     "${NODE_NAME} ${NODE_TAG[4]}"
 
   # trojan-ws
@@ -4552,8 +4543,8 @@ export_list() {
 
   # xhttp-h2-reality（直连，Reality 安全层，HTTP/2）
   grep -q 'xhttp-h2-reality' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[8]}\", type: vless, server: ${SERVER_IP}, port: ${XHTTP_H2_PORT}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2], servername: ${TLS_SERVER}, client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, xhttp-opts: {path: \"/${WS_PATH}-xh2\", mode: auto} }" \
-    "vless://$(echo -n \"auto:${UUID}@${SERVER_IP_2}:${XHTTP_H2_PORT}\" | base64 -w0)?path=/${WS_PATH}-xh2&remarks=${NODE_NAME// /%20}%20${NODE_TAG[8]}&obfs=xhttp&tls=1&peer=${TLS_SERVER}&alpn=h2&mode=auto&pbk=${REALITY_PUBLIC}" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[8]}\", type: vless, server: ${SERVER_IP}, port: ${XHTTP_H2_PORT}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2], servername: ${TLS_SERVER}, client-fingerprint: ${FINGER_PRINT:-chrome}, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\", support-x25519mlkem768: true}, xhttp-opts: {path: \"/${WS_PATH}-xh2\", mode: auto} }" \
+    "vless://$(echo -n \":${UUID}@${SERVER_IP_1}:${XHTTP_H2_PORT}\" | base64 -w0)?path=/${WS_PATH}-xh2&remarks=${NODE_NAME// /%20}%20${NODE_TAG[8]}&obfs=xhttp&tls=1&peer=${TLS_SERVER}&udp=1&alpn=h2&mode=auto&pbk=${REALITY_PUBLIC}&fingerprint=${FINGER_PRINT:-Chrome140}" \
     "vless://${UUID}@${SERVER_IP_1}:${XHTTP_H2_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=xhttp&path=%2F${WS_PATH}-xh2&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[8]}" \
     "" \
     "vless://${UUID}@${SERVER_IP_1}:${XHTTP_H2_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=xhttp&path=%2F${WS_PATH}-xh2&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[8]}" \
@@ -5205,12 +5196,12 @@ EOF
       trojan-ws) NEW_BLOCK="{\"port\":${TROJAN_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[5]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"ws\",\"security\":\"none\",\"wsSettings\":{\"path\":\"/${WS_PATH}-tr\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       ss-ws) NEW_BLOCK="{\"port\":${SS_WS_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"settings\":{\"clients\":[{\"method\":\"${SS_WS_METHOD:-chacha20-ietf-poly1305}\",\"password\":\"${UUID}\"}],\"network\":\"tcp,udp\"},\"streamSettings\":{\"network\":\"ws\",\"wsSettings\":{\"path\":\"/${WS_PATH}-sh\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       xhttp-h1.1-cdn) NEW_BLOCK="{\"port\":${VLESS_XHTTP_PORT},\"listen\":\"127.0.0.1\",\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[7]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"level\":0}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"none\",\"xhttpSettings\":{\"path\":\"/${WS_PATH}-xh\",\"mode\":\"auto\"}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      xhttp-h2-reality) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"port\":${XHTTP_H2_PORT},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"xhttpSettings\":{\"mode\":\"auto\",\"path\":\"/${WS_PATH}-xh2\"},\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"],\"alpn\":[\"h2\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
+      xhttp-h2-reality) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[8]}\",\"port\":${XHTTP_H2_PORT},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"xhttpSettings\":{\"mode\":\"auto\",\"path\":\"/${WS_PATH}-xh2\"},\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"],\"alpn\":[\"h2\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       xhttp-h3-direct) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"port\":${XHTTP_PORT},\"protocol\":\"vless\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"xhttp\",\"security\":\"tls\",\"xhttpSettings\":{\"mode\":\"stream-up\",\"extra\":{\"alpn\":[\"h3\"]},\"path\":\"/${WS_PATH}-xh3\"},\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"alpn\":[\"h3\"],\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"]}}" ;;
       trojan-direct) NEW_BLOCK="{\"port\":${TROJAN_PORT},\"protocol\":\"trojan\",\"tag\":\"${NODE_NAME} ${NODE_TAG[10]}\",\"settings\":{\"clients\":[{\"password\":\"${UUID}\"}]},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"${TLS_SERVER}\",\"certificates\":[{\"certificateFile\":\"${WORK_DIR}/cert/cert.pem\",\"keyFile\":\"${WORK_DIR}/cert/private.key\"}]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
       ss2022-direct) NEW_BLOCK="{\"port\":${SS2022_PORT},\"protocol\":\"shadowsocks\",\"tag\":\"${NODE_NAME} ${NODE_TAG[11]}\",\"settings\":{\"method\":\"${SS_DIRECT_METHOD:-2022-blake3-aes-128-gcm}\",\"password\":\"${SS2022_PASSWORD:-$(openssl rand -base64 16)}\",\"network\":\"tcp,udp\"},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\"],\"metadataOnly\":false}}" ;;
-      reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
-      reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"minClientVer\":\"1.0.0\",\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
+      reality-vision) NEW_BLOCK="{\"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\",\"protocol\":\"vless\",\"port\":${REALITY_PORT},\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"tcp\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
+      reality-grpc) NEW_BLOCK="{\"port\":${GRPC_PORT},\"protocol\":\"vless\",\"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\",\"settings\":{\"clients\":[{\"id\":\"${UUID}\",\"flow\":\"\"}],\"decryption\":\"none\"},\"streamSettings\":{\"network\":\"grpc\",\"security\":\"reality\",\"realitySettings\":{\"show\":false,\"dest\":\"${TLS_SERVER}:443\",\"xver\":0,\"serverNames\":[\"${TLS_SERVER}\"],\"privateKey\":\"${REALITY_PRIVATE}\",\"publicKey\":\"${REALITY_PUBLIC}\",\"shortIds\":[\"\"]},\"grpcSettings\":{\"serviceName\":\"grpc\",\"multiMode\":true}},\"sniffing\":{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"]}}" ;;
     esac
     if [ -n "$NEW_BLOCK" ] && [ -x "$WORK_DIR/jq" ]; then
       $WORK_DIR/jq --argjson block "$NEW_BLOCK" '.inbounds += [$block]' \
@@ -6884,6 +6875,61 @@ if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/outbound.json" ] && [[ "$(date +%Y%m
     fi
     unset _warp_cfg_ok _warp_loaded _warp_api_port _warp_tag
   fi
+fi
+
+###### VMess 加密方式迁移：Xray ≥26.7.11 已移除 VMess 的 none / zero（空加密载荷），将于 2026年12月31日移除
+###### 检测订阅文件中 vmess-ws 节点的 none / zero 并就地改写为 auto：clash / proxies 明文直改；throne 单层 base64；shadowrocket / v2rayn 的加密方式藏在内层 base64，需解两层再回编
+###### 新装实例由 export_list 直接输出 auto，此处只兜底旧订阅；仅处理 vmess 节点，vless / trojan / ss 链接（含 encryption=none）一律不动
+if [ -d "$WORK_DIR/subscribe" ] && [[ "$(date +%Y%m%d)" < "20270101" ]]; then
+
+  # 1) 明文订阅（clash / proxies）：ss 的 cipher 取值不同，不会误伤
+  for _vm_f in clash proxies; do
+    [ -s "$WORK_DIR/subscribe/$_vm_f" ] || continue
+    grep -Eq 'cipher: *(none|zero)' "$WORK_DIR/subscribe/$_vm_f" 2>/dev/null \
+      && sed -i -e 's/cipher: none/cipher: auto/g' -e 's/cipher: zero/cipher: auto/g' "$WORK_DIR/subscribe/$_vm_f"
+  done
+
+  # 2) 单层 base64 订阅（throne）：只改写 vmess:// 行的 encryption 参数
+  if [ -s "$WORK_DIR/subscribe/throne" ] && base64 -d "$WORK_DIR/subscribe/throne" > "$TEMP_DIR/sub_throne.txt" 2>/dev/null \
+    && grep -Eq '^vmess://.*encryption=(none|zero|auto)' "$TEMP_DIR/sub_throne.txt"; then
+    sed -i '/^vmess:\/\//{s/encryption=none/encryption=aes-128-gcm/;s/encryption=zero/encryption=aes-128-gcm/;s/encryption=auto/encryption=aes-128-gcm/}' "$TEMP_DIR/sub_throne.txt"
+    base64 -w0 < "$TEMP_DIR/sub_throne.txt" > "$WORK_DIR/subscribe/throne.new" 2>/dev/null \
+      && mv "$WORK_DIR/subscribe/throne.new" "$WORK_DIR/subscribe/throne"
+    rm -f "$TEMP_DIR/sub_throne.txt"
+  fi
+
+  # 3) 双层 base64 订阅（shadowrocket / v2rayn）：内层分别是 "cipher:uuid@host:port" 与含 "scy" 的 JSON，解开后统一按行首/scy 改写
+  for _vm_f in shadowrocket v2rayn; do
+    [ -s "$WORK_DIR/subscribe/$_vm_f" ] || continue
+    base64 -d "$WORK_DIR/subscribe/$_vm_f" > "$TEMP_DIR/sub_$_vm_f.txt" 2>/dev/null || continue
+    _vm_hit=false
+    while IFS= read -r _vm_line || [ -n "$_vm_line" ]; do
+      case "$_vm_line" in
+        vmess://*)
+          _vm_rest="${_vm_line#vmess://}"
+          _vm_core="${_vm_rest%%[?#]*}"
+          _vm_more=''
+          [ "$_vm_rest" != "$_vm_core" ] && _vm_more="${_vm_rest#"$_vm_core"}"
+          _vm_body=$(printf '%s' "$_vm_core" | base64 -d 2>/dev/null)
+          _vm_new=$(printf '%s' "$_vm_body" | sed -e 's/^none:/auto:/' -e 's/^zero:/auto:/' -e 's/"scy": *"none"/"scy": "auto"/' -e 's/"scy": *"zero"/"scy": "auto"/')
+          if [ -n "$_vm_body" ] && [ "$_vm_new" != "$_vm_body" ]; then
+            _vm_core=$(printf '%s' "$_vm_new" | base64 -w0)
+            _vm_hit=true
+          fi
+          printf 'vmess://%s%s\n' "$_vm_core" "$_vm_more"
+          ;;
+        *)
+          printf '%s\n' "$_vm_line"
+          ;;
+      esac
+    done < "$TEMP_DIR/sub_$_vm_f.txt" > "$TEMP_DIR/sub_$_vm_f.new"
+    if [ "$_vm_hit" = 'true' ] && [ -s "$TEMP_DIR/sub_$_vm_f.new" ]; then
+      base64 -w0 < "$TEMP_DIR/sub_$_vm_f.new" > "$WORK_DIR/subscribe/$_vm_f.new" 2>/dev/null \
+        && mv "$WORK_DIR/subscribe/$_vm_f.new" "$WORK_DIR/subscribe/$_vm_f"
+    fi
+    rm -f "$TEMP_DIR/sub_$_vm_f.txt" "$TEMP_DIR/sub_$_vm_f.new"
+  done
+  unset _vm_f _vm_line _vm_rest _vm_core _vm_more _vm_body _vm_new _vm_hit
 fi
 
 # ── 传参处理1: 语言识别 + SKIP_MENU 检测（在 select_language 之前） ──

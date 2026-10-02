@@ -8,6 +8,11 @@
 
 - [Update Information](README_EN.md#update-information)
 - [Project Features](README_EN.md#project-features)
+  - [Architecture & Security](README_EN.md#1-architecture--security)
+  - [Protocol Matrix](README_EN.md#2-protocol-matrix-pick-any-n-of-12)
+  - [Fine-grained Control](README_EN.md#3-fine-grained-control)
+  - [Subscriptions & Clients](README_EN.md#4-subscriptions--clients)
+  - [Install & Operations](README_EN.md#5-install--operations)
 - [Interactive Running Script](README_EN.md#interactive-running-script)
 - [Non-interactive Ultra-fast Installation](README_EN.md#non-interactive-ultra-fast-installation)
 - [Obtaining Argo Json](README_EN.md#obtaining-argo-json)
@@ -21,16 +26,18 @@
 * * *
 
 ## Update Information
-2026.09.18 v2.1.6 Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9
+2026.10.02 v2.1.7 1. Adapt to Xray 26.7.11 dropping VMess 'none'/'zero': vmess-ws links use cipher auto (Clash/Shadowrocket/v2rayN), Throne does not support auto and uses aes-128-gcm; 2. Auto-rewrite legacy none/zero in existing subscription files (remove after 2026-12-31); 3. Normalize Shadowrocket reality links (single-bracket IPv6, drop auto:/obfs=none, add udp=1 and fingerprint=Chrome140); 4. Adapt to Xray 26.9.8 where reality requires client fingerprints carrying X25519MLKEM768: remove minClientVer from realitySettings, enable support-x25519mlkem768 in clash reality-opts
+
+2026.09.18 v2.1.6 Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9.8
 
 2026.08.14 v2.1.5 Force HTTP/2 transport for cloudflared tunnels
-
-2026.08.11 v2.1.4 1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.08.11 v2.1.4 1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]
+>
 >2026.08.07 v2.1.3 1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation so the install flow stays unchanged; 2. Server address accepts an IP or a domain (use DDNS for NAT VPS whose public IP changes daily)
 >
 >2026.08.02 v2.1.2 Add VLESS + XHTTP HTTP/2 Reality direct protocol (xhttp-h2-reality)
@@ -116,23 +123,61 @@
 
 ## Project Features:
 
-* Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / direct TLS;
-* Normally CF backhauls from data centers, Argo creates two reverse links to two nearby data centers, and backhauls from the source server through the nearby data centers. The line between the user's data center and the source server's nearby data center is CF's proprietary black box line;
-* Using CloudFlare's Argo Tunnel with TLS encrypted communication, application traffic can be securely transmitted to the Cloudflare network, improving application security and reliability. In addition, Argo Tunnel can also prevent network threats such as IP leaks and DDoS attacks;
-* Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
-* Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
-* **Select protocols on demand during installation**, supporting 12 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP HTTP/2 Reality, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
-* Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
-* **Hysteria2 Realm mode**: Supports finalmask config with WARP-assisted NAT piercing, purpose-built for NAT VPS scenarios, significantly improving UDP traversal performance;
-* **Custom WARP outbound routing rules**: Supports domain suffix matching or geosite category as rule types, routing to warp-IPv4 or warp-IPv6 outbounds — flexible policy-based traffic steering;
-* **Bind network interface**: Allows specifying a particular network interface (e.g., eth0, eth1) for Xray outbound traffic on multi-homed servers, adapting to complex network topologies;
-* **Client fingerprint configuration**: Customize TLS client fingerprint (e.g., Chrome, Firefox) for Reality/WS protocols to enhance censorship resistance;
-* **Independent ports per protocol**: After installation, use -d to change listening ports — either a start port (protocols occupy sequential ports) or an independent (non-consecutive) port per protocol; port changes sync to the nginx reverse proxy and hot-reload automatically;
-* **Domain support for server address**: For NAT VPS whose public IP changes daily, enter a DDNS domain during installation or via -d — no daily client updates needed;
-* Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
-* Built-in warp chained proxy to unlock chatGPT;
-* Node information output to V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
-* Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
+In one line: **one command deploys Xray on any Linux VPS — 12 protocols in free combination, Argo tunnel or direct, subscriptions auto-adapted to 5 major clients, full install in under 5 seconds.**
+
+### 1. Architecture & Security
+
+* **Argo tunnel hides the origin**: Xray inbounds listen only for the tunnel; no proxy port is open to the public internet and the origin IP never appears in the client config — this structurally defeats IP leaks and DDoS hits, and the tunnel spans all Cloudflare ports instead of clinging to 443;
+* **Dual-PoP backhaul**: unlike ordinary CF proxying over a single fixed path, Argo builds reverse links into two nearby data centers per connection, so both the client side and the backhaul stay on CF's own backbone, avoiding third-party cross-border congestion;
+* **Single-layer TLS termination**: the server only emits standard WS / XHTTP data streams; TLS is fully terminated by Cloudflare, avoiding stacked TLS layers and saving CPU plus handshake overhead;
+* **No decoy site**: no fake webpage burning memory and bandwidth — pure data forwarding;
+* **No domain or certificate needed**: just "preferred IP + tunnel". Temporary and fixed-domain tunnels (Token / cloudflared CLI / Cloudflare API) convert freely; switch anytime via `argox -t`;
+* **Self-signed certs auto-managed**: Hysteria2, Trojan Direct, and XHTTP HTTP/3 Direct run direct on self-signed certs, regenerated and fingerprint-synced automatically when the TLS domain changes.
+
+### 2. Protocol Matrix (pick any N of 12)
+
+Select on demand at install time; add or remove later with `argox -r` — ports and Nginx routing update automatically, no reinstall.
+
+| # | Protocol | Transport | Security | Egress |
+| --- | --- | --- | --- | --- |
+| 1 | VLESS + Reality Vision | TCP | Reality | Direct |
+| 2 | Hysteria2 | UDP | Self-signed cert | Direct (optional port hopping) |
+| 2 | └ Realm mode | UDP | Self-signed cert | Direct + public rendezvous server hole punching (optional WARP assist) |
+| 3 | VLESS + Reality gRPC | gRPC | Reality | Direct |
+| 4 | VLESS + WS | WS | Cloudflare | Tunnel / preferred IP |
+| 5 | VMess + WS | WS | Cloudflare | Tunnel / preferred IP |
+| 6 | Trojan + WS | WS | Cloudflare | Tunnel / preferred IP |
+| 7 | Shadowsocks + WS | WS | Cloudflare | Tunnel / preferred IP |
+| 8 | VLESS + XHTTP HTTP/1.1 CDN | XHTTP | Cloudflare | Tunnel / preferred IP |
+| 9 | VLESS + XHTTP HTTP/2 Reality | XHTTP/H2 | Reality | Direct |
+| 10 | VLESS + XHTTP HTTP/3 Direct | XHTTP/H3 | Self-signed cert | Direct |
+| 11 | Trojan Direct | TCP | Self-signed cert | Direct |
+| 12 | Shadowsocks 2022 Direct | TCP/UDP | Native protocol crypto | Direct |
+
+> Rows 4–8 go through the Argo tunnel / CDN: Xray binds to `127.0.0.1`, Nginx dispatches by path, then cloudflared forwards — no origin port exposed. The rest are direct and can run simultaneously with tunneled protocols.
+
+### 3. Fine-grained Control
+
+* **Hysteria2 Realm mode**: NAT hole punching through a public rendezvous server, with optional WARP assistance — purpose-built for NAT VPS, significantly improving UDP traversal performance; Realm and port hopping are **mutually exclusive** — pick one;
+* **Hysteria2 port hopping**: an optional feature independent of Realm; once a range is set the client hops automatically, evading port scanning and blocking, with matching firewall NAT rules pushed automatically;
+* **Custom WARP outbound routing**: domain suffix matching or geosite categories, steered to warp-IPv4 or warp-IPv6 outbounds; built-in WARP chained proxy unlocks ChatGPT in one click;
+* **Bind egress NIC**: on multi-homed servers, pick which interface (e.g. eth0 / eth1) Xray egresses through, adapting to complex topologies;
+* **Custom client fingerprint**: set the TLS client fingerprint (Chrome, Firefox, ...) for Reality / WS protocols to improve censorship resistance;
+* **Independent port per protocol**: `argox -d` can move the start port (sequential) or assign each protocol a non-consecutive port; changes sync to the Nginx reverse proxy and hot-reload automatically;
+* **Domain as server address**: when a NAT VPS public IP changes daily, enter a DDNS domain at install or via `-d` — no daily client redistribution;
+* **Zero-downtime hot reload**: an Xray API-driven reload path applies routing, outbound, and interface changes without dropping existing connections.
+
+### 4. Subscriptions & Clients
+
+* **One subscription URL for everything**: node data is auto-adapted for **V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM)**, switching format per client on import;
+* **Indexed subscriptions**: the same domain serves per-client paths, plus a standalone proxy-provider subscription file.
+
+### 5. Install & Operations
+
+* **Three install paths**: interactive menu, ultra-fast (`-l` / `-k`), and docker-compose-style parameter-file / long-argument non-interactive install for CI/CD fleets;
+* **Dependencies on demand**: nginx / cloudflared install only when WS, XHTTP, or subscriptions require them; jq and qrencode ship as binaries to minimize system packages;
+* **Full post-install management**: `argox -t` switch tunnel, `-d` change preferred IP / SNI / node info, `-r` add-remove protocols, `-n` show nodes and live traffic, `-a` / `-x` toggle Argo and Xray, `-b` upgrade core / BBR / DD, `-v` sync latest, `-u` full uninstall;
+* **Live traffic stats**: inbound / outbound up and down figures via the Xray stats API.
 
 
 ## Interactive Running Script
@@ -182,7 +227,7 @@ Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided v
 | Parameter | Description |
 | --------- | ----------- |
 | `--LANGUAGE` | c=Chinese; e=English |
-| `--CHOOSE_PROTOCOLS` | Multi-select, e.g. bcef<br> a=all<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP HTTP/2 Reality<br> k=VLESS + XHTTP Direct<br> l=Trojan Direct<br> m=Shadowsocks 2022 Direct |
+| `--CHOOSE_PROTOCOLS` | Multi-select, e.g. bcef<br> a=all<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP HTTP/1.1 CDN<br> j=VLESS + XHTTP HTTP/2 Reality<br> k=VLESS + XHTTP HTTP/3 Direct<br> l=Trojan Direct<br> m=Shadowsocks 2022 Direct |
 | `--START_PORT` | Start port, 100 - 65520 |
 | `--NGINX_PORT` | Nginx port (subscription service), 100 - 65520; n=no subscription |
 | `--SERVER_IP` | Server public IPv4 or IPv6 address |

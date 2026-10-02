@@ -8,6 +8,11 @@
 
 - [更新信息](README.md#更新信息)
 - [项目特点](README.md#项目特点)
+  - [架构与安全](README.md#一架构与安全)
+  - [协议矩阵](README.md#二协议矩阵12-选-n)
+  - [精细化控制](README.md#三精细化控制)
+  - [订阅与客户端](README.md#四订阅与客户端)
+  - [安装与运维](README.md#五安装与运维)
 - [交互式运行脚本](README.md#交互式运行脚本)
 - [无交互极速安装](README.md#无交互极速安装)
 - [Argo Json 的获取](README.md#argo-json-的获取)
@@ -20,16 +25,18 @@
 
 * * *
 ## 更新信息
-2026.09.18 v2.1.6 兼容 Xray 26.9+：WARP 链式出站由 proxySettings 迁移到 streamSettings.sockopt.dialerProxy
+2026.10.02 v2.1.7 1. 适配 Xray 26.7.11 移除 VMess none/zero：vmess-ws 链接加密方式改为 auto（Clash/Shadowrocket/v2rayN），Throne 不支持 auto，改为 aes-128-gcm; 2. 自动改写旧订阅文件中的 none/zero（2026年12月31日后移除）; 3. 规范化 Shadowrocket Reality 链接（IPv6 单括号、去掉 auto:/obfs=none、增加 udp=1 与 fingerprint=Chrome140）; 4. 适配 Xray 26.9.8，reality 要求客户端指纹携带 X25519MLKEM768：移除 realitySettings 中的 minClientVer，clash reality-opts 启用 support-x25519mlkem768
+
+2026.09.18 v2.1.6 兼容 Xray 26.9.8：WARP 链式出站由 proxySettings 迁移到 streamSettings.sockopt.dialerProxy
 
 2026.08.14 v2.1.5 cloudflared 隧道统一使用 HTTP/2 传输
-
-2026.08.11 v2.1.4 1. 安装期后台预注册 WARP 账户，失败回退共享密钥; 2. [argox -d] 菜单新增「更换 WARP 账户」，支持重新注册 / 手动输入; 3. Hysteria2 Realm 与端口跳跃互斥，安装与 [argox -d] 均先提示确认再切换
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.08.11 v2.1.4 1. 安装期后台预注册 WARP 账户，失败回退共享密钥; 2. [argox -d] 菜单新增「更换 WARP 账户」，支持重新注册 / 手动输入; 3. Hysteria2 Realm 与端口跳跃互斥，安装与 [argox -d] 均先提示确认再切换
+>
 >2026.08.07 v2.1.3 1. [argox -d] 支持为各协议设置独立（非连续）端口，仅在安装后修改，不影响常规安装流程; 2. 服务器地址支持填写 IP 或域名（NAT VPS 公网 IP 易变化时可用 DDNS 域名）
 >
 >2026.08.02 v2.1.2 新增 VLESS + XHTTP HTTP/2 Reality 直连协议（xhttp-h2-reality）
@@ -115,23 +122,61 @@
 
 ## 项目特点:
 
-* 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / 直连 TLS；
-* 正常用 CF 是访问机房回源，Argo 则是每次创建两个反向链接到两个就近机房，然后回源是通过源服务器就近机房回源，其中用户访问机房到源服务器连接的就近机房之间是 CF 自己的黑盒线路；
-* 使用 CloudFlare 的 Argo 隧道，使用 TLS 加密通信，可以将应用程序流量安全地传输到 Cloudflare 网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel 也可以防止 IP 泄露和 DDoS 攻击等网络威胁；
-* Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守 443 被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
-* Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
-* **安装时可按需多选协议**，支持 12 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP HTTP/2 Reality、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
-* Hysteria2、VLESS + XHTTP Direct、Trojan Direct 使用自签证书直连；更换 TLS 域名时会自动同步重新生成自签证书；
-* **Hysteria2 Realm 模式**：支持 finalmask 配置及 WARP 辅助 NAT 打洞，专为 NAT VPS 场景设计，显著提升 UDP 穿透性能；
-* **自定义 WARP 出站路由规则**：支持域名后缀匹配或 geosite 分类两种规则类型，可分别路由到 warp-IPv4 或 warp-IPv6 出站，灵活实现分流策略；
-* **绑定网络出口接口**：支持在多网卡服务器上指定 Xray 流量从特定网络接口（如 eth0、eth1）出站，适配复杂网络拓扑；
-* **客户端指纹配置**：支持在 Reality / WS 等协议中自定义 TLS 客户端指纹（如 Chrome、Firefox），增强抗审查能力；
-* **各协议独立端口**：安装后通过 -d 可修改监听端口，支持修改开始端口（各协议按顺序占用）或为各协议设置独立（非连续）端口，端口变更自动同步 nginx 反代并热加载；
-* **服务器地址支持域名**：NAT VPS 公网 IP 每日变化时，新安装或 -d 修改均可直接填写 DDNS 域名，无需每日更新客户端；
-* Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality、Hysteria2、Trojan Direct、Shadowsocks 2022 Direct 与 XHTTP Direct 可按各自模式直连，架构简洁；
-* 内置 warp 链式代理解锁 chatGPT；
-* 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Throne / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
-* 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到 5 秒。
+一句话：**一条命令，在任意 Linux VPS 上部署 Xray，支持 12 种协议自由组合、Argo 隧道与直连两种形态、5 大客户端订阅自动适配，安装全程不到 5 秒。**
+
+### 一、架构与安全
+
+* **Argo 隧道不暴露源站**：Xray inbound 只对隧道定向监听，公网不开放任何代理端口，源站 IP 不出现在客户端配置中——天然规避 IP 泄露与 DDoS 直打；隧道走 Cloudflare 全端口，不必死守 443 被封；
+* **双机房就近回源**：不同于普通 CF 回源只走一条固定链路，Argo 会为每条连接建立指向两个就近机房的反向链路，用户侧与回源侧都走 CF 自有骨干，绕开第三方跨境拥塞；
+* **TLS 单层终结**：服务端只输出标准 WS / XHTTP 数据流，TLS 全部由 Cloudflare 终结，避免多层 TLS 叠加，省 CPU、省握手；
+* **零伪装站**：不套一层假网页消耗内存与带宽，纯粹转发数据流；
+* **无需域名与证书**：直接「优选地址 + 隧道」，不用申请域名和证书。临时隧道与固定域名隧道（Token / cloudflared CLI / Cloudflare API 三种申请方式）可随时互转，安装后 `argox -t` 一键切换；
+* **自签证书自动托管**：Hysteria2、Trojan Direct、XHTTP HTTP/3 Direct 使用自签证书直连，更换 TLS 域名时自动重新签发并同步客户端指纹。
+
+### 二、协议矩阵（12 选 N）
+
+安装时按需多选，安装后 `argox -r` 随时增删，端口与 Nginx 分流规则自动同步，无需重装。
+
+| # | 协议 | 传输层 | 安全层 | 出站形态 |
+| --- | --- | --- | --- | --- |
+| 1 | VLESS + Reality Vision | TCP | Reality | 直连 |
+| 2 | Hysteria2 | UDP | 自签证书 | 直连（可选端口跳跃） |
+| 2 | └ Realm 模式 | UDP | 自签证书 | 直连 + 公共牵线服务器打洞（可选 WARP 辅助） |
+| 3 | VLESS + Reality gRPC | gRPC | Reality | 直连 |
+| 4 | VLESS + WS | WS | Cloudflare | 隧道 / 优选 |
+| 5 | VMess + WS | WS | Cloudflare | 隧道 / 优选 |
+| 6 | Trojan + WS | WS | Cloudflare | 隧道 / 优选 |
+| 7 | Shadowsocks + WS | WS | Cloudflare | 隧道 / 优选 |
+| 8 | VLESS + XHTTP HTTP/1.1 CDN | XHTTP | Cloudflare | 隧道 / 优选 |
+| 9 | VLESS + XHTTP HTTP/2 Reality | XHTTP/H2 | Reality | 直连 |
+| 10 | VLESS + XHTTP HTTP/3 Direct | XHTTP/H3 | 自签证书 | 直连 |
+| 11 | Trojan Direct | TCP | 自签证书 | 直连 |
+| 12 | Shadowsocks 2022 Direct | TCP/UDP | 协议原生加密 | 直连 |
+
+> 第 4–8 项走 Argo 隧道 / CDN：Xray 只监听 `127.0.0.1`，由 Nginx 按路径统一分流后再交由 cloudflared 转发，源站不暴露端口；其余为直连，由 Nginx 按各自模式处理，可与隧道协议同时在线。
+
+### 三、精细化控制
+
+* **Hysteria2 Realm 模式**：通过公共牵线服务器完成 NAT 打洞，并可选用 WARP 辅助，专为 NAT VPS 场景设计，显著提升 UDP 穿透性能；Realm 与端口跳跃**互斥**，二者只能二选一；
+* **Hysteria2 端口跳跃**：独立于 Realm 的可选功能，指定范围后客户端自动跳跃，规避端口扫描与封锁，同时自动下发防火墙 NAT 规则；
+* **自定义 WARP 出站路由**：支持域名后缀匹配或 geosite 分类两种规则类型，可分别路由到 warp-IPv4 / warp-IPv6 出站；内置 WARP 链式代理一键解锁 ChatGPT；
+* **绑定出口网卡**：多网卡服务器可指定 Xray 流量从指定接口（如 eth0 / eth1）出站，适配复杂网络拓扑；
+* **客户端指纹自定义**：Reality / WS 等协议可指定 TLS 客户端指纹（Chrome、Firefox 等），增强抗审查能力；
+* **各协议独立端口**：`argox -d` 可改起始端口（按序占用）或为各协议指定非连续独立端口，变更自动同步 Nginx 反代并热加载；
+* **服务器地址支持域名**：NAT VPS 公网 IP 每日变化时，安装或 `-d` 修改均可直接填 DDNS 域名，无需每天重下发客户端；
+* **零中断热加载**：基于 Xray API 的热更新通道，路由规则、出站、网卡绑定等变更均不中断现有连接。
+
+### 四、订阅与客户端
+
+* **一个订阅 URL 走天下**：节点信息自动适配 **V2rayN / Clash Meta / 小火箭 / Throne / Sing-box（SFI、SFA、SFM）**，订阅内容按客户端格式自动切换，导入即用；
+* **索引式订阅**：同一域名下按客户端名分路径返回对应格式，并提供独立 proxy provider 订阅文件。
+
+### 五、安装与运维
+
+* **三种安装方式**：交互式菜单、极速安装（`-l` / `-k`）、类 docker-compose 的参数文件 / 长参数非交互安装，适合 CI/CD 批量部署；
+* **按需装依赖**：nginx / cloudflared 仅在需要 WS、XHTTP 或订阅时才安装，jq 与 qrencode 直接下二进制，尽量不装系统包；
+* **安装后管理齐全**：`argox -t` 换隧道、`-d` 换优选 / SNI / 节点信息、`-r` 增删协议、`-n` 查节点与实时流量、`-a` / `-x` 开关 Argo 与 Xray、`-b` 升级内核 / BBR / DD、`-v` 同步最新版、`-u` 彻底卸载；
+* **实时流量统计**：通过 Xray stats API 展示 inbound / outbound 上下行数据。
 
 
 ## 交互式运行脚本
@@ -181,7 +226,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 | 参数 | 说明 |
 | ---- | ---- |
 | `--LANGUAGE` | c=中文; e=英文 |
-| `--CHOOSE_PROTOCOLS` | 可多选，如 bcef<br> a=全部<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP<br> j=VLESS + XHTTP HTTP/2 Reality<br> k=VLESS + XHTTP Direct<br> l=Trojan Direct<br> m=Shadowsocks 2022 Direct |
+| `--CHOOSE_PROTOCOLS` | 可多选，如 bcef<br> a=全部<br> b=VLESS + Reality Vision<br> c=Hysteria2<br> d=VLESS + Reality gRPC<br> e=VLESS + WS<br> f=VMess + WS<br> g=Trojan + WS<br> h=Shadowsocks + WS<br> i=VLESS + XHTTP HTTP/1.1 CDN<br> j=VLESS + XHTTP HTTP/2 Reality<br> k=VLESS + XHTTP HTTP/3 Direct<br> l=Trojan Direct<br> m=Shadowsocks 2022 Direct |
 | `--START_PORT` | 起始端口，100 - 65520 |
 | `--NGINX_PORT` | Nginx 端口（订阅服务），100 - 65520；n=不需要订阅 |
 | `--SERVER_IP` | 服务器公网 IPv4 或 IPv6 地址 |
