@@ -14,6 +14,7 @@
   - [Subscriptions & Clients](README_EN.md#4-subscriptions--clients)
   - [Install & Operations](README_EN.md#5-install--operations)
 - [Interactive Running Script](README_EN.md#interactive-running-script)
+  - [Interactive Input Shortcuts](README_EN.md#interactive-input-shortcuts)
 - [Non-interactive Ultra-fast Installation](README_EN.md#non-interactive-ultra-fast-installation)
 - [Obtaining Argo Json](README_EN.md#obtaining-argo-json)
 - [Obtaining Argo Token](README_EN.md#obtaining-argo-token)
@@ -26,16 +27,18 @@
 * * *
 
 ## Update Information
+2026.10.13 v2.1.8 1. Fix the firewall allow rules being appended after an existing `REJECT`/`DROP` rule on the `INPUT` chain, which left node and `nginx` ports unreachable on images such as Oracle OCI and OpenVZ; the rules are now inserted before the first `REJECT`/`DROP` rule [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. Fix occasional empty version detection when checking for `xray` updates, which could abort installation or upgrade; the version is now read from the lightweight `releases.atom` feed first, with the GitHub API as fallback [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. Enable `readline` line editing on interactive inputs: arrow keys move the cursor, `Home` / `End` and `Ctrl+A` / `Ctrl+E` jump to line start / end, `Ctrl+W` deletes the previous word, `Ctrl+U` clears to line start, `Ctrl+K` deletes to line end, `Ctrl+Y` undoes the last deletion, `Ctrl+L` clears the screen; editing keys are no longer inserted into the value [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. Make the uninstall path fully offline: `argox -u` no longer runs CDN detection and no longer pre-downloads subscription templates, binaries or `cloudflared`, so it completes immediately on hosts that cannot reach GitHub [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. update GitHub proxy CDN endpoints [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
+
 2026.10.02 v2.1.7 1. Adapt to Xray 26.7.11 dropping VMess 'none'/'zero': vmess-ws links use cipher auto (Clash/Shadowrocket/v2rayN), Throne does not support auto and uses aes-128-gcm; 2. Auto-rewrite legacy none/zero in existing subscription files (remove after 2026-12-31); 3. Normalize Shadowrocket reality links (single-bracket IPv6, drop auto:/obfs=none, add udp=1 and fingerprint=Chrome140); 4. Adapt to Xray 26.9.8 where reality requires client fingerprints carrying X25519MLKEM768: remove minClientVer from realitySettings, enable support-x25519mlkem768 in clash reality-opts
 
 2026.09.18 v2.1.6 Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9.8
-
-2026.08.14 v2.1.5 Force HTTP/2 transport for cloudflared tunnels
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.08.14 v2.1.5 Force HTTP/2 transport for cloudflared tunnels
+>
 >2026.08.11 v2.1.4 1. Pre-register a fresh WARP account during install with shared-key fallback; 2. [argox -d] Change WARP account with register / manual input; 3. Make Hysteria2 Realm and port hopping mutually exclusive with confirm prompts in install and [argox -d]
 >
 >2026.08.07 v2.1.3 1. [argox -d] supports setting an independent (non-consecutive) port for each protocol, only available after installation so the install flow stays unchanged; 2. Server address accepts an IP or a domain (use DDNS for NAT VPS whose public IP changes daily)
@@ -203,6 +206,21 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -a / -A | Enable / Disable Argo |
   | -x / -X | Enable / Disable Xray |
   | -f / -F | Non-interactive install, followed by parameter file path |
+
+
+### Interactive Input Shortcuts
+
+| Key | Action |
+| --- | --- |
+| `←` / `→` | Move cursor left / right |
+| `Home` / `End`, or `Ctrl+A` / `Ctrl+E` | Jump to start / end of line |
+| `Backspace` / `Delete` | Delete character before / after cursor |
+| `Ctrl+U` | Delete content from **cursor to line start** (clears the entire line if the cursor is at the end) |
+| `Ctrl+K` | Delete content from **cursor to line end** |
+| `Ctrl+W` | Delete the **word** preceding the cursor (separated by spaces) |
+| `Alt+D` | Delete the **word** following the cursor |
+| `Ctrl+Y` | Paste back the most recently deleted content via `Ctrl+U` / `Ctrl+K` / `Ctrl+W` |
+| `Ctrl+L` | Clear the screen and redraw the current line |
 
 
 ## Non-interactive Ultra-fast Installation
