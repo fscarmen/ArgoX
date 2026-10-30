@@ -26,16 +26,18 @@
 
 * * *
 ## 更新信息
+2026.10.30 v2.2.0 WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE
+
 2026.10.22 v2.1.9 加固 `argox -v` 升级流程：仅在已安装 Argo 时检测 `cloudflared` 版本并放宽超时；升级 `xray` 前先备份旧版本，新版本启动失败时自动恢复；升级临时隧道后刷新隧道域名与节点信息
 
 2026.10.13 v2.1.8 1. 修复入站放行规则被追加到 `INPUT` 链已有的 `REJECT`/`DROP` 规则之后，导致甲骨文 OCI、OpenVZ 等镜像上节点端口与 `nginx` 端口无法访问的问题；放行规则现改为插入到第一条 `REJECT`/`DROP` 规则之前 [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. 修复检测 `xray` 更新时偶尔取不到最新版本号、导致安装或升级中断的问题；改为优先从体积很小的 `releases.atom` 获取，GitHub API 作为兜底 [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. 交互输入启用 `readline` 行编辑：方向键移动光标，`Home` / `End` 与 `Ctrl+A` / `Ctrl+E` 跳到行首 / 行尾，`Ctrl+W` 删除光标前一个词，`Ctrl+U` 清空到行首，`Ctrl+K` 删除到行尾，`Ctrl+Y` 撤销上一次删除，`Ctrl+L` 清屏；编辑键不再被当作内容插入输入值 [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. 卸载流程完全离线化：`argox -u` 不再执行 CDN 探测，也不再预下载订阅模板、二进制与 `cloudflared`，GitHub 不可达时也能立即完成卸载 [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. 更换 GitHub 代理与 CDN 加速节点 [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
-
-2026.10.02 v2.1.7 1. 适配 Xray 26.7.11 移除 VMess none/zero：vmess-ws 链接加密方式改为 auto（Clash/Shadowrocket/v2rayN），Throne 不支持 auto，改为 aes-128-gcm; 2. 自动改写旧订阅文件中的 none/zero（2026年12月31日后移除）; 3. 规范化 Shadowrocket Reality 链接（IPv6 单括号、去掉 auto:/obfs=none、增加 udp=1 与 fingerprint=Chrome140）; 4. 适配 Xray 26.9.8，reality 要求客户端指纹携带 X25519MLKEM768：移除 realitySettings 中的 minClientVer，clash reality-opts 启用 support-x25519mlkem768
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.10.02 v2.1.7 1. 适配 Xray 26.7.11 移除 VMess none/zero：vmess-ws 链接加密方式改为 auto（Clash/Shadowrocket/v2rayN），Throne 不支持 auto，改为 aes-128-gcm; 2. 自动改写旧订阅文件中的 none/zero（2026年12月31日后移除）; 3. 规范化 Shadowrocket Reality 链接（IPv6 单括号、去掉 auto:/obfs=none、增加 udp=1 与 fingerprint=Chrome140）; 4. 适配 Xray 26.9.8，reality 要求客户端指纹携带 X25519MLKEM768：移除 realitySettings 中的 minClientVer，clash reality-opts 启用 support-x25519mlkem768
+>
 >2026.09.18 v2.1.6 兼容 Xray 26.9.8：WARP 链式出站由 proxySettings 迁移到 streamSettings.sockopt.dialerProxy
 >
 >2026.08.14 v2.1.5 cloudflared 隧道统一使用 HTTP/2 传输

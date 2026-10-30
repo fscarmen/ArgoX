@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.1.9 (2026.10.22)'
+VERSION='2.2.0 (2026.10.30)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -28,7 +28,7 @@ START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此�
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='26.10.10'
+DEFAULT_XRAY_VERSION='26.10.21'
 IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
 IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
 
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Harden the argox -v upgrade flow: the cloudflared version is now checked only when Argo is installed and with a longer timeout; the old xray binary is backed up before the upgrade and restored automatically if the new version fails to start; the tunnel domain and node info are refreshed after upgrading a quick tunnel"
-C[1]="加固 argox -v 升级流程：仅在已安装 Argo 时检测 cloudflared 版本并放宽超时；升级 xray 前先备份旧版本，新版本启动失败时自动恢复；升级临时隧道后刷新隧道域名与节点信息"
+E[1]="The WARP outbound is switched from WireGuard (UDP) to MASQUE (H2/TCP 443, CONNECT-IP). Legacy wireguard outbound configs are migrated to MASQUE automatically once the xray core is updated to 26.10.21 or later"
+C[1]="WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -391,22 +391,22 @@ E[172]="New account registration failed. Please try again later. The existing ac
 C[172]="注册新账户失败，请稍后再试。已保留原有账户。"
 E[173]="Enter the WARP IPv6 address:"
 C[173]="请输入 WARP IPv6 地址:"
-E[174]="Enter the WARP private key:"
-C[174]="请输入 WARP Private Key:"
-E[175]="Enter WARP reserved values (format: 123,456,789):"
-C[175]="请输入 WARP reserved 保留值（格式: 123,456,789）:"
-E[176]="Invalid reserved format. Please enter 3 numbers like 123,456,789"
-C[176]="reserved 格式错误，请输入 3 个数字，如 123,456,789"
+E[174]="Enter the WARP private key (P-256, base64):"
+C[174]="请输入 WARP Private Key（P-256，base64）:"
+E[175]=""
+C[175]=""
+E[176]=""
+C[176]=""
 E[177]="Failed to restore old version \$LOCAL, please check manually"
 C[177]="恢复旧版本 \$LOCAL 失败，请手动检查"
-E[178]="Change WARP endpoint"
-C[178]="更换 warp endpoint"
-E[179]="Invalid private key format. Please enter a 43-character base64 key ending with \"=\"."
-C[179]="Private Key 格式错误，请输入 43 位 base64 密钥且以 \"=\" 结尾"
+E[178]="Change WARP account"
+C[178]="更换 WARP 账户"
+E[179]="Invalid private key format. Please enter the 164-character base64 P-256 key ending with \"==\"."
+C[179]="Private Key 格式错误，请输入 164 位 base64 的 P-256 私钥（以 \"==\" 结尾）"
 E[180]="Invalid IPv6 address format."
 C[180]="IPv6 地址格式错误"
-E[181]="New WARP endpoint:\n IPv6: \${ADDRESS6}\n Private Key: \${PRIVATE_KEY}\n Reserved: [\${R1}, \${R2}, \${R3}]"
-C[181]="新 WARP 端点:\n IPv6: \${ADDRESS6}\n Private Key: \${PRIVATE_KEY}\n Reserved: [\${R1}, \${R2}, \${R3}]"
+E[181]="New WARP MASQUE account:\n\n Private Key: \${WARP_PRIVATE}\n\n IPv6: \${WARP_V6}"
+C[181]="新 WARP MASQUE 账户:\n\n Private Key: \${WARP_PRIVATE}\n\n IPv6: \${WARP_V6}"
 E[182]="Hysteria2 Realm and port hopping cannot be used together (choose one). Realm is for NAT VPS without public inbound access. If you enable Realm, port hopping will be skipped."
 C[182]="Hysteria2 Realm 与端口跳跃不能同时使用（二选一）。Realm 适用于没有公网入站的 NAT 机器；启用 Realm 后将跳过端口跳跃。"
 E[183]="Port hopping is enabled. Enabling Realm will disable port hopping. Continue? [y/N] (default N):"
@@ -1111,7 +1111,7 @@ api_hot_reload() {
     # 1. 检查配置文件中有没有这个 tag
     [ -s "$_ob" ] && grep -v '^//' "$_ob" | $WORK_DIR/jq -e ".outbounds[] | select(.tag == \"$_tag\")" &>/dev/null && _in_config=1
 
-    # 第 3 个参数为 force 时强制更新（如更换 WARP 账户，secretKey/address/reserved 变更无法通过 interface 比对发现）
+    # 第 3 个参数为 force 时强制更新（如更换 WARP 账户，masqueSettings.warp 的 privateKey/address 变更无法通过 interface 比对发现）
     [ "${3:-}" = 'force' ] && [ "$_in_config" = 1 ] && _need_update=1
 
     # 2. 检查运行中有没有这个 tag
@@ -1216,7 +1216,7 @@ select_language() {
 
 # 只允许 root 用户安装脚本
 check_root() {
-  [ "$(id -u)" != 0 ] && error "\n $(text 47) \n"
+  [ "$(id -u)" != 0 ] && error "\n ${E[47]}\n\n ${C[47]} \n"
 }
 
 # 判断处理器架构
@@ -1294,9 +1294,9 @@ check_install() {
   [ ! -s $WORK_DIR/jq ] && { wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1; }&
   [ ! -s $WORK_DIR/qrencode ] && { wget --no-check-certificate --continue -qO $TEMP_DIR/qrencode ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/qrencode >/dev/null 2>&1; }&
 
-  # 任务 4: 注册 warp 账号
+  # 任务 4: 注册 warp 账号（MASQUE）
   {
-    timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register > $TEMP_DIR/warp_account.json 2>/dev/null
+    timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --masque-register > $TEMP_DIR/warp_account.json 2>/dev/null
   } &
 
   # 已安装且 Xray 开启时，预取流量统计缓存（STATS_JSON），
@@ -1396,11 +1396,6 @@ check_system_info() {
     VIRT=unknown
   fi
 
-  if [ -c /dev/net/tun ] || cat /dev/net/tun 2>&1 | grep -q "in bad state\|处于错误状态"; then
-    IS_TUN='is_tun'
-  else
-    IS_TUN='no_tun'
-  fi
 }
 
 # 检测 IPv4 IPv6 信息
@@ -2970,8 +2965,6 @@ input_hy2_realm() {
 
 # 交互输入是否启用 WARP 辅助打洞
 input_hy2_warp() {
-  # 无 TUN 时没有 WARP 出站，WARP 辅助打洞不可用，不询问
-  [ "$IS_TUN" != 'is_tun' ] && return
   # 仅在 Realm 已启用且非交互模式下询问
   [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && return
   # 长参数模式：--HY2_WARP 已传参（无论 true/false），跳过交互
@@ -3020,8 +3013,8 @@ set_hy2_realm_config() {
 # 注意 2：WARP 打洞需要同时添加 warp-IPv4 和 warp-IPv6 两条规则，否则 UDP 打洞可能失败
 sync_hy2_warp_route() {
   local _action="$1"
-  # 无 TUN 时无 warp-IPv4/warp-IPv6 出站，WARP 辅助打洞无可指向，直接跳过，防止写入无效路由
-  [ "$IS_TUN" != 'is_tun' ] && return 0
+  # outbound.json 中无 WARP 链式出站时（理论不存在），防止写入无效路由
+  [ -s "$WORK_DIR/outbound.json" ] || return 0
   # inbound.json 用于获取 hysteria2 的 inboundTag 名称
   local _ib="$WORK_DIR/inbound.json"
   # outbound.json 用于读写 WARP 路由规则
@@ -3079,8 +3072,7 @@ handle_hy2_realm() {
   # 提取受影响的 hysteria2 inbound tag，强制热更新（因增量 diff 只对比 tag，不对比内容）
   _hy2_tag=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
   api_hot_reload inbounds ${_hy2_tag:+"$_hy2_tag"}
-  # 无 TUN 时无 WARP 路由可同步（sync_hy2_warp_route 已跳过），且 RoutingService 未启用，跳过全量路由同步以免误报 adrules 失败
-  [ "$IS_TUN" = 'is_tun' ] && api_hot_reload routing_rules
+  api_hot_reload routing_rules
   info "\n $(text 128) \n"
   export_list
 }
@@ -3467,21 +3459,19 @@ install_argox() {
   fi
 
   # ChatGPT 解锁检测，决定 OpenAI 路由的 outboundTag（direct / warp-IPv4 / warp-IPv6）
-  # 仅 TUN 支持（IS_TUN=is_tun）时才有 WARP 出口与 ChatGPT 分流路由；无 TUN 时无需探测
-  if [ "$IS_TUN" = 'is_tun' ]; then
-    if [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-      CHATGPT_STACK='-4'
-    elif [[ "$SERVER_IP" =~ ^[0-9a-fA-F:]+$ && "$SERVER_IP" =~ : ]]; then
-      CHATGPT_STACK='-6'
-    else
-      # 域名为 NAT 场景的动态地址，交由 wget 按系统默认栈解析
-      CHATGPT_STACK=''
-    fi
-    if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
-      CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
-    else
-      CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
-    fi
+  # MASQUE 出站为用户态实现，无需 TUN 权限，所有环境均可生成 WARP 出口与 ChatGPT 分流路由
+  if [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    CHATGPT_STACK='-4'
+  elif [[ "$SERVER_IP" =~ ^[0-9a-fA-F:]+$ && "$SERVER_IP" =~ : ]]; then
+    CHATGPT_STACK='-6'
+  else
+    # 域名为 NAT 场景的动态地址，交由 wget 按系统默认栈解析
+    CHATGPT_STACK=''
+  fi
+  if [ "$(check_chatgpt ${CHATGPT_STACK})" = 'unlock' ]; then
+    CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
+  else
+    CHAT_GPT_OUT_V4=warp-IPv4 && CHAT_GPT_OUT_V6=warp-IPv6
   fi
 
   [ ! -d /etc/systemd/system ] && mkdir -p /etc/systemd/system
@@ -4173,10 +4163,8 @@ JSONEOF
   local _api_services='[
         "HandlerService",
         "LoggerService",
-        "StatsService"'
-  [ "$IS_TUN" = 'is_tun' ] && _api_services+=',
-        "RoutingService"'
-  _api_services+='
+        "StatsService",
+        "RoutingService"
       ]'
 
   cat > $WORK_DIR/inbound.json << EOF
@@ -4211,60 +4199,71 @@ ${INBOUNDS_JSON}
 }
 EOF
 
-  # 生成 outbound 配置：优先使用已注册的 WARP 账户（后台任务 4 预注册），否则现场注册；失败回退内置共享密钥
+  # 生成 outbound 配置：优先使用已注册的 MASQUE 账户（后台任务 4 预注册），否则现场注册；失败回退内置共享值
   if [ -s $TEMP_DIR/warp_account.json ] && grep -q '"id"' $TEMP_DIR/warp_account.json; then
     local WARP_ACCOUNT=$(< "$TEMP_DIR/warp_account.json")
     rm -f "$TEMP_DIR/warp_account.json"
   else
-    local WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register)
+    local WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --masque-register)
   fi
 
   if grep -q '"id"' <<< "$WARP_ACCOUNT"; then
-    local WARP_PRIVATE=$(awk -F'"' '/"private_key"/{print $4}' <<< "$WARP_ACCOUNT")
-    local WARP_V6=$(awk -F'"' '/"v6":/ && $4 !~ /^\[/ {print $4}' <<< "$WARP_ACCOUNT")
-    local WARP_R1=$(awk '/"reserved":/ {getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
-    local WARP_R2=$(awk '/"reserved":/ {getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
-    local WARP_R3=$(awk '/"reserved":/ {getline; getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+    # 归一化：仅在 { , } 后换行，兼容 pretty / compact 两种 JSON；不破坏 "[2606:...]:0" 类含 : 值
+    local MASQUE_JSON=$(tr -d '\n' <<< "$WARP_ACCOUNT" | awk '{gsub(/[{,}]/, "&\n"); print}')
+    # 设备私钥（顶层唯一 "private_key"）：PKCS#8 P-256 DER base64，164 字符以 == 结尾
+    local WARP_PRIVATE=$(awk -F'"' '/^[[:space:]]*"private_key"[[:space:]]*:/{print $4; exit}' <<< "$MASQUE_JSON")
+    # 边缘公钥：peers[0].public_key 为 PEM（含 \n 转义），剥壳去 \n → 124 字符 base64；从返回提取防官方更换边缘证书
+    local WARP_PUB=$(awk '
+      /^[[:space:]]*"public_key"[[:space:]]*:/ {
+        s = $0
+        sub(/^.*-----BEGIN PUBLIC KEY-----\\n/, "", s)
+        sub(/\\n-----END PUBLIC KEY-----.*$/, "", s)
+        gsub(/\\n/, "", s)
+        print s; exit
+      }' <<< "$MASQUE_JSON")
+    # 接口地址（config.interface.addresses.v4 / v6）
+    local WARP_V4=$(awk -F'"' '/"interface"[[:space:]]*:/{i=1} i && /"addresses"[[:space:]]*:/{a=1} a && /"v4"[[:space:]]*:/{print $4; exit}' <<< "$MASQUE_JSON")
+    local WARP_V6=$(awk -F'"' '/"interface"[[:space:]]*:/{i=1} i && /"addresses"[[:space:]]*:/{a=1} a && /"v6"[[:space:]]*:/{print $4; exit}' <<< "$MASQUE_JSON")
   fi
 
-  # 兜底：注册失败或接口返回格式异常导致提取为空时，回退内置共享密钥
-  if [ -z "${WARP_PRIVATE:-}" ] || [ -z "${WARP_V6:-}" ] || [ -z "${WARP_R1:-}" ] || [ -z "${WARP_R2:-}" ] || [ -z "${WARP_R3:-}" ]; then
-    local WARP_PRIVATE="YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY="
-    local WARP_V6="2606:4700:110:8a36:df92:102a:9602:fa18"
-    local WARP_R1=78
-    local WARP_R2=135
-    local WARP_R3=76
+  # 兜底：注册失败或接口返回格式异常导致提取为空时，回退内置共享值
+  if [ -z "${WARP_PRIVATE:-}" ] || [ -z "${WARP_PUB:-}" ] || [ -z "${WARP_V4:-}" ] || [ -z "${WARP_V6:-}" ]; then
+    local WARP_PRIVATE="MHcCAQEEIJ6MNFBN10mnKkiqrLXpcL+M+9kdGmxrMZmbWI7PmDbwoAoGCCqGSM49AwEHoUQDQgAEEB64jmm+JIs+cYCA2z7zCvEGeXAL8QZsfHX1rFGe51Q65ncG0c6V6XCiKazjjDTAEZ9Vtq7/yEVpC1IH+fOlTA=="
+    local WARP_PUB="MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w=="
+    local WARP_V4="172.16.0.2"
+    local WARP_V6="2606:4700:110:8399:553a:959e:bdff:9a0a"
   fi
 
   local WARP_OUTBOUND_JSON=""
-  if [ "$IS_TUN" = 'is_tun' ]; then
+  {
     WARP_OUTBOUND_JSON=",
         {
-            \"protocol\": \"wireguard\",
-            \"tag\": \"wireguard\",
+            \"protocol\": \"masque\",
             \"settings\": {
-                \"secretKey\": \"${WARP_PRIVATE}\",
-                \"address\": [
-                    \"172.16.0.2/32\",
-                    \"${WARP_V6}/128\"
-                ],
-                \"peers\": [
-                    {
-                        \"publicKey\": \"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=\",
-                        \"allowedIPs\": [
-                            \"0.0.0.0/0\",
-                            \"::/0\"
-                        ],
-                        \"endpoint\": \"engage.cloudflareclient.com:2408\"
+                \"address\": \"162.159.198.2\",
+                \"port\": 443
+            },
+            \"streamSettings\": {
+                \"method\": \"masque\",
+                \"masqueSettings\": {
+                    \"warp\": {
+                        \"privateKey\": \"${WARP_PRIVATE}\",
+                        \"publicKey\": \"${WARP_PUB}\",
+                        \"address\": [
+                            \"${WARP_V4}/32\",
+                            \"${WARP_V6}/128\"
+                        ]
                     }
-                ],
-                \"reserved\": [
-                    ${WARP_R1},
-                    ${WARP_R2},
-                    ${WARP_R3}
-                ],
-                \"mtu\": 1280
-            }
+                },
+                \"security\": \"tls\",
+                \"tlsSettings\": {
+                    \"serverName\": \"consumer-masque.cloudflareclient.com\",
+                    \"alpn\": [
+                        \"h2\"
+                    ]
+                }
+            },
+            \"tag\": \"warp-masque\"
         },
         {
             \"protocol\": \"freedom\",
@@ -4272,7 +4271,8 @@ EOF
             \"settings\": {},
             \"streamSettings\": {
                 \"sockopt\": {
-                    \"dialerProxy\": \"wireguard\"
+                    \"dialerProxy\": \"warp-masque\",
+                    \"domainStrategy\": \"UseIPv4\"
                 }
             }
         },
@@ -4282,14 +4282,15 @@ EOF
             \"settings\": {},
             \"streamSettings\": {
                 \"sockopt\": {
-                    \"dialerProxy\": \"wireguard\"
+                    \"dialerProxy\": \"warp-masque\",
+                    \"domainStrategy\": \"UseIPv6\"
                 }
             }
         }"
-  fi
+  }
 
   local ROUTING_JSON=""
-  if [ "$IS_TUN" = 'is_tun' ]; then
+  {
     ROUTING_JSON=",
     \"routing\": {
         \"domainStrategy\": \"AsIs\",
@@ -4310,7 +4311,7 @@ EOF
             }
         ]
     }"
-  fi
+  }
 
   cat > $WORK_DIR/outbound.json << EOF
 {
@@ -5234,10 +5235,8 @@ change_protocols() {
   local _api_services='[
         "HandlerService",
         "LoggerService",
-        "StatsService"'
-  [ "$IS_TUN" = 'is_tun' ] && _api_services+=',
-        "RoutingService"'
-  _api_services+='
+        "StatsService",
+        "RoutingService"
       ]'
 
   cat > $WORK_DIR/inbound.json << EOF
@@ -5988,84 +5987,82 @@ change_warp_account() {
   done
 }
 
-# 方式1：重新注册免费账户
+# 方式1：重新注册免费账户（MASQUE，含边缘公钥提取）
 change_warp_account_register() {
-  local WARP_ACCOUNT PRIVATE_KEY ADDRESS6 R1 R2 R3
-  WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --register)
+  local WARP_ACCOUNT MASQUE_JSON PRIVATE_KEY ADDRESS6 V4
+  WARP_ACCOUNT=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --masque-register)
 
   if ! grep -q '"id"' <<< "$WARP_ACCOUNT"; then
     warning "\n $(text 172) \n"
     return
   fi
 
-  PRIVATE_KEY=$(awk -F'"' '/"private_key"/{print $4}' <<< "$WARP_ACCOUNT")
-  ADDRESS6=$(awk -F'"' '/"v6":/ && $4 !~ /^\[/ {print $4}' <<< "$WARP_ACCOUNT")
-  R1=$(awk '/"reserved":/ {getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
-  R2=$(awk '/"reserved":/ {getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
-  R3=$(awk '/"reserved":/ {getline; getline; getline; gsub(/[^0-9]/, ""); print}' <<< "$WARP_ACCOUNT")
+  # 归一化：仅在 { , } 后换行，兼容 pretty / compact 两种 JSON
+  MASQUE_JSON=$(tr -d '\n' <<< "$WARP_ACCOUNT" | awk '{gsub(/[{,}]/, "&\n"); print}')
+  PRIVATE_KEY=$(awk -F'"' '/^[[:space:]]*"private_key"[[:space:]]*:/{print $4; exit}' <<< "$MASQUE_JSON")
+  ADDRESS6=$(awk -F'"' '/"interface"[[:space:]]*:/{i=1} i && /"addresses"[[:space:]]*:/{a=1} a && /"v6"[[:space:]]*:/{print $4; exit}' <<< "$MASQUE_JSON")
+  V4=$(awk -F'"' '/"interface"[[:space:]]*:/{i=1} i && /"addresses"[[:space:]]*:/{a=1} a && /"v4"[[:space:]]*:/{print $4; exit}' <<< "$MASQUE_JSON")
 
   # 兜底：接口返回格式异常导致提取为空时，按注册失败处理，保留原账户
-  if [ -z "$PRIVATE_KEY" ] || [ -z "$ADDRESS6" ] || [ -z "$R1" ] || [ -z "$R2" ] || [ -z "$R3" ]; then
+  if [ -z "$PRIVATE_KEY" ] || [ -z "$ADDRESS6" ] || [ -z "$V4" ]; then
     warning "\n $(text 172) \n"
     return
   fi
 
-  change_warp_account_apply "$ADDRESS6" "$PRIVATE_KEY" "$R1" "$R2" "$R3"
+  change_warp_account_apply "$ADDRESS6" "$PRIVATE_KEY" "$V4"
 }
 
-# 方式2：手动输入账户信息（IPv6 / Private Key / Reserved）
+# 方式2：手动输入账户信息（IPv6 / Private Key；边缘公钥固定不输入，沿用配置已有值）
 change_warp_account_manual() {
-  local ADDRESS6 PRIVATE_KEY RESERVED_INPUT R1 R2 R3 RESERVED_ERROR_TIME=5
+  local ADDRESS6 PRIVATE_KEY
 
   # 第 1 步：IPv6 地址（校验含冒号）
   while true; do
-    reading "\n $(text 173) " ADDRESS6
+    # 换行不放进 prompt：readline 对含真实换行的多行 prompt 会丢失 ANSI 颜色（显示白色）
+    echo ""
+    reading " $(text 173) " ADDRESS6
     [[ "$ADDRESS6" =~ : ]] && break
     warning " $(text 180) "
   done
 
-  # 第 2 步：Private Key（43 位 base64 字符 + 结尾 =）
+  # 第 2 步：Private Key（164 字符 base64 的 P-256 私钥 + 结尾 ==）
   while true; do
     reading " $(text 174) " PRIVATE_KEY
-    [[ "$PRIVATE_KEY" =~ ^[A-Za-z0-9+/_-]{43}=$ ]] && break
+    [[ "$PRIVATE_KEY" =~ ^[A-Za-z0-9+/]{162}==$ ]] && break
     warning " $(text 179) "
   done
 
-  # 第 3 步：Reserved（先读取一次，再进入校验循环；捕获组提取 3 组连续数字，错误计数复用 uuid 的 a=5 风格）
-  reading " $(text 175) " RESERVED_INPUT
-  until [[ "$RESERVED_INPUT" =~ ([0-9]+)[^0-9]*([0-9]+)[^0-9]*([0-9]+) ]] || [ "$RESERVED_ERROR_TIME" = 0 ]; do
-    (( RESERVED_ERROR_TIME-- )) || true
-    [ "$RESERVED_ERROR_TIME" = 0 ] && { warning "\n $(text 176) \n"; return; }
-    warning " $(text 176) "
-    reading " $(text 175) " RESERVED_INPUT
-  done
-  R1="${BASH_REMATCH[1]}"; R2="${BASH_REMATCH[2]}"; R3="${BASH_REMATCH[3]}"
-
-  change_warp_account_apply "$ADDRESS6" "$PRIVATE_KEY" "$R1" "$R2" "$R3"
+  change_warp_account_apply "$ADDRESS6" "$PRIVATE_KEY" ""
 }
 
-# 替换 outbound.json + xray -test + API 热更 + 结果提示
+# 替换 outbound.json + API 热更 + 结果提示
 change_warp_account_apply() {
-  local ADDRESS6="$1" PRIVATE_KEY="$2" R1="$3" R2="$4" R3="$5"
+  local ADDRESS6="$1" PRIVATE_KEY="$2" V4="$3"
   local OB_FILE="$WORK_DIR/outbound.json"
   local OB_TMP="$TEMP_DIR/outbound_warp_tmp.json"
 
-  [ -s "$OB_FILE" ] && grep -q '"wireguard"' "$OB_FILE" || return 1
+  [ -s "$OB_FILE" ] && grep -q '"masque"' "$OB_FILE" || return 1
 
   cp "$OB_FILE" "$OB_FILE.bak"
 
-  sed -i "s|\"secretKey\":[ ]*\".*\"|\"secretKey\": \"${PRIVATE_KEY}\"|" "$OB_FILE"
-  sed -i -E "s|\"([0-9a-fA-F:]+)/128\"|\"${ADDRESS6}/128\"|" "$OB_FILE"
-  # reserved 为多行数组，sed 单行正则无法覆盖，用 jq 原子更新（失败不落盘）
-  $WORK_DIR/jq --argjson res "[${R1},${R2},${R3}]" \
-    '(.outbounds[] | select(.tag == "wireguard") | .settings.reserved) = $res' \
-    "$OB_FILE" > "$OB_TMP" 2>/dev/null && mv "$OB_TMP" "$OB_FILE"
+  # jq 原子更新：只替换 warp.privateKey 与 warp.address（publicKey 不触碰，沿用配置已有值）；V4 为空时保留原地址（手动输入场景）
+  if [ -n "$V4" ]; then
+    $WORK_DIR/jq --arg priv "$PRIVATE_KEY" --arg v4 "${V4}/32" --arg v6 "${ADDRESS6}/128" \
+      '(.outbounds[] | select(.tag == "warp-masque") | .streamSettings.masqueSettings.warp | .privateKey) = $priv
+       | (.outbounds[] | select(.tag == "warp-masque") | .streamSettings.masqueSettings.warp | .address) = [$v4, $v6]' \
+      "$OB_FILE" > "$OB_TMP" 2>/dev/null && mv "$OB_TMP" "$OB_FILE"
+  else
+    $WORK_DIR/jq --arg priv "$PRIVATE_KEY" \
+      '(.outbounds[] | select(.tag == "warp-masque") | .streamSettings.masqueSettings.warp | .privateKey) = $priv' \
+      "$OB_FILE" > "$OB_TMP" 2>/dev/null && mv "$OB_TMP" "$OB_FILE"
+  fi
 
-  # 直接热更单个出站（内部已含 API 不可用时降级 restart 的兜底）；force 强制替换 wireguard 账户字段
-  if api_hot_reload outbound "wireguard" force; then
+  # 直接热更单个出站（内部已含 API 不可用时降级 restart 的兜底）；force 强制替换 masque 账户字段
+  if api_hot_reload outbound "warp-masque" force; then
     sleep 1
     if cmd_systemctl status xray &>/dev/null; then
       rm -f "$OB_FILE.bak"
+      local WARP_PRIVATE="$PRIVATE_KEY" WARP_V6="$ADDRESS6"
       info "\n $(text 178) $(text 37) \n"
       info " $(text 181) "
       exit 0
@@ -6129,14 +6126,12 @@ change_config() {
   # 指定网络出口（始终显示，默认空 = 不指定）
   MENU_IDX+=(75) && MENU_KEY+=(bindinterface) && MENU_VAL+=("${BIND_IFACE:-default}")
 
-  # 自定义 warp 出站路由规则（无 TUN 时无 WARP 出站，隐藏该入口）
-  if [ "$IS_TUN" = 'is_tun' ]; then
-    CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
-    MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
-  fi
+  # 自定义 warp 出站路由规则
+  CUSTOM_ROUTE_COUNT=$(custom_route_count 2>/dev/null || echo 0)
+  MENU_IDX+=(131) && MENU_KEY+=(customroute) && MENU_VAL+=("${CUSTOM_ROUTE_COUNT}")
 
-  # 更换 WARP 账户（仅当 outbound.json 中存在 wireguard 出站时显示）
-  grep -q '"wireguard"' ${WORK_DIR}/outbound.json 2>/dev/null && {
+  # 更换 WARP 账户（仅当 outbound.json 中存在 masque 出站时显示）
+  grep -q '"masque"' ${WORK_DIR}/outbound.json 2>/dev/null && {
     MENU_IDX+=(170) && MENU_KEY+=(warpaccount) && MENU_VAL+=("")
   }
 
@@ -6205,8 +6200,7 @@ change_config() {
       sync_hy2_warp_route disable
       local _HY2_TAG=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
       api_hot_reload inbounds ${_HY2_TAG:+"$_HY2_TAG"}
-      # 无 TUN 时无 WARP 路由可同步且 RoutingService 未启用，跳过全量路由同步以免误报 adrules 失败
-      [ "$IS_TUN" = 'is_tun' ] && api_hot_reload routing_rules
+      api_hot_reload routing_rules
     fi
     input_hopping_port
     # 保存用户输入的起止端口，后续删除旧规则时内部检测可能会清空
@@ -6776,7 +6770,7 @@ menu_setting() {
     ((_opt++))
 
     OPTION[_opt]="$(printf '%3d.' $_opt) $(text 32)"
-    eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }"
+    eval "ACTION[$_opt]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh); exit; }"
     ((_opt++))
 
     OPTION[_opt]="$(printf '%3d.' $_opt) $(text 33)"
@@ -6802,7 +6796,7 @@ menu_setting() {
     ACTION[1]() { NONINTERACTIVE_INSTALL='noninteractive_install'; IS_SUB=is_sub; fast_install_variables; install_argox; export_list; create_shortcut; exit;}
     ACTION[2]() { IS_SUB=is_sub; install_argox; export_list; create_shortcut; exit; }
     ACTION[3]() { IS_SUB=no_sub; install_argox; export_list; create_shortcut; exit; }
-    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
+    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh); exit; }
     ACTION[5]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
     ACTION[6]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
   fi
@@ -6861,141 +6855,139 @@ menu() {
 [ "$IS_UNINSTALL" != 'is_uninstall' ] && check_cdn
 statistics_of_run-times update argox.sh 2>/dev/null
 
-###### API 端口统一收口：custom 不再保存 apiPort，一律以 inbound.json 的 api.listen 为准（仅清理一次）,将于 2026年10月31日移除
-grep -q '^apiPort=' "$CUSTOM_FILE" 2>/dev/null && sed -i '/^apiPort=/d' "$CUSTOM_FILE"
-
-###### 为了把 tag 后缀从 vless-xhttp 改为 xhttp-h1.1-cdn 做的处理，将于 2026年9月30日移除
-if ls $WORK_DIR/inbound.json >/dev/null 2>&1 && grep -q 'vless-xhttp",' $WORK_DIR/inbound.json && [[ "$(date +%Y%m%d)" < "20260930" ]]; then
-  sed -i "s/vless-xhttp\",$/${NODE_TAG[7]}\",/g" $WORK_DIR/inbound.json
-  base64 -d $WORK_DIR/subscribe/base64 | sed "s/vless-xhttp$/${NODE_TAG[7]}/g" | base64 -w0 > $WORK_DIR/subscribe/base64
-  sed -i "s/vless-xhttp\",/${NODE_TAG[7]}\",/g" $WORK_DIR/subscribe/proxies
-  base64 -d $WORK_DIR/subscribe/shadowrocket | sed "s/vless-xhttp&obfsParam=/${NODE_TAG[7]}\&obfsParam=/g" | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
-fi
-
-###### 为了把原来的 nekobox/v2rayN 合并在一起的内容拆分做的处理，将于 2026年9月30日移除
-if [ -s $WORK_DIR/nginx.conf ] && grep -q 'v2rayN|Neko|Throne' $WORK_DIR/nginx.conf; then
-  sed -i '/~\*v2rayN|Neko|Throne/s#~\*v2rayN|Neko|Throne[[:space:]]*/base64;#~*v2rayN              /v2rayn;\n    ~*Throne|Neko         /throne;#' /etc/argox/nginx.conf
-  [ -s $WORK_DIR/subscribe/base64 ] && rm -f $WORK_DIR/subscribe/base64
-  export_list >/dev/null 2>&1
-fi
-
-###### 为了给旧版本 inbound.json 补全 Xray API 配置块与流量统计配置，将于 2026年10月31日移除
-if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [[ "$(date +%Y%m%d)" < "20261031" ]]; then
-  # 三个配置块（api / stats / policy）任一缺失即统一补全并重排：
-  #   - api 仅在缺失时生成（已有 api 对象原样保留）
-  #   - stats 缺失时补 {}，已有时保留
-  #   - policy 缺失或缺少 system 时合并补全，保留已有字段，只添四个统计开关
-  #   - 最后 {api, stats, policy} + . 将三者按 api→stats→policy 顺序置于 JSON 最顶（与新装模板一致）
-  grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -e '
-    (has("api")) and
-    (has("stats") and (.stats | type) == "object") and
-    (has("policy") and ((.policy.system?) | type) == "object")
-  ' >/dev/null 2>&1 || {
-    # 旧版本升级默认开启 isSub/isArgo，并补全 bind_interface（仅当 custom 中不存在时）
-    grep -q '^isSub=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'isSub' 'is_sub'
-    grep -q '^isArgo=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'isArgo' 'is_argo'
-    grep -q '^bind_interface=' "$CUSTOM_FILE" 2>/dev/null || write_custom 'bind_interface' ''
-    _api_port=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')
-    refresh_port_snapshot
-    if [ -z "$_api_port" ] || is_port_in_use "$_api_port"; then
-      _api_port=$(find_free_port 10000 65535)
-    fi
-    _api_listen="127.0.0.1:${_api_port}"
-    # 迁移期补全 api 块时按 TUN 能力决定是否启用 RoutingService（与 outbound 生成逻辑一致）
-    if [ -c /dev/net/tun ] || cat /dev/net/tun 2>&1 | grep -q "in bad state\|处于错误状态"; then
-      _mig_api_services='["HandlerService", "LoggerService", "StatsService", "RoutingService"]'
-    else
-      _mig_api_services='["HandlerService", "LoggerService", "StatsService"]'
-    fi
-    grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq --arg listen "$_api_listen" --argjson services "$_mig_api_services" '
-      .api = (if has("api") then .api
-              else { "tag": "api", "listen": $listen, "services": $services }
-              end) |
-      .stats = (.stats // {}) |
-      .policy = ((.policy // {}) + {
-        "system": (((.policy // {}).system // {}) + {
-          "statsInboundUplink": true,
-          "statsInboundDownlink": true,
-          "statsOutboundUplink": true,
-          "statsOutboundDownlink": true
-        })
-      }) |
-      {api, stats, policy} + .
-    ' > "$TEMP_DIR/inbound_stats_tmp.json" 2>/dev/null && mv "$TEMP_DIR/inbound_stats_tmp.json" "$WORK_DIR/inbound.json" && {
-      # 补全了 api/stats/policy，xray 需重启才能加载 API 监听。
-      # 必须后台执行：若经 xray 代理连接 SSH，重启瞬间连接断开，
-      # 前台等待会因 SSH 中断导致命令未跑完。
-      # 此处在 check_system_info() 之前，SYSTEM 未设置，用 openrc/rc-service 检测区分 Alpine 与 systemd。
-      if [ -d /run/openrc ] || command -v rc-service >/dev/null 2>&1; then
-        ( nohup rc-service xray restart >/dev/null 2>&1 & )
-      else
-        ( nohup systemctl restart xray >/dev/null 2>&1 & )
-      fi
-    }
-  }
-fi
-
-###### 旧版 WARP 链式出站迁移：Xray ≥26.9 已移除 outbound.proxySettings，改为 streamSettings.sockopt.dialerProxy,将于 2026年12月31日移除
-###### 将 warp-IPv4 / warp-IPv6 的 proxySettings 改写为 dialerProxy，并用 Xray API 热加载（失败则后台重启兑底）
-###### 此迁移发生时新 Xray 未能启动的概率高，因此必须用 API 热加载以免 SSH 断开，同时保留后台重启兑底
+###### 旧版 WARP 出站迁移：1) proxySettings → dialerProxy（Xray ≥26.9 已移除 outbound.proxySettings）；2) WireGuard（UDP）出站切换为 MASQUE（H2/TCP 443），将于 2026年12月31日移除
+###### 1) 存在 proxySettings 的 warp-IPv4 / warp-IPv6：删 proxySettings，补 sockopt.dialerProxy 与 domainStrategy（UseIPv4/UseIPv6，dialerProxy 下 Freedom 不解析域名，须显式指定协议栈）
+###### 2) 存在 wireguard 出站：整体替换为 masque 出站（--masque-register 注册优先，失败回退内置共享值），dialerProxy 改指 warp-masque，routing 不动
+###### 两步改写后统一 xray -test 校验，通过则 Xray API 热加载（rmo/ado，失败则后台重启兑底，避免 SSH 断开），不通过则放弃迁移保留原配置
 if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/outbound.json" ] && [[ "$(date +%Y%m%d)" < "20270101" ]]; then
-  # 存在旧字段且缺 dialerProxy 才处理（幂等，burst 检测避免重复热载）
-  if grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq -e \
-    'any(.outbounds[]? | select(.tag == "warp-IPv4" or .tag == "warp-IPv6"); has("proxySettings")) and
-     any(.outbounds[]? | select(.tag == "warp-IPv4" or .tag == "warp-IPv6"); (.streamSettings.sockopt.dialerProxy) != null) | not' \
-    >/dev/null 2>&1; then
 
-    # 1) 用 jq 一次性重写：删 proxySettings，补齐 streamSettings.sockopt.dialerProxy，settings 置空
+  # 步骤 1：proxySettings → dialerProxy + domainStrategy（幂等：仅含 proxySettings 的旧配置触发）
+  if grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq -e \
+    'any(.outbounds[]? | select(.tag == "warp-IPv4" or .tag == "warp-IPv6"); has("proxySettings"))' \
+    >/dev/null 2>&1; then
     grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq '
       .outbounds |= map(
         if (.tag == "warp-IPv4" or .tag == "warp-IPv6") then
           del(.proxySettings)
           | .settings = {}
           | .streamSettings.sockopt.dialerProxy = "wireguard"
-          | del(.streamSettings.sockopt.domainStrategy)   # dialerProxy 下 Freedom 不解析域名，移除无效字段
+          | .streamSettings.sockopt.domainStrategy = (if .tag == "warp-IPv4" then "UseIPv4" else "UseIPv6" end)
         else . end
       )
     ' > "$TEMP_DIR/outbound_warp_mig.json" 2>/dev/null \
       && mv "$TEMP_DIR/outbound_warp_mig.json" "$WORK_DIR/outbound.json" || true
+  fi
 
-    # 2) 校验新配置可用（失败不打热加载，避免把坏配置注入运行中的实例）
-    _warp_cfg_ok=false
+  # 步骤 2：wireguard → masque（幂等：仅存在 wireguard 出站时触发；迁移后出站内无 wireguard 不会再次触发）
+  if grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq -e \
+    '.outbounds[]? | select(.protocol == "wireguard" and .tag == "wireguard")' >/dev/null 2>&1; then
+    # 改写前备份：步骤 2 校验失败时回滚保留 wireguard 原配置
+    cp "$WORK_DIR/outbound.json" "$TEMP_DIR/outbound.json.mig_bak"
+
+    # 1) 注册 MASQUE 账户，失败回退内置共享值（顶层脚本不可用 local，用 unset 声明）
+    unset _mg_account _mg_json _mg_priv _mg_pub _mg_v4 _mg_v6
+    _mg_account=$(timeout 15 bash <(wget -qO- --timeout=5 --tries=1 "https://gitlab.com/fscarmen/warp/-/raw/main/api.sh") --masque-register 2>/dev/null)
+    _mg_priv="" _mg_pub="" _mg_v4="" _mg_v6=""
+    if grep -q '"id"' <<< "$_mg_account"; then
+      _mg_json=$(tr -d '\n' <<< "$_mg_account" | awk '{gsub(/[{,}]/, "&\n"); print}')
+      _mg_priv=$(awk -F'"' '/^[[:space:]]*"private_key"[[:space:]]*:/{print $4; exit}' <<< "$_mg_json")
+      _mg_pub=$(awk '
+        /^[[:space:]]*"public_key"[[:space:]]*:/ {
+          s = $0
+          sub(/^.*-----BEGIN PUBLIC KEY-----\\n/, "", s)
+          sub(/\\n-----END PUBLIC KEY-----.*$/, "", s)
+          gsub(/\\n/, "", s)
+          print s; exit
+        }' <<< "$_mg_json")
+      _mg_v4=$(awk -F'"' '/"interface"[[:space:]]*:/{i=1} i && /"addresses"[[:space:]]*:/{a=1} a && /"v4"[[:space:]]*:/{print $4; exit}' <<< "$_mg_json")
+      _mg_v6=$(awk -F'"' '/"interface"[[:space:]]*:/{i=1} i && /"addresses"[[:space:]]*:/{a=1} a && /"v6"[[:space:]]*:/{print $4; exit}' <<< "$_mg_json")
+    fi
+    if [ -z "$_mg_priv" ] || [ -z "$_mg_pub" ] || [ -z "$_mg_v4" ] || [ -z "$_mg_v6" ]; then
+      _mg_priv="MHcCAQEEIJ6MNFBN10mnKkiqrLXpcL+M+9kdGmxrMZmbWI7PmDbwoAoGCCqGSM49AwEHoUQDQgAEEB64jmm+JIs+cYCA2z7zCvEGeXAL8QZsfHX1rFGe51Q65ncG0c6V6XCiKazjjDTAEZ9Vtq7/yEVpC1IH+fOlTA=="
+      _mg_pub="MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIaU7MToJm9NKp8YfGxR6r+/h4mcG7SxI8tsW8OR1A5tv/zCzVbCRRh2t87/kxnP6lAy0lkr7qYwu+ox+k3dr6w=="
+      _mg_v4="172.16.0.2"
+      _mg_v6="2606:4700:110:8399:553a:959e:bdff:9a0a"
+    fi
+
+    # 2) jq 原子重写：删 wireguard 出站 → 在 warp-IPv4 前插入 masque 出站 → dialerProxy 改 warp-masque（domainStrategy 保留）
+    grep -v '^//' "$WORK_DIR/outbound.json" | MASQUE_PRIV="$_mg_priv" MASQUE_PUB="$_mg_pub" MASQUE_V4="$_mg_v4" MASQUE_V6="$_mg_v6" $WORK_DIR/jq '
+      .outbounds |= (
+        map(select((.protocol == "wireguard" and .tag == "wireguard") | not))
+        | (map(.tag) | index("warp-IPv4")) as $idx
+        | .[0:$idx] + [{
+            "protocol": "masque",
+            "settings": { "address": "162.159.198.2", "port": 443 },
+            "streamSettings": {
+              "method": "masque",
+              "masqueSettings": {
+                "warp": {
+                  "privateKey": $ENV.MASQUE_PRIV,
+                  "publicKey": $ENV.MASQUE_PUB,
+                  "address": [($ENV.MASQUE_V4 + "/32"), ($ENV.MASQUE_V6 + "/128")]
+                }
+              },
+              "security": "tls",
+              "tlsSettings": { "serverName": "consumer-masque.cloudflareclient.com", "alpn": ["h2"] }
+            },
+            "tag": "warp-masque"
+          }] + .[$idx:]
+      )
+      | .outbounds |= map(
+          if (.tag == "warp-IPv4" or .tag == "warp-IPv6") then
+            .streamSettings.sockopt.dialerProxy = "warp-masque"
+            # 早期迁移（v2.1.6）曾 del 掉 domainStrategy，存量可能缺失，此处补齐
+            | .streamSettings.sockopt.domainStrategy = (if .tag == "warp-IPv4" then "UseIPv4" else "UseIPv6" end)
+          else . end
+        )
+    ' > "$TEMP_DIR/outbound_masque_mig.json" 2>/dev/null \
+      && mv "$TEMP_DIR/outbound_masque_mig.json" "$WORK_DIR/outbound.json" || true
+  fi
+
+  # 3) 校验（任一步骤改写过后才校验；失败放弃迁移，保留改写前配置由 .mig_bak 回滚）
+  if ! cmp -s "$WORK_DIR/outbound.json" "$TEMP_DIR/outbound.json.mig_bak" 2>/dev/null; then
+    # 4) 校验新配置可用（失败不打热加载，避免把坏配置注入运行中的实例；回滚改写前备份）
+    _masque_cfg_ok=false
     if [ -x "$WORK_DIR/xray" ] && [ -s "$WORK_DIR/inbound.json" ]; then
-      if $WORK_DIR/xray run -test -c "$WORK_DIR/inbound.json" -c "$WORK_DIR/outbound.json" >"$TEMP_DIR/xray_warp_test.err" 2>&1; then
-        _warp_cfg_ok=true
+      if $WORK_DIR/xray run -test -c "$WORK_DIR/inbound.json" -c "$WORK_DIR/outbound.json" >"$TEMP_DIR/xray_masque_test.err" 2>&1; then
+        _masque_cfg_ok=true
       fi
     fi
 
-    # 3) 配置有效则热加载；API 方案优先，失败才后台重启（后台重启是为避免 SSH 断开时命令中断）
-    if [ "$_warp_cfg_ok" = 'true' ]; then
-      _warp_loaded=false
+    # 5) 配置有效则热加载；API 方案优先，失败才后台重启（后台重启是为避免 SSH 断开时命令中断）
+    if [ "$_masque_cfg_ok" = 'true' ]; then
+      _masque_loaded=false
       if [ -x "$WORK_DIR/xray" ]; then
-        _warp_api_port=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')
-        if [ -n "$_warp_api_port" ] && $WORK_DIR/xray api lsi --server="127.0.0.1:${_warp_api_port}" --isOnlyTags=true &>/dev/null; then
-          # 逐个强制热更两个出站（rmo + ado，key 变更相关字段必须 force）
-          for _warp_tag in warp-IPv4 warp-IPv6; do
-            if ( cd / ; $WORK_DIR/xray api rmo --server="127.0.0.1:${_warp_api_port}" "$_warp_tag" &>/dev/null ); then :; fi
+        _masque_api_port=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')
+        if [ -n "$_masque_api_port" ] && $WORK_DIR/xray api lsi --server="127.0.0.1:${_masque_api_port}" --isOnlyTags=true &>/dev/null; then
+          # 全量替换出站：rmo 三个旧 tag + ado 三个新 tag（key/tag 变更必须 rmo + ado）
+          for _masque_tag in wireguard warp-IPv4 warp-IPv6; do
+            if ( cd / ; $WORK_DIR/xray api rmo --server="127.0.0.1:${_masque_api_port}" "$_masque_tag" &>/dev/null ); then :; fi
             grep -v '^//' "$WORK_DIR/outbound.json" \
-              | $WORK_DIR/jq -c "{outbounds: [.outbounds[] | select(.tag == \"$_warp_tag\")]}" \
-              > "$TEMP_DIR/warp_${_warp_tag}.json" 2>/dev/null \
-              && $WORK_DIR/xray api ado --server="127.0.0.1:${_warp_api_port}" "$TEMP_DIR/warp_${_warp_tag}.json" &>/dev/null \
-              && _warp_loaded=true
-            rm -f "$TEMP_DIR/warp_${_warp_tag}.json"
+              | $WORK_DIR/jq -c "{outbounds: [.outbounds[] | select(.tag == \"$_masque_tag\")]}" \
+              > "$TEMP_DIR/masque_${_masque_tag}.json" 2>/dev/null \
+              && $WORK_DIR/xray api ado --server="127.0.0.1:${_masque_api_port}" "$TEMP_DIR/masque_${_masque_tag}.json" &>/dev/null \
+              && _masque_loaded=true
+            rm -f "$TEMP_DIR/masque_${_masque_tag}.json"
           done
         fi
       fi
       # API 热加载未完成则后台重启兑底（不动到 SSH：nohup 后台、微秒内返回）
-      if [ "$_warp_loaded" != 'true' ]; then
+      if [ "$_masque_loaded" != 'true' ]; then
         if [ -d /run/openrc ] || command -v rc-service >/dev/null 2>&1; then
           ( nohup rc-service xray restart >/dev/null 2>&1 & )
         else
           ( nohup systemctl restart xray >/dev/null 2>&1 & )
         fi
       fi
+    else
+      # 校验失败：若做过步骤 2，回滚为步骤 2 前的备份（保留 wireguard 原配置）
+      [ -s "$TEMP_DIR/outbound.json.mig_bak" ] && mv -f "$TEMP_DIR/outbound.json.mig_bak" "$WORK_DIR/outbound.json"
     fi
-    unset _warp_cfg_ok _warp_loaded _warp_api_port _warp_tag
+    unset _masque_cfg_ok _masque_loaded _masque_api_port _masque_tag
   fi
+  rm -f "$TEMP_DIR/outbound.json.mig_bak"
 fi
+
 
 ###### VMess 加密方式迁移：Xray ≥26.7.11 已移除 VMess 的 none / zero（空加密载荷），将于 2026年12月31日移除
 ###### 检测订阅文件中 vmess-ws 节点的 none / zero 并就地改写为 auto：clash / proxies 明文直改；throne 单层 base64；shadowrocket / v2rayn 的加密方式藏在内层 base64，需解两层再回编
@@ -7170,7 +7162,7 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
     u ) select_language; check_system_info; uninstall; exit 0;;
     n ) select_language; check_system_info; export_list; exit 0 ;;
     v ) select_language; check_system_info; check_arch; version; exit 0;;
-    b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
+    b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh"); exit ;;
     f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
     k|l ) NONINTERACTIVE_INSTALL='noninteractive_install'; fast_install_variables ;;
   esac
