@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.2.0 (2026.10.30)'
+VERSION='2.2.1 (2026.10.31)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -45,8 +45,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="The WARP outbound is switched from WireGuard (UDP) to MASQUE (H2/TCP 443, CONNECT-IP). Legacy wireguard outbound configs are migrated to MASQUE automatically once the xray core is updated to 26.10.21 or later"
-C[1]="WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE"
+E[1]="1. The WARP outbound is switched from WireGuard (UDP) to MASQUE (H2/TCP 443, CONNECT-IP). Legacy wireguard outbound configs are migrated to MASQUE automatically once the xray core is updated to 26.10.21 or later; 2. Hysteria2 traffic no longer uses the WARP outbound. Existing Hysteria2-specific WARP routes are cleaned up automatically, while Hysteria2 Realm remains available"
+C[1]="1. WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE; 2. Hysteria2 流量不再使用 WARP 出站，存量 Hysteria2 专属 WARP 路由自动清理；Hysteria2 Realm 功能保持不变"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -71,8 +71,8 @@ E[12]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter Xray UUID (D
 C[12]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入 Xray UUID (默认为 \${UUID_DEFAULT}):"
 E[13]="Please enter Xray WS Path (Default is \${WS_PATH_DEFAULT}):"
 C[13]="请输入 Xray WS 路径 (默认为 \${WS_PATH_DEFAULT}):"
-E[14]="Xray WS Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @, please re-enter (\${a} times remaining):"
-C[14]="Xray WS 路径只允许英文大小写、数字、连字符、下划线、点和@字符，请重新输入 (剩余\${a}次):"
+E[14]="Xray WS Path only allow uppercase and lowercase letters, numeric characters, hyphens, underscores, dots and @.\n Please re-enter (\${a} times remaining):"
+C[14]="Xray WS 路径只允许英文大小写、数字、连字符、下划线、点和@字符。\n 请重新输入 (剩余\${a}次):"
 E[15]="ArgoX script has not been installed yet."
 C[15]="ArgoX 脚本还没有安装"
 E[16]="ArgoX is completely uninstalled."
@@ -155,8 +155,8 @@ E[54]="Warp / warp-go was detected to be running. Please enter the correct serve
 C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器地址（IP 或域名）:"
 E[55]="The script runs today: \${TODAY}. Total: \${TOTAL}"
 C[55]="脚本当天运行次数: \${TODAY}，累计运行次数: \${TOTAL}"
-E[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter the starting port for all protocols. Must be \${MIN_PORT}-\${MAX_PORT}, need \${NUM} consecutive free ports (Default: \${START_PORT_DEFAULT}):"
-C[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入所有协议的起始端口，必须是 \${MIN_PORT}-\${MAX_PORT}，需要 \${NUM} 个连续空闲端口(默认为 \${START_PORT_DEFAULT}):"
+E[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Please enter the starting port for all protocols.\n Must be \${MIN_PORT}-\${MAX_PORT}, need \${NUM} consecutive free ports (Default: \${START_PORT_DEFAULT}):"
+C[56]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }请输入所有协议的起始端口。\n 必须是 \${MIN_PORT}-\${MAX_PORT}，需要 \${NUM} 个连续空闲端口(默认为 \${START_PORT_DEFAULT}):"
 E[57]="Install sba scripts (argo + sing-box) [https://github.com/fscarmen/sba]"
 C[57]="安装 sba 脚本 (argo + sing-box) [https://github.com/fscarmen/sba]"
 E[58]="Xray config syntax check failed, details:"
@@ -179,8 +179,8 @@ E[66]="Adaptive Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM Client
 C[66]="自适应 Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM 客户端"
 E[67]="not set"
 C[67]="未设置"
-E[68]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Nginx is used for subscription, QR code output, and WS/XHTTP protocol proxying. Please enter the port number, must be \${MIN_PORT}-\${MAX_PORT} (Default: \${NGINX_PORT_DEFAULT}):"
-C[68]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Nginx 用于订阅输出、二维码生成以及 WS/XHTTP 协议的反代分流，请输入端口号，必须是 \${MIN_PORT}-\${MAX_PORT}(默认为 \${NGINX_PORT_DEFAULT}):"
+E[68]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Nginx is used for subscription, QR code output, and WS/XHTTP protocol proxying.\n Please enter the port number, must be \${MIN_PORT}-\${MAX_PORT} (Default: \${NGINX_PORT_DEFAULT}):"
+C[68]="\${TOTAL_STEPS:+(\${STEP_NUM}/\${TOTAL_STEPS}) }Nginx 用于订阅输出、二维码生成以及 WS/XHTTP 协议的反代分流。\n 请输入端口号，必须是 \${MIN_PORT}-\${MAX_PORT}(默认为 \${NGINX_PORT_DEFAULT}):"
 E[69]="1. Default (not specified)"
 C[69]="1. 默认（不指定）"
 E[70]="ArgoX is not installed and cannot change the CDN."
@@ -201,8 +201,8 @@ E[77]="Quick install mode (argox -k)"
 C[77]="极速安装模式 (argox -l)"
 E[78]="Using Cloudflare API to create Tunnel and handle DNS config..."
 C[78]="使用 Cloudflare API 创建 Tunnel 和处理 DNS 配置..."
-E[79]="Found existing tunnel with the same name. Tunnel ID: \$EXISTING_TUNNEL_ID. Status: \$EXISTING_TUNNEL_STATUS. Overwrite? [y/N] (default y):"
-C[79]="发现同名隧道已创建，隧道 ID: \$EXISTING_TUNNEL_ID，状态: \$EXISTING_TUNNEL_STATUS。是否覆盖? [y/N] (默认为 y):"
+E[79]="Found existing tunnel with the same name.\n Tunnel ID: \$EXISTING_TUNNEL_ID. Status: \$EXISTING_TUNNEL_STATUS.\n Overwrite? [y/N] (default y):"
+C[79]="发现同名隧道已创建。\n 隧道 ID: \$EXISTING_TUNNEL_ID，状态: \$EXISTING_TUNNEL_STATUS。\n 是否覆盖? [y/N] (默认为 y):"
 E[80]="Continue with quick fast tunnel"
 C[80]="使用临时隧道继续"
 E[81]="Invalid access token. Please roll at https://dash.cloudflare.com/profile/api-tokens to re-generate."
@@ -293,10 +293,10 @@ E[123]="Invalid input, please enter a positive integer."
 C[123]="输入无效，请输入正整数。"
 E[124]="The order of the selected protocols and ports is as follows:"
 C[124]="选择的协议及端口次序如下:"
-E[125]="Hysteria2 Realm is suitable for NAT VPS or machines without public inbound. It is NOT recommended when the machine has a public IP. Enable? [y/N] (default N):"
-C[125]="Hysteria2 Realm 适用于回国或者没有公网入口的机器；有公网入口时不建议使用。是否启用？[y/N] (默认为 N):"
-E[126]="Hysteria2 WARP-assisted hole punching (for strict NAT environments). Enable? [y/N] (default N):"
-C[126]="Hysteria2 WARP 辅助打洞（适用于 NAT 严格环境）。是否启用？[y/N] (默认为 N):"
+E[125]="Hysteria2 Realm is suitable for NAT VPS or machines without public inbound.\n It is NOT recommended when the machine has a public IP. Enable? [y/N] (default N):"
+C[125]="Hysteria2 Realm 适用于回国或者没有公网入口的机器；\n 有公网入口时不建议使用。是否启用？[y/N] (默认为 N):"
+E[126]=""
+C[126]=""
 E[127]="Close Realm"
 C[127]="关闭 Realm"
 E[128]="Hot reload successful via Xray API"
@@ -407,8 +407,8 @@ E[180]="Invalid IPv6 address format."
 C[180]="IPv6 地址格式错误"
 E[181]="New WARP MASQUE account:\n\n Private Key: \${WARP_PRIVATE}\n\n IPv6: \${WARP_V6}"
 C[181]="新 WARP MASQUE 账户:\n\n Private Key: \${WARP_PRIVATE}\n\n IPv6: \${WARP_V6}"
-E[182]="Hysteria2 Realm and port hopping cannot be used together (choose one). Realm is for NAT VPS without public inbound access. If you enable Realm, port hopping will be skipped."
-C[182]="Hysteria2 Realm 与端口跳跃不能同时使用（二选一）。Realm 适用于没有公网入站的 NAT 机器；启用 Realm 后将跳过端口跳跃。"
+E[182]="Hysteria2 Realm and port hopping cannot be used together (choose one).\n Realm is for NAT VPS without public inbound access.\n If you enable Realm, port hopping will be skipped."
+C[182]="Hysteria2 Realm 与端口跳跃不能同时使用（二选一）。\n Realm 适用于没有公网入站的 NAT 机器；启用 Realm 后将跳过端口跳跃。"
 E[183]="Port hopping is enabled. Enabling Realm will disable port hopping. Continue? [y/N] (default N):"
 C[183]="端口跳跃已开启，启用 Realm 将关闭端口跳跃。是否继续？[y/N]（默认 N）:"
 E[184]="Realm is enabled. Enabling port hopping will disable Realm. Continue? [y/N] (default N):"
@@ -1859,7 +1859,6 @@ xray_variable() {
 
     # Hysteria2 Realm 交互（在端口跳跃之前询问，需要先 Realm 再端口跳跃）
     input_hy2_realm
-    input_hy2_warp
     # Realm ID 默认使用 UUID
     [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="$UUID"
 
@@ -1945,9 +1944,6 @@ fast_install_variables() {
   # 非交互模式：从环境变量读取 Realm 设置
   if [[ "${HY2_REALM,,}" =~ ^(true|yes|y)$ ]] || [[ "${IS_HY2_REALM,,}" =~ ^(true|yes|y|is_hy2_realm)$ ]]; then
     IS_HY2_REALM=is_hy2_realm
-  fi
-  if [[ "${HY2_WARP,,}" =~ ^(true|yes|y)$ ]] || [[ "${IS_HY2_WARP,,}" =~ ^(true|yes|y|is_hy2_warp)$ ]]; then
-    IS_HY2_WARP=is_hy2_warp
   fi
   [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="${HY2_REALM_ID:-$UUID}"
 
@@ -2160,21 +2156,11 @@ fetch_nodes_value() {
       IS_HY2_REALM=is_hy2_realm
       HY2_REALM_ID=$(echo "$_hy2_fm" | $WORK_DIR/jq -r '.udp[0].settings.url' 2>/dev/null | sed 's|realm://public@realm.hy2.io:443/||')
       [ -z "$HY2_REALM_ID" ] && HY2_REALM_ID="$UUID"
-      # 检测 WARP 路由规则（从 outbound.json 读取，因为 Xray 多配置合并时
-      # outbound.json 的 routing 覆盖 inbound.json 的 routing）
-      # WARP 打洞需要同时存在 v4 和 v6 两条规则，检测时匹配任一即可
-      local _warp_rule
-      if [ -s "$WORK_DIR/outbound.json" ]; then
-        local _ob_json
-        _ob_json=$(grep -v '^//' "$WORK_DIR/outbound.json" 2>/dev/null)
-        _warp_rule=$(echo "$_ob_json" | $WORK_DIR/jq -r '.routing.rules // [] | any((.inboundTag // [] | any(endswith("hysteria2"))) and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))' 2>/dev/null)
-      fi
-      [ "$_warp_rule" = 'true' ] && IS_HY2_WARP=is_hy2_warp
     else
-      unset IS_HY2_REALM IS_HY2_WARP HY2_REALM_ID
+      unset IS_HY2_REALM HY2_REALM_ID
     fi
   else
-    unset IS_HY2_REALM IS_HY2_WARP HY2_REALM_ID
+    unset IS_HY2_REALM HY2_REALM_ID
   fi
   VLESS_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "vless-ws") | .port] | .[0] // empty' 2>/dev/null)
   VMESS_WS_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "vmess-ws") | .port] | .[0] // empty' 2>/dev/null)
@@ -2963,22 +2949,6 @@ input_hy2_realm() {
   fi
 }
 
-# 交互输入是否启用 WARP 辅助打洞
-input_hy2_warp() {
-  # 仅在 Realm 已启用且非交互模式下询问
-  [ "$IS_HY2_REALM" != 'is_hy2_realm' ] && return
-  # 长参数模式：--HY2_WARP 已传参（无论 true/false），跳过交互
-  [ "$SKIP_MENU" = 'skip_menu' ] && [ -n "$HY2_WARP_SET" ] && return
-  if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
-    reading "\n $(text 126) " HY2_WARP_ANSWER
-  fi
-  if [[ "${HY2_WARP_ANSWER,,}" =~ ^(y|yes)$ ]]; then
-    IS_HY2_WARP=is_hy2_warp
-  else
-    unset IS_HY2_WARP
-  fi
-}
-
 # 注入/删除 finalmask（服务端配置）
 # 参数 $1: enable 或 disable
 set_hy2_realm_config() {
@@ -3003,70 +2973,17 @@ set_hy2_realm_config() {
   fi
 }
 
-# 增删 WARP 路由规则
-# 参数 $1: enable 或 disable
-# WARP 规则格式：{"type":"field","inboundTag":["MyNode hysteria2"],"outboundTag":"warp-IPv4"}
-# 注意 1：WARP 路由规则写入 outbound.json 而非 inbound.json，原因：
-# Xray 以 xray run -c inbound.json -c outbound.json 启动时，对于 object 类型顶级键（如 routing），
-# 后加载的 outbound.json 会覆盖 inbound.json。若 WARP 规则写入 inbound.json，会被 outbound.json
-# 的 routing（ChatGPT 规则）覆盖，导致 WARP 路由永不生效。
-# 注意 2：WARP 打洞需要同时添加 warp-IPv4 和 warp-IPv6 两条规则，否则 UDP 打洞可能失败
-sync_hy2_warp_route() {
-  local _action="$1"
-  # outbound.json 中无 WARP 链式出站时（理论不存在），防止写入无效路由
-  [ -s "$WORK_DIR/outbound.json" ] || return 0
-  # inbound.json 用于获取 hysteria2 的 inboundTag 名称
-  local _ib="$WORK_DIR/inbound.json"
-  # outbound.json 用于读写 WARP 路由规则
-  local _ob="$WORK_DIR/outbound.json" _ob_tmp="$TEMP_DIR/outbound_tmp.json"
-  [ -s "$_ob" ] || return 1
-  local _json
-  _json=$(grep -v '^//' "$_ob" 2>/dev/null) || return 1
-
-  if [ "$_action" = 'enable' ]; then
-    # 从 inbound.json 获取 inboundTag 名称
-    [ -s "$_ib" ] || return 1
-    local _ib_json
-    _ib_json=$(grep -v '^//' "$_ib" 2>/dev/null) || return 1
-    local _hy2_tag
-    _hy2_tag=$(echo "$_ib_json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
-    [ -z "$_hy2_tag" ] && return 1
-
-    # 检查是否已存在 v4 或 v6 规则（注意：| 比 and 优先级高，需用括号包裹 pipe 表达式）
-    local _exists
-    _exists=$(echo "$_json" | $WORK_DIR/jq -r --arg tag "$_hy2_tag" \
-      '.routing.rules // [] | any((.inboundTag // [] | contains([$tag])) and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))' 2>/dev/null)
-    [ "$_exists" = 'true' ] && return 0
-
-    # 构建 v4 + v6 两条规则
-    local _warp_rules
-    _warp_rules=$(printf '[{"type":"field","inboundTag":["%s"],"outboundTag":"warp-IPv4"},{"type":"field","inboundTag":["%s"],"outboundTag":"warp-IPv6"}]' "$_hy2_tag" "$_hy2_tag")
-
-    # 在 routing 最前面插入 WARP 路由规则（优先级高于 ChatGPT 兜底规则）
-    echo "$_json" | $WORK_DIR/jq --argjson rules "$_warp_rules" \
-      '.routing.rules = $rules + .routing.rules' \
-      > "$_ob_tmp" && mv "$_ob_tmp" "$_ob"
-  elif [ "$_action" = 'disable' ]; then
-    # 删除匹配 inboundTag 的 WARP v4 和 v6 路由规则（从 outbound.json 操作）
-    echo "$_json" | $WORK_DIR/jq \
-      'if .routing then del(.routing.rules[] | select((.inboundTag // [] | any(endswith("hysteria2"))) and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))) else . end' \
-      > "$_ob_tmp" && mv "$_ob_tmp" "$_ob"
-  fi
-}
-
 # 处理 Hysteria2 Realm 开关（统一入口，被菜单和安装流程调用）
 # 参数 $1: enable 或 disable
-# 无参数时根据 IS_HY2_REALM 和 IS_HY2_WARP 自动执行
+# 无参数时根据 IS_HY2_REALM 自动执行
 handle_hy2_realm() {
   local _action="${1:-}" _hy2_tag
   [ -z "$_action" ] && _action="$([ "$IS_HY2_REALM" = 'is_hy2_realm' ] && echo 'enable' || echo 'disable')"
 
   if [ "$_action" = 'enable' ]; then
     set_hy2_realm_config enable
-    [ "$IS_HY2_WARP" = 'is_hy2_warp' ] && sync_hy2_warp_route enable
   else
     set_hy2_realm_config disable
-    sync_hy2_warp_route disable
   fi
 
   # 提取受影响的 hysteria2 inbound tag，强制热更新（因增量 diff 只对比 tag，不对比内容）
@@ -4965,7 +4882,6 @@ change_protocols() {
     ssl_certificate "${TLS_SERVER}"
     # Hysteria2 Realm 交互（在端口跳跃之前询问，需要先 Realm 再端口跳跃）
     input_hy2_realm
-    input_hy2_warp
     # Realm ID 默认使用 UUID
     [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="$UUID"
     # 先收集端口跳跃范围，再写 NAT 规则（原逻辑顺序颠倒，NAT 参数为空）
@@ -6197,7 +6113,6 @@ change_config() {
       reading "\n $(text 184) " HY2_CONFIRM
       [[ "${HY2_CONFIRM,,}" =~ ^(y|yes)$ ]] || return
       set_hy2_realm_config disable
-      sync_hy2_warp_route disable
       local _HY2_TAG=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null)
       api_hot_reload inbounds ${_HY2_TAG:+"$_HY2_TAG"}
       api_hot_reload routing_rules
@@ -6234,7 +6149,7 @@ change_config() {
       # 已开启 → 直接关闭
       handle_hy2_realm disable
     else
-      # 未开启 → 先设置 Realm，再询问 WARP 辅助打洞
+      # 未开启 → 设置 Realm
       # Realm 与端口跳跃互斥：端口跳跃已开启时需确认，确认后先关闭端口跳跃
       check_port_hopping_nat
       if [ -n "$PORT_HOPPING_START" ]; then
@@ -6246,7 +6161,6 @@ change_config() {
       fi
       IS_HY2_REALM=is_hy2_realm
       HY2_REALM_ID="${HY2_REALM_ID:-$UUID}"
-      input_hy2_warp
       handle_hy2_realm enable
     fi
     return
@@ -6989,6 +6903,44 @@ if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/outbound.json" ] && [[ "$(date +%Y%m
 fi
 
 
+###### Hysteria2 Realm 出站收敛：Hysteria2 流量按默认路由出站，仅保留 Realm 本体，将于 2026年12月31日移除
+if [ "$IS_UNINSTALL" != 'is_uninstall' ] && [[ "$(date +%Y%m%d)" < "20270101" ]] && [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/inbound.json" ] && [ -s "$WORK_DIR/outbound.json" ]; then
+  _hy2_route_tag=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | endswith("hysteria2")) | .tag // empty' 2>/dev/null | head -1)
+  _hy2_route_exists=$(grep -v '^//' "$WORK_DIR/outbound.json" 2>/dev/null | $WORK_DIR/jq -r --arg tag "$_hy2_route_tag" \
+    '.routing.rules // [] | any((.inboundTag // []) == [$tag] and (.outboundTag == "warp-IPv4" or .outboundTag == "warp-IPv6"))' 2>/dev/null)
+  if [ -n "$_hy2_route_tag" ] && [ "$_hy2_route_exists" = 'true' ]; then
+    cp "$WORK_DIR/outbound.json" "$TEMP_DIR/outbound.json.route_bak"
+    if grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq --arg tag "$_hy2_route_tag" \
+      'if .routing then .routing.rules |= map(select((.inboundTag // []) != [$tag] or (.outboundTag != "warp-IPv4" and .outboundTag != "warp-IPv6"))) else . end' \
+      > "$TEMP_DIR/outbound.json.route_tmp" 2>/dev/null && [ -s "$TEMP_DIR/outbound.json.route_tmp" ]; then
+      if [ -x "$WORK_DIR/xray" ] && $WORK_DIR/xray run -test -c "$WORK_DIR/inbound.json" -c "$TEMP_DIR/outbound.json.route_tmp" >/dev/null 2>&1; then
+        mv "$TEMP_DIR/outbound.json.route_tmp" "$WORK_DIR/outbound.json"
+        if pgrep -f "$WORK_DIR/xray run" >/dev/null 2>&1; then
+          _hy2_api_port=$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.api.listen // empty' 2>/dev/null | awk -F: '{print $2}')
+          grep -v '^//' "$WORK_DIR/outbound.json" | $WORK_DIR/jq '{ routing: .routing }' > "$TEMP_DIR/outbound.json.route_api" 2>/dev/null
+          if ! { [ -s "$TEMP_DIR/outbound.json.route_api" ] && [ -n "$_hy2_api_port" ] && \
+            $WORK_DIR/xray api adrules --server="127.0.0.1:${_hy2_api_port}" "$TEMP_DIR/outbound.json.route_api" >/dev/null 2>&1; }; then
+            if [ -d /run/openrc ] || command -v rc-service >/dev/null 2>&1; then
+              ( nohup rc-service xray restart >/dev/null 2>&1 & )
+            else
+              ( nohup systemctl restart xray >/dev/null 2>&1 & )
+            fi
+          fi
+          rm -f "$TEMP_DIR/outbound.json.route_api"
+          unset _hy2_api_port
+        fi
+      else
+        mv -f "$TEMP_DIR/outbound.json.route_bak" "$WORK_DIR/outbound.json"
+      fi
+    else
+      mv -f "$TEMP_DIR/outbound.json.route_bak" "$WORK_DIR/outbound.json"
+    fi
+  fi
+  rm -f "$TEMP_DIR/outbound.json.route_tmp" "$TEMP_DIR/outbound.json.route_bak" "$TEMP_DIR/outbound.json.route_api"
+  unset _hy2_route_tag _hy2_route_exists _hy2_api_port
+fi
+
+
 ###### VMess 加密方式迁移：Xray ≥26.7.11 已移除 VMess 的 none / zero（空加密载荷），将于 2026年12月31日移除
 ###### 检测订阅文件中 vmess-ws 节点的 none / zero 并就地改写为 auto：clash / proxies 明文直改；throne 单层 base64；shadowrocket / v2rayn 的加密方式藏在内层 base64，需解两层再回编
 ###### 新装实例由 export_list 直接输出 auto，此处只兜底旧订阅；仅处理 vmess 节点，vless / trojan / ss 链接（含 encryption=none）一律不动
@@ -7098,7 +7050,6 @@ for z in ${!ALL_PARAMETER[@]}; do
     --REALITY_PRIVATE ) ((z++)); REALITY_PRIVATE=${ALL_PARAMETER[z]} ;;
     --PORT_HOPPING_RANGE ) ((z++)); PORT_HOPPING_RANGE=${ALL_PARAMETER[z]} ;;
     --HY2_REALM|--REALM ) ((z++)); HY2_REALM_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_REALM=is_hy2_realm ;;
-    --HY2_WARP|--REALM_WARP|--WARP_REALM ) ((z++)); HY2_WARP_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_WARP=is_hy2_warp && IS_HY2_REALM=is_hy2_realm ;;
     --SUBSCRIBE|--SUB ) ((z++)); [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_SUB=is_sub || IS_SUB=no_sub ;;
     --ARGO ) ((z++)); [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_ARGO=is_argo || IS_ARGO=no_argo; IS_ARGO_EXPLICIT=true ;;
   esac

@@ -27,16 +27,18 @@
 * * *
 
 ## Update Information
+2026.10.31 v2.2.1 Hysteria2 traffic no longer uses the WARP outbound. Existing Hysteria2-specific WARP routes are cleaned up automatically, while Hysteria2 Realm remains available
+
 2026.10.30 v2.2.0 Switch the WARP outbound from WireGuard (UDP) to MASQUE (H2/TCP 443, CONNECT-IP); legacy wireguard outbound configs are migrated to MASQUE automatically once the xray core is updated to 26.10.21 or later
 
 2026.10.22 v2.1.9 Harden the `argox -v` upgrade flow: the `cloudflared` version is now checked only when Argo is installed and with a longer timeout; the old `xray` binary is backed up before the upgrade and restored automatically if the new version fails to start; the tunnel domain and node info are refreshed after upgrading a quick tunnel
-
-2026.10.13 v2.1.8 1. Fix the firewall allow rules being appended after an existing `REJECT`/`DROP` rule on the `INPUT` chain, which left node and `nginx` ports unreachable on images such as Oracle OCI and OpenVZ; the rules are now inserted before the first `REJECT`/`DROP` rule [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. Fix occasional empty version detection when checking for `xray` updates, which could abort installation or upgrade; the version is now read from the lightweight `releases.atom` feed first, with the GitHub API as fallback [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. Enable `readline` line editing on interactive inputs: arrow keys move the cursor, `Home` / `End` and `Ctrl+A` / `Ctrl+E` jump to line start / end, `Ctrl+W` deletes the previous word, `Ctrl+U` clears to line start, `Ctrl+K` deletes to line end, `Ctrl+Y` undoes the last deletion, `Ctrl+L` clears the screen; editing keys are no longer inserted into the value [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. Make the uninstall path fully offline: `argox -u` no longer runs CDN detection and no longer pre-downloads subscription templates, binaries or `cloudflared`, so it completes immediately on hosts that cannot reach GitHub [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. update GitHub proxy CDN endpoints [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.10.13 v2.1.8 1. Fix the firewall allow rules being appended after an existing `REJECT`/`DROP` rule on the `INPUT` chain, which left node and `nginx` ports unreachable on images such as Oracle OCI and OpenVZ; the rules are now inserted before the first `REJECT`/`DROP` rule [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. Fix occasional empty version detection when checking for `xray` updates, which could abort installation or upgrade; the version is now read from the lightweight `releases.atom` feed first, with the GitHub API as fallback [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. Enable `readline` line editing on interactive inputs: arrow keys move the cursor, `Home` / `End` and `Ctrl+A` / `Ctrl+E` jump to line start / end, `Ctrl+W` deletes the previous word, `Ctrl+U` clears to line start, `Ctrl+K` deletes to line end, `Ctrl+Y` undoes the last deletion, `Ctrl+L` clears the screen; editing keys are no longer inserted into the value [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. Make the uninstall path fully offline: `argox -u` no longer runs CDN detection and no longer pre-downloads subscription templates, binaries or `cloudflared`, so it completes immediately on hosts that cannot reach GitHub [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. update GitHub proxy CDN endpoints [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
+>
 >2026.10.02 v2.1.7 1. Adapt to Xray 26.7.11 dropping VMess 'none'/'zero': vmess-ws links use cipher auto (Clash/Shadowrocket/v2rayN), Throne does not support auto and uses aes-128-gcm; 2. Auto-rewrite legacy none/zero in existing subscription files (remove after 2026-12-31); 3. Normalize Shadowrocket reality links (single-bracket IPv6, drop auto:/obfs=none, add udp=1 and fingerprint=Chrome140); 4. Adapt to Xray 26.9.8 where reality requires client fingerprints carrying X25519MLKEM768: remove minClientVer from realitySettings, enable support-x25519mlkem768 in clash reality-opts
 >
 >2026.09.18 v2.1.6 Migrate WARP chained outbounds from proxySettings to streamSettings.sockopt.dialerProxy for Xray >= 26.9.8
@@ -149,7 +151,7 @@ Select on demand at install time; add or remove later with `argox -r` — ports 
 | --- | --- | --- | --- | --- |
 | 1 | VLESS + Reality Vision | TCP | Reality | Direct |
 | 2 | Hysteria2 | UDP | Self-signed cert | Direct (optional port hopping) |
-| 2 | └ Realm mode | UDP | Self-signed cert | Direct + public rendezvous server hole punching (optional WARP assist) |
+| 2 | └ Realm mode | UDP | Self-signed cert | Direct + public rendezvous server hole punching |
 | 3 | VLESS + Reality gRPC | gRPC | Reality | Direct |
 | 4 | VLESS + WS | WS | Cloudflare | Tunnel / preferred IP |
 | 5 | VMess + WS | WS | Cloudflare | Tunnel / preferred IP |
@@ -165,7 +167,7 @@ Select on demand at install time; add or remove later with `argox -r` — ports 
 
 ### 3. Fine-grained Control
 
-* **Hysteria2 Realm mode**: NAT hole punching through a public rendezvous server, with optional WARP assistance — purpose-built for NAT VPS, significantly improving UDP traversal performance; Realm and port hopping are **mutually exclusive** — pick one;
+* **Hysteria2 Realm mode**: NAT hole punching through a public rendezvous server — purpose-built for NAT VPS, significantly improving UDP traversal performance; Realm and port hopping are **mutually exclusive** — pick one;
 * **Hysteria2 port hopping**: an optional feature independent of Realm; once a range is set the client hops automatically, evading port scanning and blocking, with matching firewall NAT rules pushed automatically;
 * **Custom WARP outbound routing**: domain suffix matching or geosite categories, steered to warp-IPv4 or warp-IPv6 outbounds; built-in WARP chained proxy unlocks ChatGPT in one click;
 * **Bind egress NIC**: on multi-homed servers, pick which interface (e.g. eth0 / eth1) Xray egresses through, adapting to complex topologies;
@@ -265,7 +267,6 @@ Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided v
 | `--REALITY_PRIVATE` | Reality private key |
 | `--PORT_HOPPING_RANGE` | Hysteria2 port hopping range, e.g. `50000:51000` |
 | `--HY2_REALM` | [true/false] Enable Hysteria2 Realm |
-| `--HY2_WARP` | [true/false] Enable Realm WARP-assisted hole punching |
 
 ### Examples
 
@@ -314,7 +315,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
   --PORT_HOPPING_RANGE 50000:51000 \
   --HY2_REALM true \
-  --HY2_WARP true
 ```
 
 </details>
@@ -341,7 +341,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   --SUBSCRIBE true \
   --PORT_HOPPING_RANGE 50000:51000 \
   --HY2_REALM true \
-  --HY2_WARP true
 ```
 
 </details>

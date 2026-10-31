@@ -26,16 +26,18 @@
 
 * * *
 ## 更新信息
+2026.10.31 v2.2.1 Hysteria2 流量不再使用 WARP 出站，存量 Hysteria2 专属 WARP 路由自动清理；Hysteria2 Realm 功能保持不变
+
 2026.10.30 v2.2.0 WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE
 
 2026.10.22 v2.1.9 加固 `argox -v` 升级流程：仅在已安装 Argo 时检测 `cloudflared` 版本并放宽超时；升级 `xray` 前先备份旧版本，新版本启动失败时自动恢复；升级临时隧道后刷新隧道域名与节点信息
-
-2026.10.13 v2.1.8 1. 修复入站放行规则被追加到 `INPUT` 链已有的 `REJECT`/`DROP` 规则之后，导致甲骨文 OCI、OpenVZ 等镜像上节点端口与 `nginx` 端口无法访问的问题；放行规则现改为插入到第一条 `REJECT`/`DROP` 规则之前 [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. 修复检测 `xray` 更新时偶尔取不到最新版本号、导致安装或升级中断的问题；改为优先从体积很小的 `releases.atom` 获取，GitHub API 作为兜底 [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. 交互输入启用 `readline` 行编辑：方向键移动光标，`Home` / `End` 与 `Ctrl+A` / `Ctrl+E` 跳到行首 / 行尾，`Ctrl+W` 删除光标前一个词，`Ctrl+U` 清空到行首，`Ctrl+K` 删除到行尾，`Ctrl+Y` 撤销上一次删除，`Ctrl+L` 清屏；编辑键不再被当作内容插入输入值 [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. 卸载流程完全离线化：`argox -u` 不再执行 CDN 探测，也不再预下载订阅模板、二进制与 `cloudflared`，GitHub 不可达时也能立即完成卸载 [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. 更换 GitHub 代理与 CDN 加速节点 [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.10.13 v2.1.8 1. 修复入站放行规则被追加到 `INPUT` 链已有的 `REJECT`/`DROP` 规则之后，导致甲骨文 OCI、OpenVZ 等镜像上节点端口与 `nginx` 端口无法访问的问题；放行规则现改为插入到第一条 `REJECT`/`DROP` 规则之前 [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. 修复检测 `xray` 更新时偶尔取不到最新版本号、导致安装或升级中断的问题；改为优先从体积很小的 `releases.atom` 获取，GitHub API 作为兜底 [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. 交互输入启用 `readline` 行编辑：方向键移动光标，`Home` / `End` 与 `Ctrl+A` / `Ctrl+E` 跳到行首 / 行尾，`Ctrl+W` 删除光标前一个词，`Ctrl+U` 清空到行首，`Ctrl+K` 删除到行尾，`Ctrl+Y` 撤销上一次删除，`Ctrl+L` 清屏；编辑键不再被当作内容插入输入值 [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. 卸载流程完全离线化：`argox -u` 不再执行 CDN 探测，也不再预下载订阅模板、二进制与 `cloudflared`，GitHub 不可达时也能立即完成卸载 [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. 更换 GitHub 代理与 CDN 加速节点 [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
+>
 >2026.10.02 v2.1.7 1. 适配 Xray 26.7.11 移除 VMess none/zero：vmess-ws 链接加密方式改为 auto（Clash/Shadowrocket/v2rayN），Throne 不支持 auto，改为 aes-128-gcm; 2. 自动改写旧订阅文件中的 none/zero（2026年12月31日后移除）; 3. 规范化 Shadowrocket Reality 链接（IPv6 单括号、去掉 auto:/obfs=none、增加 udp=1 与 fingerprint=Chrome140）; 4. 适配 Xray 26.9.8，reality 要求客户端指纹携带 X25519MLKEM768：移除 realitySettings 中的 minClientVer，clash reality-opts 启用 support-x25519mlkem768
 >
 >2026.09.18 v2.1.6 兼容 Xray 26.9.8：WARP 链式出站由 proxySettings 迁移到 streamSettings.sockopt.dialerProxy
@@ -148,7 +150,7 @@
 | --- | --- | --- | --- | --- |
 | 1 | VLESS + Reality Vision | TCP | Reality | 直连 |
 | 2 | Hysteria2 | UDP | 自签证书 | 直连（可选端口跳跃） |
-| 2 | └ Realm 模式 | UDP | 自签证书 | 直连 + 公共牵线服务器打洞（可选 WARP 辅助） |
+| 2 | └ Realm 模式 | UDP | 自签证书 | 直连 + 公共牵线服务器打洞 |
 | 3 | VLESS + Reality gRPC | gRPC | Reality | 直连 |
 | 4 | VLESS + WS | WS | Cloudflare | 隧道 / 优选 |
 | 5 | VMess + WS | WS | Cloudflare | 隧道 / 优选 |
@@ -164,7 +166,7 @@
 
 ### 三、精细化控制
 
-* **Hysteria2 Realm 模式**：通过公共牵线服务器完成 NAT 打洞，并可选用 WARP 辅助，专为 NAT VPS 场景设计，显著提升 UDP 穿透性能；Realm 与端口跳跃**互斥**，二者只能二选一；
+* **Hysteria2 Realm 模式**：通过公共牵线服务器完成 NAT 打洞，专为 NAT VPS 场景设计，显著提升 UDP 穿透性能；Realm 与端口跳跃**互斥**，二者只能二选一；
 * **Hysteria2 端口跳跃**：独立于 Realm 的可选功能，指定范围后客户端自动跳跃，规避端口扫描与封锁，同时自动下发防火墙 NAT 规则；
 * **自定义 WARP 出站路由**：支持域名后缀匹配或 geosite 分类两种规则类型，可分别路由到 warp-IPv4 / warp-IPv6 出站；内置 WARP 链式代理一键解锁 ChatGPT；
 * **绑定出口网卡**：多网卡服务器可指定 Xray 流量从指定接口（如 eth0 / eth1）出站，适配复杂网络拓扑；
@@ -264,7 +266,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 | `--REALITY_PRIVATE` | Reality 私钥 |
 | `--PORT_HOPPING_RANGE` | Hysteria2 端口跳跃范围，如 `50000:51000` |
 | `--HY2_REALM` | [true/false] 是否启用 Hysteria2 Realm |
-| `--HY2_WARP` | [true/false] 是否启用 Realm WARP 辅助打洞 |
 
 ### 使用示例
 
@@ -313,7 +314,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   --UUID 20f7fca4-86e5-4ddf-9eed-24142073d197 \
   --PORT_HOPPING_RANGE 50000:51000 \
   --HY2_REALM true \
-  --HY2_WARP true
 ```
 
 </details>
@@ -340,7 +340,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   --SUBSCRIBE true \
   --PORT_HOPPING_RANGE 50000:51000 \
   --HY2_REALM true \
-  --HY2_WARP true
 ```
 
 </details>
