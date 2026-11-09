@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.2.1 (2026.10.31)'
+VERSION='2.2.1 (2026.11.09)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -28,7 +28,7 @@ START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此�
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
 CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
-DEFAULT_XRAY_VERSION='26.10.21'
+DEFAULT_XRAY_VERSION='26.11.9'
 IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
 IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
 
@@ -4953,9 +4953,24 @@ change_protocols() {
   # 全部协议移除、无需重装时不需要 UUID，避免卸载场景被额外询问
   [ -z "$UUID" ] && [ "${#REINSTALL_TAGS[@]}" -gt 0 ] && input_uuid
 
-  # 无既有协议时（inbound.json 无入站，fetch_nodes_value 会把 NODE_NAME 置为默认 ArgoX），
-  # 像全新安装一样询问节点名称；已有节点名称则沿用
+  # 无既有协议时（inbound.json 无入站），像全新安装一样询问起始端口和节点名称
   if [ "${#REINSTALL_TAGS[@]}" -gt 0 ] && [ -z "$(grep -v '^//' "$WORK_DIR/inbound.json" | $WORK_DIR/jq -r '.inbounds[0].tag // empty' 2>/dev/null)" ]; then
+    if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+      unset START_PORT
+      hint "\n $(text 124) "
+      for w in "${!REINSTALL_TAGS[@]}"; do
+        local _proto_idx=0
+        for idx in "${!NODE_TAG[@]}"; do
+          [ "${REINSTALL_TAGS[w]}" = "${NODE_TAG[idx]}" ] && _proto_idx=$idx && break
+        done
+        local _proto_name="${PROTOCOL_LIST[_proto_idx]}"
+        [ "$_proto_idx" = '7' ] && _proto_name=$(text 101)
+        hint " $(printf '%3d.' $((w+1))) ${_proto_name} "
+      done
+      (( STEP_NUM++ )) || true
+      input_start_port "${#REINSTALL_TAGS[@]}"
+    fi
+    START_PORT=${START_PORT:-$START_PORT_DEFAULT}
     NODE_NAME=''
     input_node_name
   fi
@@ -4988,7 +5003,7 @@ change_protocols() {
 
   local _SCAN_PORT
   _SCAN_PORT=$(echo "$_JSON_CLEAN" | $WORK_DIR/jq -r '[.inbounds[].port] | min // empty' 2>/dev/null)
-  _SCAN_PORT=${_SCAN_PORT:-$START_PORT_DEFAULT}
+  _SCAN_PORT=${_SCAN_PORT:-${START_PORT:-$START_PORT_DEFAULT}}
 
   for tag in "${REINSTALL_TAGS[@]}"; do
     local _EXIST_PORT
