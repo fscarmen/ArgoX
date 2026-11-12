@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.2.1 (2026.11.09)'
+VERSION='2.2.1 (2026.11.12)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -4508,10 +4508,10 @@ export_list() {
 
   # vmess-ws
   grep -q 'vmess-ws' <<< "$PROTOS_NOW" && _add \
-    "{name: \"${NODE_NAME} ${NODE_TAG[4]}\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: auto, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
-    "vmess://$(echo -n "auto:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
-    "vmess://$(echo -n "{ \"v\": \"2\", \"ps\": \"${NODE_NAME} ${NODE_TAG[4]}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }" | base64 -w0)" \
-    "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
+    "{name: \"${NODE_NAME} ${NODE_TAG[4]}\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: aes-128-gcm, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
+    "vmess://$(echo -n "aes-128-gcm:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
+    "vmess://$(echo -n "{ \"v\": \"2\", \"ps\": \"${NODE_NAME} ${NODE_TAG[4]}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"aes-128-gcm\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }" | base64 -w0)" \
+    "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"security\":\"aes-128-gcm\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
     "vmess://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=aes-128-gcm&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol#${NODE_NAME// /%20}%20${NODE_TAG[4]}" \
     "${NODE_NAME} ${NODE_TAG[4]}"
 
@@ -6957,15 +6957,15 @@ fi
 
 
 ###### VMess 加密方式迁移：Xray ≥26.7.11 已移除 VMess 的 none / zero（空加密载荷），将于 2026年12月31日移除
-###### 检测订阅文件中 vmess-ws 节点的 none / zero 并就地改写为 auto：clash / proxies 明文直改；throne 单层 base64；shadowrocket / v2rayn 的加密方式藏在内层 base64，需解两层再回编
-###### 新装实例由 export_list 直接输出 auto，此处只兜底旧订阅；仅处理 vmess 节点，vless / trojan / ss 链接（含 encryption=none）一律不动
+###### 检测订阅文件中 vmess-ws 节点的 none / zero / auto 并就地改写为 aes-128-gcm：clash / proxies 明文直改；throne 单层 base64；shadowrocket / v2rayn 的加密方式藏在内层 base64，需解两层再回编
+###### 新装实例由 export_list 直接输出 aes-128-gcm，此处只兜底旧订阅；仅处理 vmess 节点，vless / trojan / ss 链接（含 encryption=none）一律不动
 if [ -d "$WORK_DIR/subscribe" ] && [[ "$(date +%Y%m%d)" < "20270101" ]]; then
 
   # 1) 明文订阅（clash / proxies）：ss 的 cipher 取值不同，不会误伤
   for _vm_f in clash proxies; do
     [ -s "$WORK_DIR/subscribe/$_vm_f" ] || continue
-    grep -Eq 'cipher: *(none|zero)' "$WORK_DIR/subscribe/$_vm_f" 2>/dev/null \
-      && sed -i -e 's/cipher: none/cipher: auto/g' -e 's/cipher: zero/cipher: auto/g' "$WORK_DIR/subscribe/$_vm_f"
+    grep -Eq 'cipher: *(none|zero|auto)' "$WORK_DIR/subscribe/$_vm_f" 2>/dev/null \
+      && sed -i -e 's/cipher: none/cipher: aes-128-gcm/g' -e 's/cipher: zero/cipher: aes-128-gcm/g' -e 's/cipher: auto/cipher: aes-128-gcm/g' "$WORK_DIR/subscribe/$_vm_f"
   done
 
   # 2) 单层 base64 订阅（throne）：只改写 vmess:// 行的 encryption 参数
@@ -6990,7 +6990,7 @@ if [ -d "$WORK_DIR/subscribe" ] && [[ "$(date +%Y%m%d)" < "20270101" ]]; then
           _vm_more=''
           [ "$_vm_rest" != "$_vm_core" ] && _vm_more="${_vm_rest#"$_vm_core"}"
           _vm_body=$(printf '%s' "$_vm_core" | base64 -d 2>/dev/null)
-          _vm_new=$(printf '%s' "$_vm_body" | sed -e 's/^none:/auto:/' -e 's/^zero:/auto:/' -e 's/"scy": *"none"/"scy": "auto"/' -e 's/"scy": *"zero"/"scy": "auto"/')
+          _vm_new=$(printf '%s' "$_vm_body" | sed -e 's/^none:/aes-128-gcm:/' -e 's/^zero:/aes-128-gcm:/' -e 's/^auto:/aes-128-gcm:/' -e 's/"scy": *"none"/"scy": "aes-128-gcm"/' -e 's/"scy": *"zero"/"scy": "aes-128-gcm"/' -e 's/"scy": *"auto"/"scy": "aes-128-gcm"/')
           if [ -n "$_vm_body" ] && [ "$_vm_new" != "$_vm_body" ]; then
             _vm_core=$(printf '%s' "$_vm_new" | base64 -w0)
             _vm_hit=true
