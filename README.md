@@ -26,16 +26,18 @@
 
 * * *
 ## 更新信息
+2026.11.18 v2.2.2 1. 新增动态订阅（按请求 Host 实时渲染）：安装后功能，需先完成新安装并开启订阅，再通过 `argox -d` 添加；直连节点 server 跟随访问地址（IPv4/IPv6/域名/固定隧道），适配多 IP 机器与 IPv6 地址池，WS/CDN/Argo 节点保持原地址不变；独立开关，关闭后普通订阅照常可用; 2. 新增 `--SUBSCRIBE` 安装传参（三值：`true`=开启订阅（默认）、`false`=关闭、`dynamic`=开启订阅并安装后立即开启动态订阅），`-f` 配置文件中 `SUBSCRIBE` 同效
+
 2026.10.31 v2.2.1 Hysteria2 流量不再使用 WARP 出站，存量 Hysteria2 专属 WARP 路由自动清理；Hysteria2 Realm 功能保持不变
 
 2026.10.30 v2.2.0 WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE
-
-2026.10.22 v2.1.9 加固 `argox -v` 升级流程：仅在已安装 Argo 时检测 `cloudflared` 版本并放宽超时；升级 `xray` 前先备份旧版本，新版本启动失败时自动恢复；升级临时隧道后刷新隧道域名与节点信息
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2026.10.22 v2.1.9 加固 `argox -v` 升级流程：仅在已安装 Argo 时检测 `cloudflared` 版本并放宽超时；升级 `xray` 前先备份旧版本，新版本启动失败时自动恢复；升级临时隧道后刷新隧道域名与节点信息
+>
 >2026.10.13 v2.1.8 1. 修复入站放行规则被追加到 `INPUT` 链已有的 `REJECT`/`DROP` 规则之后，导致甲骨文 OCI、OpenVZ 等镜像上节点端口与 `nginx` 端口无法访问的问题；放行规则现改为插入到第一条 `REJECT`/`DROP` 规则之前 [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. 修复检测 `xray` 更新时偶尔取不到最新版本号、导致安装或升级中断的问题；改为优先从体积很小的 `releases.atom` 获取，GitHub API 作为兜底 [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. 交互输入启用 `readline` 行编辑：方向键移动光标，`Home` / `End` 与 `Ctrl+A` / `Ctrl+E` 跳到行首 / 行尾，`Ctrl+W` 删除光标前一个词，`Ctrl+U` 清空到行首，`Ctrl+K` 删除到行尾，`Ctrl+Y` 撤销上一次删除，`Ctrl+L` 清屏；编辑键不再被当作内容插入输入值 [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. 卸载流程完全离线化：`argox -u` 不再执行 CDN 探测，也不再预下载订阅模板、二进制与 `cloudflared`，GitHub 不可达时也能立即完成卸载 [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. 更换 GitHub 代理与 CDN 加速节点 [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
 >
 >2026.10.02 v2.1.7 1. 适配 Xray 26.7.11 移除 VMess none/zero：vmess-ws 链接加密方式改为 auto（Clash/Shadowrocket/v2rayN），Throne 不支持 auto，改为 aes-128-gcm; 2. 自动改写旧订阅文件中的 none/zero（2026年12月31日后移除）; 3. 规范化 Shadowrocket Reality 链接（IPv6 单括号、去掉 auto:/obfs=none、增加 udp=1 与 fingerprint=Chrome140）; 4. 适配 Xray 26.9.8，reality 要求客户端指纹携带 X25519MLKEM768：移除 realitySettings 中的 minClientVer，clash reality-opts 启用 support-x25519mlkem768
@@ -179,6 +181,7 @@
 
 * **一个订阅 URL 走天下**：节点信息自动适配 **V2rayN / Clash Meta / 小火箭 / Throne / Sing-box（SFI、SFA、SFM）**，订阅内容按客户端格式自动切换，导入即用；
 * **索引式订阅**：同一域名下按客户端名分路径返回对应格式，并提供独立 proxy provider 订阅文件。
+* **动态订阅**：按请求 Host 实时渲染，直连节点 server 跟随访问地址（IPv4 / IPv6 / 域名 / 固定隧道），一份订阅适配多 IP 机器与 IPv6 地址池，WS / CDN / Argo 节点保持原地址不变；独立开关，关闭后普通订阅照常可用。
 
 ### 五、安装与运维
 
@@ -261,11 +264,11 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 | `--ARGO_DOMAIN` | Argo 固定隧道域名，不指定则使用临时隧道 |
 | `--ARGO_AUTH` | Argo 认证信息（Json / Token / Cloudflare API），与 `--ARGO_DOMAIN` 一并使用 |
 | `--ARGO` | [true/false] 是否启用 Argo 隧道（安装后可在 -d 菜单调整） |
-| `--SUBSCRIBE` | [true/false] 是否启用订阅功能（安装后可在 -d 菜单调整） |
+| `--SUBSCRIBE` | [true/false/dynamic] 是否启用订阅功能：true=开启（默认）、false=关闭、dynamic=开启并安装后立即开启动态订阅。安装后可在 -d 菜单调整 |
 | `--TLS_SERVER` | TLS SNI 域名 |
 | `--REALITY_PRIVATE` | Reality 私钥 |
 | `--PORT_HOPPING_RANGE` | Hysteria2 端口跳跃范围，如 `50000:51000` |
-| `--HY2_REALM` | [true/false] 是否启用 Hysteria2 Realm |
+| `--HY2_REALM` | [true/false] 是否启用 Hysteria2 Realm（与端口跳跃互斥，同时填写时 Realm 优先） |
 
 ### 使用示例
 
@@ -276,7 +279,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
   --LANGUAGE c \
-  --CHOOSE_PROTOCOLS bcef
+  --CHOOSE_PROTOCOLS bcef \
+  --SUBSCRIBE dynamic
 ```
 
 </details>
@@ -403,7 +407,21 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 │   ├── clash                 # Clash 订阅文件
 │   ├── proxies               # Clash proxy provider 订阅文件
 │   ├── shadowrocket          # Shadowrocket 订阅文件
-│   └── sing-box              # SFI / SFA / SFM 订阅文件
+│   ├── sing-box              # SFI / SFA / SFM 订阅文件
+│   └── dynamic               # 动态订阅目录（argox -d 开启动态订阅后生成）
+│       ├── render.sh         # CGI 渲染脚本，按请求 Host 实时生成订阅（主脚本现场生成）
+│       ├── fcgiwrap-start    # fcgiwrap 幂等启动脚本
+│       ├── fcgiwrap.sock     # FastCGI 通信 socket
+│       ├── fcgiwrap.pid      # fcgiwrap 进程 PID 文件
+│       ├── meta.env          # 渲染元数据：固定隧道域名 / 公网 WAN4 / WAN6
+│       └── templates         # 只读订阅模板目录（占位符版，动态请求不回写）
+│           ├── proxies       # Clash proxy provider 节点模板
+│           ├── clash         # Clash 完整配置模板
+│           ├── shadowrocket  # ShadowRocket 订阅模板
+│           ├── v2rayn        # V2rayN 订阅模板
+│           ├── throne        # Throne 订阅模板
+│           ├── sing-box      # sing-box 客户端配置模板
+│           └── src           # clash / sing-box 原始模板源文件
 ├── cert                      # 自签证书目录
 │   ├── cert.pem              # 证书文件
 │   └── private.key           # 私钥文件

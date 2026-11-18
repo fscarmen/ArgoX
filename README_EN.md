@@ -27,16 +27,18 @@
 * * *
 
 ## Update Information
+2026.11.18 v2.2.2 1. Add dynamic subscription (render subscription by request Host): a post-install feature, available via `argox -d` only after a fresh install with subscription enabled. Direct node servers follow the access address (IPv4/IPv6/Domain/Tunnel), supporting multi-IP servers and IPv6 address pools; WS/CDN/Argo nodes stay unchanged. Independent toggle; disabling it keeps the normal subscription available; 2. Add `--SUBSCRIBE` install option (three values: `true`=enable subscription (default), `false`=disable, `dynamic`=enable and turn on Dynamic Subscription right after install); `SUBSCRIBE` in `-f` config works the same
+
 2026.10.31 v2.2.1 Hysteria2 traffic no longer uses the WARP outbound. Existing Hysteria2-specific WARP routes are cleaned up automatically, while Hysteria2 Realm remains available
 
 2026.10.30 v2.2.0 Switch the WARP outbound from WireGuard (UDP) to MASQUE (H2/TCP 443, CONNECT-IP); legacy wireguard outbound configs are migrated to MASQUE automatically once the xray core is updated to 26.10.21 or later
-
-2026.10.22 v2.1.9 Harden the `argox -v` upgrade flow: the `cloudflared` version is now checked only when Argo is installed and with a longer timeout; the old `xray` binary is backed up before the upgrade and restored automatically if the new version fails to start; the tunnel domain and node info are refreshed after upgrading a quick tunnel
 
 <details>
     <summary>Historical Updates（Click to expand or collapse）</summary>
 <br>
 
+>2026.10.22 v2.1.9 Harden the `argox -v` upgrade flow: the `cloudflared` version is now checked only when Argo is installed and with a longer timeout; the old `xray` binary is backed up before the upgrade and restored automatically if the new version fails to start; the tunnel domain and node info are refreshed after upgrading a quick tunnel
+>
 >2026.10.13 v2.1.8 1. Fix the firewall allow rules being appended after an existing `REJECT`/`DROP` rule on the `INPUT` chain, which left node and `nginx` ports unreachable on images such as Oracle OCI and OpenVZ; the rules are now inserted before the first `REJECT`/`DROP` rule [https://github.com/fscarmen/sing-box/issues/353](https://github.com/fscarmen/sing-box/issues/353); 2. Fix occasional empty version detection when checking for `xray` updates, which could abort installation or upgrade; the version is now read from the lightweight `releases.atom` feed first, with the GitHub API as fallback [https://github.com/fscarmen/sing-box/issues/355](https://github.com/fscarmen/sing-box/issues/355); 3. Enable `readline` line editing on interactive inputs: arrow keys move the cursor, `Home` / `End` and `Ctrl+A` / `Ctrl+E` jump to line start / end, `Ctrl+W` deletes the previous word, `Ctrl+U` clears to line start, `Ctrl+K` deletes to line end, `Ctrl+Y` undoes the last deletion, `Ctrl+L` clears the screen; editing keys are no longer inserted into the value [https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771](https://github.com/fscarmen/sing-box/pull/357#issuecomment-6137941771); 4. Make the uninstall path fully offline: `argox -u` no longer runs CDN detection and no longer pre-downloads subscription templates, binaries or `cloudflared`, so it completes immediately on hosts that cannot reach GitHub [https://github.com/fscarmen/sing-box/issues/358](https://github.com/fscarmen/sing-box/issues/358); 5. update GitHub proxy CDN endpoints [https://github.com/fscarmen/sing-box/issues/359](https://github.com/fscarmen/sing-box/issues/359)
 >
 >2026.10.02 v2.1.7 1. Adapt to Xray 26.7.11 dropping VMess 'none'/'zero': vmess-ws links use cipher auto (Clash/Shadowrocket/v2rayN), Throne does not support auto and uses aes-128-gcm; 2. Auto-rewrite legacy none/zero in existing subscription files (remove after 2026-12-31); 3. Normalize Shadowrocket reality links (single-bracket IPv6, drop auto:/obfs=none, add udp=1 and fingerprint=Chrome140); 4. Adapt to Xray 26.9.8 where reality requires client fingerprints carrying X25519MLKEM768: remove minClientVer from realitySettings, enable support-x25519mlkem768 in clash reality-opts
@@ -180,6 +182,7 @@ Select on demand at install time; add or remove later with `argox -r` — ports 
 
 * **One subscription URL for everything**: node data is auto-adapted for **V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM)**, switching format per client on import;
 * **Indexed subscriptions**: the same domain serves per-client paths, plus a standalone proxy-provider subscription file.
+* **Dynamic subscription**: nginx renders the subscription in real time by request Host; direct node servers follow the access address (IPv4 / IPv6 / Domain / Tunnel), one subscription adapts to multi-IP servers and IPv6 address pools; WS / CDN / Argo nodes stay unchanged. Independent toggle; disabling it keeps the normal subscription available.
 
 ### 5. Install & Operations
 
@@ -262,11 +265,11 @@ Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided v
 | `--ARGO_DOMAIN` | Argo fixed tunnel domain; leave empty for temporary tunnel |
 | `--ARGO_AUTH` | Argo auth (Json / Token / Cloudflare API), used with `--ARGO_DOMAIN` |
 | `--ARGO` | [true/false] Enable Argo tunnel (adjustable via -d menu after install) |
-| `--SUBSCRIBE` | [true/false] Enable subscription (adjustable via -d menu after install) |
+| `--SUBSCRIBE` | [true/false/dynamic] Enable subscription: true=on (default), false=off, dynamic=on and turn on Dynamic Subscription right after install. Adjustable via -d menu after install |
 | `--TLS_SERVER` | TLS SNI domain |
 | `--REALITY_PRIVATE` | Reality private key |
 | `--PORT_HOPPING_RANGE` | Hysteria2 port hopping range, e.g. `50000:51000` |
-| `--HY2_REALM` | [true/false] Enable Hysteria2 Realm |
+| `--HY2_REALM` | [true/false] Enable Hysteria2 Realm (mutually exclusive with port hopping; Realm wins if both set) |
 
 ### Examples
 
@@ -277,7 +280,8 @@ Supports `--KEY VALUE` or `--KEY=VALUE` parameter passing. Parameters provided v
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) \
   --LANGUAGE c \
-  --CHOOSE_PROTOCOLS bcef
+  --CHOOSE_PROTOCOLS bcef \
+  --SUBSCRIBE dynamic
 ```
 
 </details>
@@ -401,7 +405,21 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 │   ├── clash                 # Clash subscription files
 │   ├── proxies               # Clash proxy provider subscription files
 │   ├── shadowrocket          # Shadowrocket subscription files
-│   └── sing-box              # SFI / SFA / SFM subscription files
+│   ├── sing-box              # SFI / SFA / SFM subscription files
+│   └── dynamic               # Dynamic subscription directory (generated after argox -d enables dynamic subscription)
+│       ├── render.sh         # CGI render script, generates subscription in real time by request Host (generated by main script)
+│       ├── fcgiwrap-start    # fcgiwrap idempotent startup script
+│       ├── fcgiwrap.sock     # FastCGI communication socket
+│       ├── fcgiwrap.pid      # fcgiwrap process PID file
+│       ├── meta.env          # Render metadata: fixed tunnel domain / public WAN4 / WAN6
+│       └── templates         # Read-only subscription template directory (placeholder version, no write-back on dynamic requests)
+│           ├── proxies       # Clash proxy provider node template
+│           ├── clash         # Clash full config template
+│           ├── shadowrocket  # ShadowRocket subscription template
+│           ├── v2rayn        # V2rayN subscription template
+│           ├── throne        # Throne subscription template
+│           ├── sing-box      # sing-box client config template
+│           └── src           # clash / sing-box original template source files
 ├── cert                      # Self-signed certificate directory
 │   ├── cert.pem              # Certificate file
 │   └── private.key           # Private key file

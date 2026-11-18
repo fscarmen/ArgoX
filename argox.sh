@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='2.2.1 (2026.11.15)'
+VERSION='2.2.2 (2026.11.18)'
 
 # Github 反代加速代理
 GITHUB_PROXY=('https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -32,6 +32,18 @@ DEFAULT_XRAY_VERSION='26.11.9'
 IP_API_NODES=('https://ip.cloudflare.now.cc' 'https://ip.cloudflare.nyc.mn')
 IS_SUB=${IS_SUB:-'no_sub'}  # IS_SUB:  根据菜单选项设置 (is_sub / no_sub)
 IS_ARGO=${IS_ARGO:-'no_argo'}  # IS_ARGO: 根据是否安装 WS/XHTTP 协议自动推导 (is_argo / no_argo)
+SUBSCRIBE_EXPLICIT=false  # SUBSCRIBE 三值意图（true/false/dynamic，大小写不敏感，留空=未显式设置）；SUBSCRIBE_EXPLICIT 标记显式传入，
+SUBSCRIBE_DYNAMIC_INTENT=false
+IS_DYNAMIC_SUB=no_dynamic_sub  # 动态订阅（默认关闭；仅 -d 菜单显式开启，普通订阅为前置条件）
+DYNAMIC_SUBSCRIBE_DIR="${WORK_DIR}/subscribe/dynamic"
+DYNAMIC_TEMPLATE_DIR="${DYNAMIC_SUBSCRIBE_DIR}/templates"
+DYNAMIC_META_FILE="${DYNAMIC_SUBSCRIBE_DIR}/meta.env"
+DYNAMIC_RENDER_SCRIPT="${DYNAMIC_SUBSCRIBE_DIR}/render.sh"
+DYNAMIC_START_SCRIPT="${DYNAMIC_SUBSCRIBE_DIR}/fcgiwrap-start"
+DYNAMIC_SOCKET="${DYNAMIC_SUBSCRIBE_DIR}/fcgiwrap.sock"
+DYNAMIC_PID_FILE="${DYNAMIC_SUBSCRIBE_DIR}/fcgiwrap.pid"
+DYNAMIC_HOST_TOKEN='__AX_DYNAMIC_HOST__'
+DYNAMIC_URI_HOST_TOKEN='__AX_DYNAMIC_URI_HOST__'
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -46,8 +58,8 @@ mkdir -p "$TEMP_DIR"
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. The WARP outbound is switched from WireGuard (UDP) to MASQUE (H2/TCP 443, CONNECT-IP). Legacy wireguard outbound configs are migrated to MASQUE automatically once the xray core is updated to 26.10.21 or later; 2. Hysteria2 traffic no longer uses the WARP outbound. Existing Hysteria2-specific WARP routes are cleaned up automatically, while Hysteria2 Realm remains available"
-C[1]="1. WARP 出站由 WireGuard（UDP）切换为 MASQUE（H2/TCP 443，CONNECT-IP），存量 wireguard 出站配置在更新到内核为 26.10.21 之后自动迁移为 MASQUE; 2. Hysteria2 流量不再使用 WARP 出站，存量 Hysteria2 专属 WARP 路由自动清理；Hysteria2 Realm 功能保持不变"
+E[1]="1. Dynamic Subscription (post-install feature: available via argox -d only after a fresh install with subscription enabled): nginx renders the subscription in real time by request Host, direct node servers follow the access address (IPv4/IPv6/Domain/Tunnel), ideal for multi-IP servers and IPv6 address pools; WS/CDN/Argo nodes stay unchanged. Enable it with argox -d → Enable Subscription → Enable Dynamic Subscription.\n 2. --SUBSCRIBE is a command-line option for install: append it to the install command (or set SUBSCRIBE in -f config). Values: true = enable subscription (default), false = disable, dynamic = enable and turn on Dynamic Subscription right after install. Aliases y/yes/1 and n/no/0 work."
+C[1]="1. 动态订阅（安装后功能：需先完成新安装并开启订阅，再通过 argox -d 添加）：nginx 按请求 Host 实时渲染，直连节点 server 跟随访问地址（IPv4/IPv6/域名/固定隧道），一份订阅适配多 IP 机器与 IPv6 地址池，WS/CDN/Argo 节点保持原地址不变。开启路径：argox -d → 开启订阅 → 开启动态订阅。\n 2. --SUBSCRIBE 是安装时的命令行参数：在安装命令后直接带上即可（-f 配置文件里设 SUBSCRIBE 同效）。取值：true=开启订阅（默认），false=关闭，dynamic=开启订阅并安装后立即开启动态订阅。别名 y/yes/1、n/no/0 亦可用。"
 E[2]="No network interfaces found."
 C[2]="未找到网络接口"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -296,8 +308,8 @@ E[124]="The order of the selected protocols and ports is as follows:"
 C[124]="选择的协议及端口次序如下:"
 E[125]="Hysteria2 Realm is suitable for NAT VPS or machines without public inbound.\n It is NOT recommended when the machine has a public IP. Enable? [y/N] (default N):"
 C[125]="Hysteria2 Realm 适用于回国或者没有公网入口的机器；\n 有公网入口时不建议使用。是否启用？[y/N] (默认为 N):"
-E[126]=""
-C[126]=""
+E[126]="Installing dynamic subscription dependencies (fcgiwrap spawn-fcgi)..."
+C[126]="正在安装动态订阅依赖 fcgiwrap spawn-fcgi..."
 E[127]="Close Realm"
 C[127]="关闭 Realm"
 E[128]="Hot reload successful via Xray API"
@@ -394,10 +406,10 @@ E[173]="Enter the WARP IPv6 address:"
 C[173]="请输入 WARP IPv6 地址:"
 E[174]="Enter the WARP private key (P-256, base64):"
 C[174]="请输入 WARP Private Key（P-256，base64）:"
-E[175]=""
-C[175]=""
-E[176]=""
-C[176]=""
+E[175]="Domain"
+C[175]="域名"
+E[176]="Tunnel"
+C[176]="隧道"
 E[177]="Failed to restore old version \$LOCAL, please check manually"
 C[177]="恢复旧版本 \$LOCAL 失败，请手动检查"
 E[178]="Change WARP account"
@@ -424,6 +436,30 @@ E[188]="New version failed to run \$ONLINE, restoring old version \$LOCAL ..."
 C[188]="新版本 \$ONLINE 运行失败，正在恢复旧版本 \$LOCAL ..."
 E[189]="Successfully restored old version \$LOCAL"
 C[189]="已成功恢复旧版本 \$LOCAL"
+E[190]="Enable dynamic subscription (render direct inbounds by request Host, suitable for multi-IP servers)"
+C[190]="开启动态订阅（按订阅地址渲染直连入站，适合多IP机器）"
+E[191]="Disable dynamic subscription"
+C[191]="关闭动态订阅"
+E[192]="Dynamic subscription requires subscription enabled first"
+C[192]="动态订阅需要先开启订阅"
+E[193]="Enable dynamic subscription succeeded"
+C[193]="开启动态订阅成功"
+E[194]="Disable dynamic subscription succeeded"
+C[194]="关闭动态订阅成功"
+E[195]="Failed to install dynamic subscription dependencies (fcgiwrap spawn-fcgi)"
+C[195]="动态订阅依赖安装失败（fcgiwrap spawn-fcgi）"
+E[196]="Dynamic subscription setup failed; static subscription has been preserved"
+C[196]="动态订阅配置失败，已保留静态订阅"
+E[197]="Dynamic subscription addresses (direct node servers follow request Host):"
+C[197]="动态订阅地址（直连节点 server 跟随访问地址）:"
+E[198]="Enabling dynamic subscription..."
+C[198]="正在开启动态订阅..."
+E[199]="Disabling dynamic subscription..."
+C[199]="正在关闭动态订阅..."
+E[200]="To uninstall fcgiwrap / spawn-fcgi press [y], they are not uninstalled by default:"
+C[200]="如要卸载 fcgiwrap / spawn-fcgi 请按 [y]，默认不卸载:"
+E[201]="Dynamic subscription was not enabled ({reason}). You can enable it later via argox -d → Enable Dynamic Subscription."
+C[201]="动态订阅未开启（{原因}）。可稍后通过 argox -d → 开启动态订阅 手动开启。"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }         # 红色
@@ -489,6 +525,20 @@ is_valid_server_addr() {
   [[ "$_ADDR" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$ ]] && return 0
   return 1
 }
+
+# 统一解析 SUBSCRIBE 三值，规则: dynamic→is_sub+动态意图；true/y/yes/1→is_sub；false/n/no/0→no_sub；留空→调用方自定默认（本函数不动 IS_SUB）
+parse_subscribe_value() {
+  local _val="${1:-}"
+  [ -z "$_val" ] && return 0
+  SUBSCRIBE_EXPLICIT=true
+  case "${_val,,}" in
+    dynamic ) IS_SUB=is_sub && SUBSCRIBE_DYNAMIC_INTENT=true ;;
+    true|y|yes|1 ) IS_SUB=is_sub ;;
+    false|n|no|0 ) IS_SUB=no_sub ;;
+    * ) IS_SUB=no_sub ;;
+  esac
+}
+
 
 # 查找空闲端口（复用 refresh_port_snapshot + is_port_in_use）
 find_free_port() {
@@ -1261,6 +1311,12 @@ check_install() {
   }
   IS_SUB=${IS_SUB:-no_sub}
   IS_ARGO=${IS_ARGO:-no_argo}
+  # 以已生成配置为准；关闭开关在生成新配置前显式重置，避免旧状态回流。
+  if [ -s "$CUSTOM_FILE" ] && dynamic_sub_enabled; then
+    IS_DYNAMIC_SUB=is_dynamic_sub
+  else
+    IS_DYNAMIC_SUB=no_dynamic_sub
+  fi
 
   STATUS[0]=$(text 26)
 
@@ -1401,6 +1457,15 @@ check_system_info() {
 
 # 检测 IPv4 IPv6 信息
 check_system_ip() {
+  # 会话内缓存：命中则直接赋值并跳过网络探测。
+  # TEMP_DIR 进程退出即被 trap 清理，不会跨进程读到过期 IP；供 export_list / enable_dynamic_sub 等多次调用复用。
+  local IP_CACHE_FILE="$TEMP_DIR/ax_system_ip_cache"
+  if [ -s "$IP_CACHE_FILE" ]; then
+    WAN4='' WAN6='' COUNTRY4='' COUNTRY6='' EMOJI4='' EMOJI6='' ASNORG4='' ASNORG6='' SERVER_IP_DEFAULT=''
+    source "$IP_CACHE_FILE" 2>/dev/null
+    return 0
+  fi
+
   [ "$L" = 'C' ] && local IS_CHINESE='?lang=zh-CN'
   local BIND_ADDRESS4='' BIND_ADDRESS6=''
   local DEFAULT_LOCAL_INTERFACE4=$(ip -4 route show default | awk '/default/ {for (i=0; i<NF; i++) if ($i=="dev") {print $(i+1); exit}}')
@@ -1480,6 +1545,19 @@ check_system_ip() {
   elif [ -n "$WAN6" ]; then
     SERVER_IP_DEFAULT=$WAN6
   fi
+
+  # 写入会话缓存（含衍生变量 SERVER_IP_DEFAULT），供同进程后续调用直接复用，避免重复探测/交互。
+  cat > "$IP_CACHE_FILE" <<EOF
+WAN4='${WAN4:-}'
+WAN6='${WAN6:-}'
+COUNTRY4='${COUNTRY4:-}'
+COUNTRY6='${COUNTRY6:-}'
+EMOJI4='${EMOJI4:-}'
+EMOJI6='${EMOJI6:-}'
+ASNORG4='${ASNORG4:-}'
+ASNORG6='${ASNORG6:-}'
+SERVER_IP_DEFAULT='${SERVER_IP_DEFAULT:-}'
+EOF
 }
 
 # 定义 Argo 变量（协议选择已在 xray_variable 中完成，此处只处理隧道配置）
@@ -1957,7 +2035,9 @@ fast_install_variables() {
   IS_HOPPING=${IS_HOPPING:-no_hopping}
 
   # 非交互模式：从环境变量读取 Realm 设置
-  if [[ "${HY2_REALM,,}" =~ ^(true|yes|y)$ ]] || [[ "${IS_HY2_REALM,,}" =~ ^(true|yes|y|is_hy2_realm)$ ]]; then
+  # 布尔判定内联：true/y/yes/1（大小写不敏感）视为启用；留空/其他值不置位，由交互或推导决定
+  local _hy2_realm_flag="${HY2_REALM,,}" _hy2_realm_state="${IS_HY2_REALM,,}"
+  if [[ "$_hy2_realm_flag" =~ ^(true|y|yes|1)$ ]] || [[ "$_hy2_realm_state" =~ ^(true|y|yes|1|is_hy2_realm)$ ]]; then
     IS_HY2_REALM=is_hy2_realm
   fi
   [ "$IS_HY2_REALM" = 'is_hy2_realm' ] && HY2_REALM_ID="${HY2_REALM_ID:-$UUID}"
@@ -2208,7 +2288,13 @@ fetch_nodes_value() {
 
   [[ "$SERVER_IP" =~ : ]] && SERVER_IP_1="[$SERVER_IP]" || SERVER_IP_1="$SERVER_IP"
 
-  # 读取 Hysteria2 带宽参数（从订阅文件 proxies 中解析）
+  # 读取 Hysteria2 带宽参数。优先持久化值；兼容旧版从静态订阅回读。
+  if [ -n "$HY2_PORT" ]; then
+    local _saved_up=$(awk -F= '/^hy2Up=/{print $2; exit}' "$CUSTOM_FILE" 2>/dev/null)
+    local _saved_down=$(awk -F= '/^hy2Down=/{print $2; exit}' "$CUSTOM_FILE" 2>/dev/null)
+    HY2_UP_NOW="${_saved_up:-200}"
+    HY2_DOWN_NOW="${_saved_down:-1000}"
+  fi
   if [ -n "$HY2_PORT" ] && [ -s "${WORK_DIR}/subscribe/proxies" ]; then
     local HY2_LINE=$(grep 'type: hysteria2' ${WORK_DIR}/subscribe/proxies)
     if [[ "$HY2_LINE" =~ up:[[:space:]]*\"([0-9]+)[[:space:]]*Mbps\".*down:[[:space:]]*\"([0-9]+)[[:space:]]*Mbps\" ]]; then
@@ -3022,6 +3108,9 @@ nginx_pid() {
 # - nginx.conf 不存在：停止可能残留的脚本 nginx
 nginx_sync() {
   [ -s $WORK_DIR/nginx.conf ] || { nginx_stop; return; }
+  if [ "$IS_DYNAMIC_SUB" = 'is_dynamic_sub' ]; then
+    fcgiwrap_run || return 1
+  fi
   local _NGINX_PID=$(nginx_pid) _NGINX_BIN
   if [ -n "$_NGINX_PID" ]; then
     nginx -c $WORK_DIR/nginx.conf -s reload >/dev/null 2>&1 || true
@@ -3039,6 +3128,347 @@ nginx_stop() {
     sleep 1
     kill -9 "$_NGINX_PID" 2>/dev/null || true
   fi
+}
+
+# ===================== 动态订阅：模板、渲染器与 FastCGI 生命周期 =====================
+dynamic_sub_enabled() {
+  grep -qE 'fastcgi_pass.*fcgiwrap\.sock' "$WORK_DIR/nginx.conf" 2>/dev/null
+}
+
+# 只认固定隧道；临时隧道域名不能触发 WAN4/WAN6 回退。
+dynamic_fixed_domain() {
+  local DOMAIN='' DAEMON_CONTENT=''
+  [ -s "$ARGO_DAEMON_FILE" ] && DAEMON_CONTENT=$(< "$ARGO_DAEMON_FILE")
+  grep -q -- '--url' <<< "$DAEMON_CONTENT" && return 0
+  if [ -n "$ARGO_DOMAIN" ] && [[ "$ARGO_DOMAIN" != *trycloudflare.com* ]]; then
+    DOMAIN="$ARGO_DOMAIN"
+  fi
+  if [ -z "$DOMAIN" ] && [ -s "$WORK_DIR/tunnel.yml" ]; then
+    DOMAIN=$(awk '/^[[:space:]]*-[[:space:]]*hostname:/{print $3; exit}' "$WORK_DIR/tunnel.yml" 2>/dev/null)
+  fi
+  if [ -z "$DOMAIN" ]; then
+    DOMAIN=$(grep -m1 -E '^(vless|vmess)://' "$WORK_DIR/list" 2>/dev/null | sed -n 's/.*[?&]host=\([^&#]*\).*/\1/p')
+  fi
+  [[ "$DOMAIN" == *trycloudflare.com* ]] && DOMAIN=''
+  [[ "$DOMAIN" != *.* || "$DOMAIN" == *:* || "$DOMAIN" == *[[:space:]]* ]] && DOMAIN=''
+  printf '%s' "$DOMAIN"
+}
+
+# 原子写入管理面元数据，CGI 请求期间不做公网探测。
+dynamic_meta_write() {
+  mkdir -p "$DYNAMIC_SUBSCRIBE_DIR" || return 1
+  local FIXED_DOMAIN='' V4="$WAN4" V6="$WAN6" TMP="${DYNAMIC_META_FILE}.tmp"
+  [ "$IS_ARGO" = 'is_argo' ] && [ -s "$ARGO_DAEMON_FILE" ] && FIXED_DOMAIN=$(dynamic_fixed_domain)
+  if [ -z "$V4" ] && [ -z "$V6" ]; then
+    if [[ "$SERVER_IP" == *:* ]]; then
+      V6="$SERVER_IP"
+    elif [[ "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+      V4="$SERVER_IP"
+    fi
+  fi
+  cat > "$TMP" <<EOF
+ARGO_DOMAIN='${FIXED_DOMAIN}'
+WAN4='${V4}'
+WAN6='${V6}'
+NGINX_PORT='${NGINX_PORT}'
+UUID='${UUID}'
+GENERATED_AT='$(date +%Y-%m-%dT%H:%M:%S%z)'
+EOF
+  mv "$TMP" "$DYNAMIC_META_FILE"
+}
+
+render_subscribe_deps() {
+  command -v fcgiwrap >/dev/null 2>&1 && command -v spawn-fcgi >/dev/null 2>&1 && return 0
+  info "\n $(text 126) "
+  case "$SYSTEM" in
+    CentOS)
+      ${PACKAGE_INSTALL[int]} epel-release >/dev/null 2>&1 || true
+      ${PACKAGE_INSTALL[int]} fcgiwrap spawn-fcgi >/dev/null 2>&1 ;;
+    *) ${PACKAGE_INSTALL[int]} fcgiwrap spawn-fcgi >/dev/null 2>&1 ;;
+  esac
+  command -v fcgiwrap >/dev/null 2>&1 && command -v spawn-fcgi >/dev/null 2>&1 || { warning " $(text 195) "; return 1; }
+}
+
+fcgiwrap_bin() { command -v fcgiwrap 2>/dev/null || ls /usr/sbin/fcgiwrap /usr/bin/fcgiwrap 2>/dev/null | head -1; }
+
+fcgiwrap_run() {
+  local FCGI=$(fcgiwrap_bin) SPAWN=$(command -v spawn-fcgi)
+  [ -z "$FCGI" ] || [ -z "$SPAWN" ] && return 1
+  mkdir -p "$DYNAMIC_SUBSCRIBE_DIR" || return 1
+  cat > "$DYNAMIC_START_SCRIPT" <<EOF
+#!/usr/bin/env bash
+[ -s "${DYNAMIC_PID_FILE}" ] && kill -0 "\$(cat "${DYNAMIC_PID_FILE}")" 2>/dev/null && exit 0
+rm -f "${DYNAMIC_SOCKET}" "${DYNAMIC_PID_FILE}"
+"${SPAWN}" -s "${DYNAMIC_SOCKET}" -M 0770 -P "${DYNAMIC_PID_FILE}" -- "${FCGI}" >/dev/null 2>&1
+EOF
+  chmod 700 "$DYNAMIC_START_SCRIPT"
+  "$DYNAMIC_START_SCRIPT" || return 1
+  local _retry=0
+  while [ $_retry -lt 10 ]; do
+    [ -S "$DYNAMIC_SOCKET" ] && return 0
+    sleep 0.2
+    _retry=$((_retry + 1))
+  done
+  return 1
+}
+
+fcgiwrap_stop() {
+  [ -s "$DYNAMIC_PID_FILE" ] && kill "$(cat "$DYNAMIC_PID_FILE")" 2>/dev/null
+  rm -f "$DYNAMIC_SOCKET" "$DYNAMIC_PID_FILE" "$DYNAMIC_START_SCRIPT"
+}
+
+# 守护进程里的动态 worker 钩子（幂等）：add/remove，覆盖 systemd 与 Alpine OpenRC。
+dynamic_daemon_hook() {
+  local ACTION="$1"
+  case "$SYSTEM" in
+    Alpine)
+      if [ "$ACTION" = 'add' ]; then
+        grep -q 'fcgiwrap-start' "$XRAY_DAEMON_FILE" 2>/dev/null || \
+          sed -i "/start_pre() {/a\\    [ -x $DYNAMIC_START_SCRIPT ] && $DYNAMIC_START_SCRIPT || true" "$XRAY_DAEMON_FILE" 2>/dev/null
+      else
+        sed -i '/fcgiwrap-start/d' "$XRAY_DAEMON_FILE" 2>/dev/null
+      fi
+      ;;
+    *)
+      if [ "$ACTION" = 'add' ]; then
+        grep -q 'fcgiwrap-start' "$XRAY_DAEMON_FILE" 2>/dev/null || \
+          sed -i "/^ExecStartPre=/a ExecStartPre=/bin/bash -c '[ -x $DYNAMIC_START_SCRIPT ] && $DYNAMIC_START_SCRIPT || true'" "$XRAY_DAEMON_FILE" 2>/dev/null
+      else
+        sed -i '/fcgiwrap-start/d' "$XRAY_DAEMON_FILE" 2>/dev/null
+      fi
+      cmd_systemctl daemon-reload >/dev/null 2>&1 || true
+      ;;
+  esac
+}
+
+# 纯资源清理：停 worker、撤守护钩子、删动态目录；不改 nginx.conf、不 reload、不动 IS_SUB。
+dynamic_cleanup() {
+  dynamic_daemon_hook remove
+  fcgiwrap_stop
+  rm -rf "$DYNAMIC_SUBSCRIBE_DIR"
+  IS_DYNAMIC_SUB=no_dynamic_sub
+}
+
+# 开启动态：前置校验 → 依赖 → 渲染器/模板 → Nginx/守护 → reload → 探测；失败完整回滚。
+enable_dynamic_sub() {
+  [ "$IS_SUB" = 'is_sub' ] || { warning " $(text 192) "; return 1; }
+  info "\n $(text 198) "
+
+  # 管理面一次性补齐 WAN，供固定隧道回退与地址展示使用；仅两者皆空时探测。
+  if [ -z "$WAN4" ] && [ -z "$WAN6" ]; then
+    check_system_ip
+  fi
+
+  render_subscribe_deps || return 1
+  generate_render_script || { warning " $(text 196) "; return 1; }
+
+  # 固化远程模板缓存：普通订阅开启时已下载；缺失则现场补下。
+  mkdir -p "$DYNAMIC_TEMPLATE_DIR/src" || { warning " $(text 196) "; return 1; }
+  local _ax_tpl
+  for _ax_tpl in clash sing-box; do
+    if [ ! -s "$DYNAMIC_TEMPLATE_DIR/src/$_ax_tpl" ]; then
+      [ -s "$TEMP_DIR/$_ax_tpl" ] || wget --no-check-certificate -qO- --tries=3 --timeout=5 "${SUBSCRIBE_TEMPLATE}/${_ax_tpl}" > "$TEMP_DIR/$_ax_tpl" 2>/dev/null
+      [ -s "$TEMP_DIR/$_ax_tpl" ] && cp "$TEMP_DIR/$_ax_tpl" "$DYNAMIC_TEMPLATE_DIR/src/$_ax_tpl"
+    fi
+    [ -s "$DYNAMIC_TEMPLATE_DIR/src/$_ax_tpl" ] || { warning " $(text 196) "; return 1; }
+  done
+
+  # 元数据与模板在置位前生成，确保 reload 时渲染器已完全就绪。
+  dynamic_meta_write || { warning " $(text 196) "; return 1; }
+  ( export_list dynamic_template >/dev/null 2>&1 ) || { warning " $(text 196) "; return 1; }
+
+  IS_DYNAMIC_SUB=is_dynamic_sub
+  json_nginx
+  dynamic_daemon_hook add
+  nginx_sync || { dynamic_cleanup; json_nginx; nginx_sync; warning " $(text 196) "; return 1; }
+
+  # 本地探测：渲染器就绪后请求 /UUID/proxies，空响应或错误视为失败。
+  # nginx -s reload 是异步的：新 worker 加载动态 location 需要时间，故带间隔重试（总窗口约 5s）。
+  local _probe_retry=0
+  while [ "$_probe_retry" -lt 10 ]; do
+    wget -qO- --timeout=5 "http://127.0.0.1:${NGINX_PORT}/${UUID}/proxies" 2>/dev/null | grep -q . && break
+    _probe_retry=$((_probe_retry + 1))
+    [ "$_probe_retry" -lt 10 ] && sleep 0.5
+  done
+  if [ "$_probe_retry" -ge 10 ]; then
+    dynamic_cleanup
+    json_nginx
+    nginx_sync
+    warning " $(text 196) "
+    return 1
+  fi
+  info "\n $(text 193) \n"
+  # 展示职责统一由调用方承担：-d 菜单与安装收尾路径各自调用 export_list 一次，
+  # 动态就绪后其 auto 位置即显示动态地址列表，无需在本函数内重复输出。
+  return 0
+}
+
+# 关闭动态：固定普通订阅状态 → 撤配置 → reload → 清理 → 重新导出静态订阅。
+disable_dynamic_sub() {
+  info "\n $(text 199) "
+  IS_SUB=is_sub
+  IS_DYNAMIC_SUB=no_dynamic_sub
+  json_nginx
+  nginx_sync
+  dynamic_cleanup
+  export_list
+  info "\n $(text 194) \n"
+  return 0
+}
+
+# 独立请求面：不 source argox.sh，不联网、不执行配置写入函数。
+generate_render_script() {
+  mkdir -p "$DYNAMIC_SUBSCRIBE_DIR" || return 1
+  cat > "$DYNAMIC_RENDER_SCRIPT" <<'RENDER_SCRIPT_EOF'
+#!/usr/bin/env bash
+umask 077
+DYNAMIC_DIR="${DYNAMIC_DIR:-/etc/argox/subscribe/dynamic}"
+DYNAMIC_TEMPLATE_DIR="${DYNAMIC_DIR}/templates"
+DYNAMIC_META_FILE="${DYNAMIC_DIR}/meta.env"
+DYNAMIC_HOST_TOKEN='__AX_DYNAMIC_HOST__'
+DYNAMIC_URI_HOST_TOKEN='__AX_DYNAMIC_URI_HOST__'
+
+ax_valid_host() {
+  local ADDR="$1" OCT
+  if [[ "$ADDR" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    IFS='.' read -r -a OCT <<< "$ADDR"
+    local N
+    for N in "${OCT[@]}"; do [ "$N" -le 255 ] 2>/dev/null || return 1; done
+    return 0
+  fi
+  [[ "$ADDR" =~ ^[0-9a-fA-F:]+$ && "$ADDR" =~ : ]] && return 0
+  [[ "$ADDR" =~ ^[a-zA-Z0-9]([a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?)+$ ]] && return 0
+  return 1
+}
+
+ax_b64_decode() {
+  local S=$(printf '%s' "$1" | tr '_-' '/+') M=$(( ${#1} % 4 ))
+  [ "$M" = 2 ] && S+='=='
+  [ "$M" = 3 ] && S+='='
+  printf '%s' "$S" | base64 -d 2>/dev/null
+}
+
+ax_render_body() {
+  local BODY="$1" FMT="$2" LINE OUT='' PAYLOAD DEC NEW PREFIX AFTER TOKEN
+  BODY=$(printf '%s' "$BODY" | sed -e "s|${DYNAMIC_HOST_TOKEN}|${T_IP}|g" -e "s|${DYNAMIC_URI_HOST_TOKEN}|${T_SUB_IP1:-$T_IP1}|g")
+  while IFS= read -r LINE; do
+    if [ "$FMT" = 'v2rayn' ] && [[ "$LINE" == v2rayn://* ]]; then
+      PAYLOAD="${LINE##*/}"
+      DEC=$(ax_b64_decode "$PAYLOAD")
+      if [[ "$DEC" == *__AX_DYNAMIC_* ]]; then
+        DEC=$(printf '%s' "$DEC" | sed -e "s|${DYNAMIC_HOST_TOKEN}|${T_IP}|g" -e "s|${DYNAMIC_URI_HOST_TOKEN}|${T_SUB_IP1:-$T_IP1}|g")
+        NEW=$(printf '%s' "$DEC" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+        PREFIX="${LINE%/*}"; LINE="${PREFIX}/${NEW}"
+      fi
+    elif [[ "$LINE" == *://* ]]; then
+      AFTER="${LINE#*://}"; TOKEN="${AFTER%%[?@#]*}"
+      if [ "${#TOKEN}" -ge 16 ]; then
+        DEC=$(ax_b64_decode "$TOKEN")
+        if [[ "$DEC" == *__AX_DYNAMIC_* ]]; then
+          DEC=$(printf '%s' "$DEC" | sed -e "s|${DYNAMIC_HOST_TOKEN}|${T_IP}|g" -e "s|${DYNAMIC_URI_HOST_TOKEN}|${T_SUB_IP1:-$T_IP1}|g")
+          NEW=$(printf '%s' "$DEC" | base64 -w0)
+          LINE="${LINE//"$TOKEN"/"$NEW"}"
+        fi
+      fi
+    fi
+    OUT+="$LINE"$'\n'
+  done <<< "$BODY"
+  printf '%s' "${OUT%$'\n'}"
+}
+
+ax_render_core() {
+  local FORMAT="${SUB_FORMAT:-}" HOST="${CLIENT_HOST:-}" ADDR='' T_IP='' T_IP1=''
+  local ARGO_DOMAIN='' WAN4='' WAN6='' NGINX_PORT='' UUID='' GENERATED_AT=''
+  local BAD=$'Status: 421\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nInvalid Host\r\n'
+  local ERROR=$'Status: 500\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nTemplate render failed\r\n'
+  local MISSING=$'Status: 404\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nTemplate not found\r\n'
+  if [[ "$HOST" == \[* ]]; then
+    HOST="${HOST%%\]*}"
+    HOST="${HOST#\[}"
+  fi
+  case "$FORMAT" in
+    auto) FORMAT="${SUB_PATH:-/}"; FORMAT="${FORMAT#/}"; [ -z "$FORMAT" ] && FORMAT='proxies' ;;
+  esac
+  case "$FORMAT" in
+    proxies|clash|shadowrocket|v2rayn|throne|sing-box) ;;
+    * ) printf '%s' "$BAD"; return ;;
+  esac
+  [ -s "$DYNAMIC_META_FILE" ] && . "$DYNAMIC_META_FILE"
+  # Argo 域名访问（固定隧道域名 或 临时 trycloudflare 域名）：直连回退 WAN4→WAN6，不把 Argo 域名写进 server。
+  if { [ -n "$ARGO_DOMAIN" ] && [ "$HOST" = "$ARGO_DOMAIN" ]; } || [[ "$HOST" == *trycloudflare.com ]]; then
+    ADDR="${WAN4:-$WAN6}"
+    ax_valid_host "$ADDR" || { printf '%s' "$BAD"; return; }
+    case "$ADDR" in
+      *:* ) T_IP="$ADDR"; T_IP1="[$ADDR]" ;;
+      * ) T_IP="$ADDR"; T_IP1="$ADDR" ;;
+    esac
+  elif ax_valid_host "$HOST"; then
+    case "$HOST" in
+      *:* ) T_IP="$HOST"; T_IP1="[$HOST]" ;;
+      * ) T_IP="$HOST"; T_IP1="$HOST" ;;
+    esac
+  else
+    printf '%s' "$BAD"; return
+  fi
+  # mihomo 内核侧常关 IPv6（如 Clash Verge 全局配置 ipv6: false），IPv6 入口拉到的 clash 配置
+  # 若把 IPv6 写进 provider 回源地址，内核 dial 会直接失败，订阅里一个节点都没有；
+  # Nginx 双栈监听同一端口，这里让 clash 的 provider 地址改用服务端 IPv4，两种入口都能用。
+  local T_SUB_IP1="$T_IP1"
+  if [ "$FORMAT" = 'clash' ] && [[ "$HOST" == *:* ]] && ax_valid_host "$WAN4"; then
+    T_SUB_IP1="$WAN4"
+  fi
+
+  local TPL_FILE="$DYNAMIC_TEMPLATE_DIR/$FORMAT" BODY B64=0
+  [ ! -s "$TPL_FILE" ] && { printf '%s' "$MISSING"; return; }
+  BODY=$(< "$TPL_FILE")
+  case "$FORMAT" in
+    shadowrocket|v2rayn|throne) B64=1 ;;
+  esac
+  if [ "$B64" = 1 ]; then
+    BODY=$(ax_b64_decode "$BODY") || { printf '%s' "$ERROR"; return; }
+    [ -n "$BODY" ] || { printf '%s' "$ERROR"; return; }
+  fi
+  BODY=$(ax_render_body "$BODY" "$FORMAT")
+  if [[ "$BODY" == *__AX_DYNAMIC_* ]]; then
+    printf '%s' "$ERROR"
+    return
+  fi
+  if [ "$B64" = 1 ]; then
+    BODY=$(printf '%s' "$BODY" | base64 -w0) || { printf '%s' "$ERROR"; return; }
+  fi
+  printf 'Content-Type: text/plain; charset=utf-8\r\n\r\n%s\n' "$BODY"
+}
+ax_render_core
+RENDER_SCRIPT_EOF
+  if [ ! -s "$DYNAMIC_RENDER_SCRIPT" ] || ! bash -n "$DYNAMIC_RENDER_SCRIPT" 2>/dev/null; then
+    rm -f "$DYNAMIC_RENDER_SCRIPT"
+    return 1
+  fi
+  chmod 700 "$DYNAMIC_RENDER_SCRIPT"
+}
+
+dynamic_subscribe_output() {
+  local LINES='' LABEL LINE ARGO_DOMAIN='' WAN4='' WAN6='' NGINX_PORT='' UUID='' GENERATED_AT=''
+  [ -s "$DYNAMIC_META_FILE" ] && . "$DYNAMIC_META_FILE"
+  [ -z "$UUID" ] && UUID="$1"
+  [ -z "$NGINX_PORT" ] && NGINX_PORT="$NGINX_PORT_DEFAULT"
+  if [ -n "$WAN4" ]; then
+    printf -v LINE '  %-6s: %s\n' 'IPv4' "http://${WAN4}:${NGINX_PORT}/${UUID}/auto"
+    LINES+="$LINE"
+  fi
+  if [ -n "$WAN6" ]; then
+    printf -v LINE '  %-6s: %s\n' 'IPv6' "http://[${WAN6}]:${NGINX_PORT}/${UUID}/auto"
+    LINES+="$LINE"
+  fi
+  if [ -n "$SERVER_IP" ] && [[ "$SERVER_IP" != *:* ]] && [[ ! "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    LABEL=$(text 175); [ "$L" = 'C' ] && LABEL+='  ' || printf -v LABEL '%-6s' "$LABEL"
+    printf -v LINE '  %s: %s\n' "$LABEL" "http://${SERVER_IP}:${NGINX_PORT}/${UUID}/auto"; LINES+="$LINE"
+  fi
+  if [ -n "$ARGO_DOMAIN" ]; then
+    LABEL=$(text 176); [ "$L" = 'C' ] && LABEL+='  ' || printf -v LABEL '%-6s' "$LABEL"
+    printf -v LINE '  %s: %s\n' "$LABEL" "https://${ARGO_DOMAIN}/${UUID}/auto"; LINES+="$LINE"
+  fi
+  printf '%b' "$LINES"
 }
 
 # Nginx 配置文件（新架构：Nginx 作为唯一对外分流入口，按已安装协议动态生成 location）
@@ -3121,10 +3551,23 @@ json_nginx() {
   grep -q 'trojan-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-tr" "$_PORT_TR")"
   grep -qw 'ss-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-sh" "$_PORT_SH")"
   grep -q 'xhttp-h1.1-cdn' <<< "$PROTOCOLS_NOW" && _add_location "$(_xhttp_location "/${WS_PATH}-xh" "${_PORT_XH}")"
-  # 订阅路由：仅 IS_SUB=is_sub 时生成
+  # 订阅路由：仅 IS_SUB=is_sub 时生成；动态块置于静态 alias 之前。
   local SUB_BLOCK=''
+  if [ "$IS_SUB" = 'is_sub' ] && [ "$IS_DYNAMIC_SUB" = 'is_dynamic_sub' ]; then
+    SUB_BLOCK=$(printf '    location ~ ^/%s/(?<ax_fmt>proxies|clash|shadowrocket|v2rayn|throne|sing-box|auto)$ {
+      include               /etc/nginx/fastcgi_params;
+      fastcgi_param SCRIPT_FILENAME %s;
+      fastcgi_param SUB_FORMAT      $ax_fmt;
+      fastcgi_param CLIENT_HOST     $host;
+      fastcgi_param SUB_PATH        $path;
+      fastcgi_param DYNAMIC_DIR     %s;
+      fastcgi_pass  unix:%s;
+    }
+
+' "$UUID" "$DYNAMIC_RENDER_SCRIPT" "$DYNAMIC_SUBSCRIBE_DIR" "$DYNAMIC_SOCKET")
+  fi
   if [ "$IS_SUB" = 'is_sub' ]; then
-    SUB_BLOCK=$(printf '    location ~ ^/%s/auto {
+    SUB_BLOCK+=$(printf '    location ~ ^/%s/auto {
       default_type  text/plain;
       alias         %s/subscribe/$path;
     }
@@ -3166,6 +3609,7 @@ http {
 
   server {
     listen      ${NGINX_PORT};
+    listen      [::]:${NGINX_PORT};
     server_name localhost;
 
 ${SERVER_BLOCK}
@@ -4293,6 +4737,19 @@ EOF
       info "\n Xray $(text 28) $(text 37) \n"
   esac
   sync_firewall_rules
+
+  # SUBSCRIBE=dynamic：安装收尾即开启动态订阅（不阻塞主流程，失败降级警告）
+  # 节点信息展示统一由 ACTION 收尾的 export_list 承担：动态就绪后其 auto 位置即为动态地址列表。
+  if [ "$SUBSCRIBE_DYNAMIC_INTENT" = 'true' ]; then
+    local _dynamic_reason=''
+    if [ "$IS_SUB" != 'is_sub' ]; then
+      _dynamic_reason='subscription is disabled'
+    else
+      enable_dynamic_sub || _dynamic_reason='setup failed'
+      return 0
+    fi
+    [ -n "$_dynamic_reason" ] && warning "\n $(text 201 | sed "s/{reason}/$_dynamic_reason/g; s/{原因}/$_dynamic_reason/g") \n"
+  fi
 }
 
 # 创建快捷方式
@@ -4382,10 +4839,20 @@ traffic_summary() {
 }
 
 export_list() {
-  check_arch
-  check_system_info
-  check_system_ip
-  check_install
+  local SUB_MODE="${1:-static}"
+  if [ "$SUB_MODE" = 'dynamic_template' ]; then
+    mkdir -p "$DYNAMIC_TEMPLATE_DIR/src" || return 1
+    for _ax_tpl in clash sing-box; do
+      [ -s "$DYNAMIC_TEMPLATE_DIR/src/$_ax_tpl" ] && continue
+      [ -s "$TEMP_DIR/$_ax_tpl" ] && cp "$TEMP_DIR/$_ax_tpl" "$DYNAMIC_TEMPLATE_DIR/src/$_ax_tpl"
+      [ -s "$DYNAMIC_TEMPLATE_DIR/src/$_ax_tpl" ] || { warning " $(text 196) "; return 1; }
+    done
+  else
+    check_arch
+    check_system_info
+    check_system_ip
+    check_install
+  fi
 
   local ARGO_MEM='' XRAY_MEM='' NGINX_MEM=''
   local ARGO_PID=$(ps -eo pid,args | awk -v d="$WORK_DIR" '$0~(d"/cloudflared"){print $1;exit}')
@@ -4400,7 +4867,8 @@ export_list() {
   local APP
   [ "$IS_ARGO" = 'is_argo' ] && [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(Argo)
   [ "${STATUS[1]}" != "$(text 28)" ] && APP+=(Xray)
-  if [ "${#APP[@]}" -gt 0 ]; then
+  # 模板模式必须无交互：不询问、不 exit，否则子 shell 生成模板时会吞掉 stdin 或提前终止。
+  if [ "${#APP[@]}" -gt 0 ] && [ "$SUB_MODE" != 'dynamic_template' ]; then
     reading "\n $(text 50) " OPEN_APP
     if [ "${OPEN_APP,,}" = 'y' ]; then
       [ "$IS_ARGO" = 'is_argo' ] && [ "${STATUS[0]}" != "$(text 28)" ] && cmd_systemctl enable argo
@@ -4416,19 +4884,30 @@ export_list() {
     fi
   fi
 
+  # 隧道判定：以守护进程实际启动参数为准。含 --url 即临时隧道。
+  # 只有固定隧道（--config/--token）的域名才允许作为订阅地址；临时隧道域名随进程变化，不能用于订阅。
+  local FIXED_ARGO_DOMAIN=''
   if grep -qs "^${DAEMON_RUN_PATTERN}.*--url" ${ARGO_DAEMON_FILE}; then
-    fetch_tunnel_domain quick || true
+    [ "$SUB_MODE" = 'dynamic_template' ] || fetch_tunnel_domain quick || true
   else
-    fetch_tunnel_domain config >/dev/null 2>&1 || true
+    [ "$SUB_MODE" = 'dynamic_template' ] || fetch_tunnel_domain config >/dev/null 2>&1 || true
     [ -z "$ARGO_DOMAIN" ] && [ -s "$WORK_DIR/tunnel.yml" ] && ARGO_DOMAIN=$(awk '/^[[:space:]]*-[[:space:]]*hostname:/{print $3; exit}' "$WORK_DIR/tunnel.yml" 2>/dev/null)
     [ -z "$ARGO_DOMAIN" ] && ARGO_DOMAIN=$(grep -m1 '^vless.*host=.*' $WORK_DIR/list 2>/dev/null | sed "s@.*host=\(.*\)&.*@\1@g")
+    # 固定隧道且域名有效（非 trycloudflare、含点、无空格）才采信
+    if [ -n "$ARGO_DOMAIN" ] && [[ "$ARGO_DOMAIN" != *trycloudflare.com* ]] && [[ "$ARGO_DOMAIN" == *.* ]] && [[ "$ARGO_DOMAIN" != *[[:space:]]* ]]; then
+      FIXED_ARGO_DOMAIN="$ARGO_DOMAIN"
+    fi
   fi
   fetch_nodes_value
+  if [ "$SUB_MODE" = 'dynamic_template' ]; then
+    SERVER_IP="$DYNAMIC_HOST_TOKEN"
+    SERVER_IP_1="$DYNAMIC_URI_HOST_TOKEN"
+  fi
 
-  # 确定订阅 URL 的 scheme 和 domain：有 Argo 隧道域名就用 HTTPS+域名，否则用 HTTP+IP:端口
-  if [ -n "$ARGO_DOMAIN" ]; then
+  # 订阅 URL 策略：仅固定隧道用 https+域名；临时隧道/无隧道回退 http+IP:端口。
+  if [ -n "$FIXED_ARGO_DOMAIN" ]; then
     local _SUB_SCHEME='https'
-    local _SUB_DOMAIN="${ARGO_DOMAIN}"
+    local _SUB_DOMAIN="${FIXED_ARGO_DOMAIN}"
   else
     local _SUB_SCHEME='http'
     [ -z "$NGINX_PORT" ] && NGINX_PORT="$NGINX_PORT_DEFAULT"
@@ -4593,18 +5072,23 @@ export_list() {
     "ss://${SS_DIRECT_METHOD}:${SS2022_PASSWORD}@${SERVER_IP_1}:${SS2022_PORT}#${NODE_NAME// /%20}%20${NODE_TAG[11]}" \
     "${NODE_NAME} ${NODE_TAG[11]}"
 
+  # 订阅文件目录：动态模板与静态文件完全隔离。
+  local SUB_OUT_DIR="$WORK_DIR/subscribe" SUB_TPL_SRC="$TEMP_DIR"
+  [ "$SUB_MODE" = 'dynamic_template' ] && SUB_OUT_DIR="$DYNAMIC_TEMPLATE_DIR" && SUB_TPL_SRC="$DYNAMIC_TEMPLATE_DIR/src"
+
   # 写入订阅文件（仅 IS_SUB=is_sub 且有协议时生成；0 协议跳过，避免生成空订阅覆盖现有文件）
   if [ "$IS_SUB" = 'is_sub' ] && [ -n "$PROTOS_NOW" ]; then
-    echo -e "$CLASH" > $WORK_DIR/subscribe/proxies
-    # 优先用 check_dependencies 已后台缓存的模板，离线/缓存失效时再回退在线拉取
-    if [ -s "$TEMP_DIR/clash" ]; then
-      sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" "$TEMP_DIR/clash" > $WORK_DIR/subscribe/clash
-    else
-      wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" > $WORK_DIR/subscribe/clash
+    local _ax_proxy_tmp="$SUB_OUT_DIR/proxies.tmp"
+    echo -e "$CLASH" > "$_ax_proxy_tmp" && mv "$_ax_proxy_tmp" "$SUB_OUT_DIR/proxies"
+    # 优先使用缓存模板；动态模板在开启时已固化，不允许请求期联网。
+    if [ -s "$SUB_TPL_SRC/clash" ]; then
+      sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" "$SUB_TPL_SRC/clash" > "$SUB_OUT_DIR/clash.tmp" && mv "$SUB_OUT_DIR/clash.tmp" "$SUB_OUT_DIR/clash"
+    elif [ "$SUB_MODE" != 'dynamic_template' ]; then
+      wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" > "$SUB_OUT_DIR/clash"
     fi
-    echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/shadowrocket
-    echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/v2rayn
-    echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > $WORK_DIR/subscribe/throne
+    echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > "$SUB_OUT_DIR/shadowrocket.tmp" && mv "$SUB_OUT_DIR/shadowrocket.tmp" "$SUB_OUT_DIR/shadowrocket"
+    echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > "$SUB_OUT_DIR/v2rayn.tmp" && mv "$SUB_OUT_DIR/v2rayn.tmp" "$SUB_OUT_DIR/v2rayn"
+    echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > "$SUB_OUT_DIR/throne.tmp" && mv "$SUB_OUT_DIR/throne.tmp" "$SUB_OUT_DIR/throne"
   fi
 
   # sing-box 订阅：纯 xhttp 场景直接跳过；其余场景仅在确实生成了 sing-box outbound 时才处理
@@ -4613,12 +5097,12 @@ export_list() {
     if [ -n "$SINGBOX_OUTBOUNDS" ]; then
     # 优先用 check_dependencies 已后台缓存的模板，离线/缓存失效时再回退在线拉取
     local SING_BOX_JSON=''
-    if [ -s "$TEMP_DIR/sing-box" ]; then
-      SING_BOX_JSON=$(<"$TEMP_DIR/sing-box")
-    else
+    if [ -s "$SUB_TPL_SRC/sing-box" ]; then
+      SING_BOX_JSON=$(<"$SUB_TPL_SRC/sing-box")
+    elif [ "$SUB_MODE" != 'dynamic_template' ]; then
       SING_BOX_JSON=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/sing-box)
     fi
-    echo "$SING_BOX_JSON" | sed "s#\"<OUTBOUND_REPLACE>\"#${SINGBOX_OUTBOUNDS}#; s#\"<NODE_REPLACE>\"#${SINGBOX_TAGS}#g" | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box
+    echo "$SING_BOX_JSON" | sed "s#\"<OUTBOUND_REPLACE>\"#${SINGBOX_OUTBOUNDS}#; s#\"<NODE_REPLACE>\"#${SINGBOX_TAGS}#g" | $WORK_DIR/jq > "$SUB_OUT_DIR/sing-box.tmp" && mv "$SUB_OUT_DIR/sing-box.tmp" "$SUB_OUT_DIR/sing-box"
     SINGBOX_DISPLAY=$(echo "{ \"outbounds\":[ ${SINGBOX_OUTBOUNDS} ] }" | $WORK_DIR/jq 2>/dev/null)
     SINGBOX_BLOCK="*******************************************
 ┌────────────────┐
@@ -4634,12 +5118,19 @@ $(info "${SINGBOX_DISPLAY}")"
 sing-box $(text 64):
 ${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/sing-box"
     else
-      rm -f $WORK_DIR/subscribe/sing-box >/dev/null 2>&1 || true
+      rm -f $SUB_OUT_DIR/sing-box >/dev/null 2>&1 || true
     fi
   else
-    rm -f $WORK_DIR/subscribe/sing-box >/dev/null 2>&1 || true
+    rm -f $SUB_OUT_DIR/sing-box >/dev/null 2>&1 || true
   fi
 
+  # 普通导出结束时刷新动态模板；子 shell 隔离变量，避免污染终端展示与静态文件。
+  if [ "$SUB_MODE" != 'dynamic_template' ] && dynamic_sub_enabled; then
+    dynamic_meta_write || { warning " $(text 196) "; return 1; }
+    ( export_list dynamic_template >/dev/null 2>&1 ) || { warning " $(text 196) "; return 1; }
+  fi
+  # 模板模式只生成文件，不读取系统信息、不探测版本、不做终端展示（F4 无副作用）。
+  [ "$SUB_MODE" = 'dynamic_template' ] && return 0
   # 显示用变量
   local CLASH_DISPLAY=$(echo -e "$CLASH" | sed '1d')
 
@@ -4705,7 +5196,19 @@ ${SINGBOX_BLOCK}
   fi
 
   # 订阅聚合 URL：仅 IS_SUB=is_sub 时显示
-  local SUB_URL_BLOCK=''
+  # 动态订阅开启时，auto 位置直接显示多 Host 地址列表。
+  # argox 只有一个 auto（无 auto2），故不需要"模版 1/2"标签。
+  # 二维码同步跟随：取动态列表第一个可用地址（IPv4→IPv6→域名→隧道），列表为空回退静态 auto，不输出空二维码。
+  local SUB_URL_BLOCK='' AUTO_SUBSCRIBE="${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto"
+  local QR_SUBSCRIBE="${AUTO_SUBSCRIBE}"
+  if [ "$IS_SUB" = 'is_sub' ] && dynamic_sub_enabled; then
+    local DYNAMIC_AUTO="$(dynamic_subscribe_output)"
+    if [ -n "$DYNAMIC_AUTO" ]; then
+      AUTO_SUBSCRIBE="$DYNAMIC_AUTO"
+      QR_SUBSCRIBE=$(sed -n 's#^[[:space:]]*[^:]*:[[:space:]]*\(http[s]*://.*\)$#\1#p' <<< "$DYNAMIC_AUTO" | head -1)
+      [ -z "$QR_SUBSCRIBE" ] && QR_SUBSCRIBE="${AUTO_SUBSCRIBE}"
+    fi
+  fi
   if [ "$IS_SUB" = 'is_sub' ]; then
     SUB_URL_BLOCK="*******************************************
 
@@ -4730,12 +5233,12 @@ ${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/shadowrocket")
 *******************************************
 
 $(info " $(text 66):
-${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto
+${AUTO_SUBSCRIBE}
 
 $(text 64) QRcode:
-https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto")
+https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${QR_SUBSCRIBE}")
 
-$([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/auto)
+$([ -s "$WORK_DIR/qrencode" ] && $WORK_DIR/qrencode ${QR_SUBSCRIBE})
 "
   fi
 
@@ -5731,7 +6234,7 @@ custom_route_add() {
   hint "\n $(text 136) "
   reading " $(text 24) " OUTBOUND_CHOICE
   case "$OUTBOUND_CHOICE" in
-    1|"" ) local OUTBOUND_TAG="warp-IPv4" ;;
+    ""|1 ) local OUTBOUND_TAG="warp-IPv4" ;;
     2 ) local OUTBOUND_TAG="warp-IPv6" ;;
     * ) info " $(text 130) " && return ;;
   esac
@@ -6084,6 +6587,11 @@ change_config() {
   # 订阅开关（始终显示，判断当前状态；显示的是可执行的操作：已开启 → 关闭，已关闭 → 开启）
   if [ "$IS_SUB" = 'is_sub' ]; then
     MENU_IDX+=(150) && MENU_KEY+=(subscribe) && MENU_VAL+=("$(text 150)")
+    if dynamic_sub_enabled; then
+      MENU_IDX+=(191) && MENU_KEY+=(dynamic_subscribe) && MENU_VAL+=("$(text 191)")
+    else
+      MENU_IDX+=(190) && MENU_KEY+=(dynamic_subscribe) && MENU_VAL+=("$(text 190)")
+    fi
   else
     MENU_IDX+=(149) && MENU_KEY+=(subscribe) && MENU_VAL+=("$(text 149)")
   fi
@@ -6128,6 +6636,8 @@ change_config() {
       warning " $(text 123) "
     done
     HY2_UP_NOW="$HY2_UP"; HY2_DOWN_NOW="$HY2_DOWN"
+    write_custom 'hy2Up' "${HY2_UP}"
+    write_custom 'hy2Down' "${HY2_DOWN}"
     [ -s ${WORK_DIR}/subscribe/proxies ] && sed -i -E "s/(up: \")([0-9]+)( Mbps\")/\1${HY2_UP}\3/g; s/(down: \")([0-9]+)( Mbps\")/\1${HY2_DOWN}\3/g" ${WORK_DIR}/subscribe/proxies
     export_list
     return
@@ -6274,9 +6784,24 @@ change_config() {
   elif [ "$KEY" = "warpaccount" ]; then
     change_warp_account
     return
+  elif [ "$KEY" = "dynamic_subscribe" ]; then
+    # 动态订阅开关；启用前必须以普通订阅为前提。
+    if dynamic_sub_enabled; then
+      disable_dynamic_sub
+    else
+      enable_dynamic_sub && export_list
+    fi
+    return
   elif [ "$KEY" = "subscribe" ]; then
     if [ "$IS_SUB" = 'is_sub' ]; then
-      # 关闭订阅
+      # 关闭订阅：若动态开启，先完整清理动态，再按原规则处理普通订阅。
+      if dynamic_sub_enabled; then
+        IS_DYNAMIC_SUB=no_dynamic_sub
+        dynamic_daemon_hook remove
+        fcgiwrap_stop
+        rm -rf "$DYNAMIC_SUBSCRIBE_DIR"
+        nginx_sync
+      fi
       IS_SUB=no_sub
       json_nginx
 
@@ -6534,15 +7059,29 @@ uninstall() {
     cmd_systemctl disable argo >/dev/null 2>&1
     cmd_systemctl disable xray >/dev/null 2>&1
     purge_managed_firewall_rules >/dev/null 2>&1 || true
+    # 动态订阅：先撤守护钩子、停 worker；目录随后随 WORK_DIR 一并删除。
+    dynamic_daemon_hook remove
+    fcgiwrap_stop
     nginx_stop
     # 等待 argo / xray / nginx 真正停止，避免紧接着 rm -rf 与运行中的进程抢文件；上限与 sing-box.sh 一致
     sleep 0.5
+    # 先集中询问所有卸载项，最后统一删除，避免「问一条卸一条」的割裂体验
+    local UNINSTALL_PKGS=()
     # 仅当 WORK_DIR/nginx.conf 存在（即本脚本管理的 nginx 实例）且 nginx 已完全停止时才询问是否卸载，
     # 否则会在 nginx 仍在运行时把它卸载掉
     [[ -s $WORK_DIR/nginx.conf && "$(ps -ef | grep -c '[n]ginx')" = 0 ]] && command -v nginx >/dev/null 2>&1 && {
+      local REMOVE_NGINX
       reading "\n $(text 65) " REMOVE_NGINX
-      [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
+      [ "${REMOVE_NGINX,,}" = 'y' ] && UNINSTALL_PKGS+=(nginx)
     }
+    # 动态订阅依赖（fcgiwrap / spawn-fcgi）：worker 已停止，如已安装则询问是否一并卸载。
+    if command -v fcgiwrap >/dev/null 2>&1 || command -v spawn-fcgi >/dev/null 2>&1; then
+      local REMOVE_FCGIWRAP
+      reading "\n $(text 200) " REMOVE_FCGIWRAP
+      [ "${REMOVE_FCGIWRAP,,}" = 'y' ] && UNINSTALL_PKGS+=(fcgiwrap spawn-fcgi)
+    fi
+    # 统一执行卸载（一条包管理命令删完，减少重复事务开销）
+    [ "${#UNINSTALL_PKGS[@]}" -gt 0 ] && ${PACKAGE_UNINSTALL[int]} "${UNINSTALL_PKGS[@]}" >/dev/null 2>&1
     [ "$SYSTEM" = 'Alpine' ] && rm -rf $WORK_DIR $TEMP_DIR /etc/init.d/{xray,argo} /usr/bin/argox || rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{xray,argo}.service /usr/bin/argox
     info "\n $(text 16) \n"
   else
@@ -6737,8 +7276,8 @@ menu_setting() {
     OPTION[5]="$(printf '%3d.' 5) $(text 51)"
     OPTION[6]="$(printf '%3d.' 6) $(text 57)"
 
-    ACTION[1]() { NONINTERACTIVE_INSTALL='noninteractive_install'; IS_SUB=is_sub; fast_install_variables; install_argox; export_list; create_shortcut; exit;}
-    ACTION[2]() { IS_SUB=is_sub; install_argox; export_list; create_shortcut; exit; }
+    ACTION[1]() { NONINTERACTIVE_INSTALL='noninteractive_install'; [ "$SUBSCRIBE_EXPLICIT" != 'true' ] && IS_SUB=is_sub; fast_install_variables; install_argox; export_list; create_shortcut; exit;}
+    ACTION[2]() { [ "$SUBSCRIBE_EXPLICIT" != 'true' ] && IS_SUB=is_sub; install_argox; export_list; create_shortcut; exit; }
     ACTION[3]() { IS_SUB=no_sub; install_argox; export_list; create_shortcut; exit; }
     ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh); exit; }
     ACTION[5]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
@@ -6905,7 +7444,7 @@ if [ -x "$WORK_DIR/jq" ] && [ -s "$WORK_DIR/outbound.json" ] && [[ "$(date +%Y%m
         if [ -n "$_masque_api_port" ] && $WORK_DIR/xray api lsi --server="127.0.0.1:${_masque_api_port}" --isOnlyTags=true &>/dev/null; then
           # 全量替换出站：rmo 三个旧 tag + ado 三个新 tag（key/tag 变更必须 rmo + ado）
           for _masque_tag in wireguard warp-IPv4 warp-IPv6; do
-            if ( cd / ; $WORK_DIR/xray api rmo --server="127.0.0.1:${_masque_api_port}" "$_masque_tag" &>/dev/null ); then :; fi
+            ( cd / ; $WORK_DIR/xray api rmo --server="127.0.0.1:${_masque_api_port}" "$_masque_tag" &>/dev/null ) || true
             grep -v '^//' "$WORK_DIR/outbound.json" \
               | $WORK_DIR/jq -c "{outbounds: [.outbounds[] | select(.tag == \"$_masque_tag\")]}" \
               > "$TEMP_DIR/masque_${_masque_tag}.json" 2>/dev/null \
@@ -7079,9 +7618,20 @@ for z in ${!ALL_PARAMETER[@]}; do
     --TLS_SERVER ) ((z++)); TLS_SERVER=${ALL_PARAMETER[z]} ;;
     --REALITY_PRIVATE ) ((z++)); REALITY_PRIVATE=${ALL_PARAMETER[z]} ;;
     --PORT_HOPPING_RANGE ) ((z++)); PORT_HOPPING_RANGE=${ALL_PARAMETER[z]} ;;
-    --HY2_REALM|--REALM ) ((z++)); HY2_REALM_SET=1; [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_HY2_REALM=is_hy2_realm ;;
-    --SUBSCRIBE|--SUB ) ((z++)); [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_SUB=is_sub || IS_SUB=no_sub ;;
-    --ARGO ) ((z++)); [[ "${ALL_PARAMETER[z],,}" =~ ^(true|1|y|yes)$ ]] && IS_ARGO=is_argo || IS_ARGO=no_argo; IS_ARGO_EXPLICIT=true ;;
+    --HY2_REALM|--REALM )
+      ((z++)); HY2_REALM_SET=1
+      case "${ALL_PARAMETER[z],,}" in
+        true|y|yes|1 ) IS_HY2_REALM=is_hy2_realm ;;
+      esac
+      ;;
+    --SUBSCRIBE|--SUB ) ((z++)); parse_subscribe_value "${ALL_PARAMETER[z]}" ;;
+    --ARGO )
+      ((z++)); IS_ARGO_EXPLICIT=true
+      case "${ALL_PARAMETER[z],,}" in
+        true|y|yes|1 ) IS_ARGO=is_argo ;;
+        false|n|no|0 ) IS_ARGO=no_argo ;;
+      esac
+      ;;
   esac
 done
 
@@ -7144,41 +7694,26 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
     n ) select_language; check_system_info; export_list; exit 0 ;;
     v ) select_language; check_system_info; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcpx.sh"); exit ;;
-    f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
+    f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE
+        # 配置文件使用 LANGUAGE 变量（更直观）；转换为内部 L（其余代码路径仍用 L，不受影响）
+        [ -z "$L" ] && case "${LANGUAGE,,}" in c ) L=C ;; e ) L=E ;; esac
+        unset LANGUAGE ;;
     k|l ) NONINTERACTIVE_INSTALL='noninteractive_install'; fast_install_variables ;;
   esac
 done
 
-# 配置变量后处理：SUBSCRIBE → IS_SUB / ARGO → IS_ARGO 转换（仅当在 config 中被显式设置时）
-[[ -n "${SUBSCRIBE:-}" ]] && { [[ "${SUBSCRIBE,,}" =~ ^(y|yes|true|1)$ ]] && IS_SUB=is_sub || IS_SUB=no_sub; }
+# 配置变量后处理：SUBSCRIBE 三值解析 / ARGO → IS_ARGO 转换
+# （SUBSCRIBE 尊重显式设置；留空不触发，默认值由 ACTION 层决定）
+parse_subscribe_value "${SUBSCRIBE:-}"
 unset SUBSCRIBE
-[[ -n "${ARGO:-}" ]] && { [[ "${ARGO,,}" =~ ^(y|yes|true|1)$ ]] && IS_ARGO=is_argo || IS_ARGO=no_argo; IS_ARGO_EXPLICIT=true; }
-unset ARGO
-
-# 旧版本兼容过渡（将于 2026年9月30日移除）：$WORK_DIR 已存在但 custom 文件不存在，说明是旧版本安装，降级运行旧版脚本
-if [ -d "$WORK_DIR" ] && [ ! -s "$CUSTOM_FILE" ] && [[ "$(date +%Y%m%d)" < "20260930" ]]; then
-  # 读取旧版语言标记（E=英文，C=中文），决定提示语言
-  _compat_lang=$(cat "$WORK_DIR/language" 2>/dev/null | tr -d '[:space:]')
-  if [ "${_compat_lang^^}" = 'C' ]; then
-    warning "[兼容模式] 检测到旧版本安装，将自动切换到旧版脚本运行"
-    warning "          此兼容过渡将于 2026年9月30日移除，10秒后自动跳转，按任意键立即跳转"
-  else
-    warning "[Compatibility Mode] Old installation detected. Switching to legacy script automatically."
-    warning "                     This bridge will be removed on 2026-09-30. Auto-switching in 10s, or press any key to skip now."
-  fi
-exit 2
-  for _i in 10 9 8 7 6 5 4 3 2 1; do
-    if [ "${_compat_lang^^}" = 'C' ]; then
-      echo -ne "\033[33m\033[01m  ${_i} 秒后自动跳转...\033[0m\r"
-    else
-      echo -ne "\033[33m\033[01m  Auto-switching in ${_i}s...\033[0m\r"
-    fi
-    read -t 1 -s -r -n1 _compat_key && break
-  done
-  echo ""
-  bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/ArgoX/70ad14d282d63c6b8359e9d75224ab5012d2785a/argox.sh) "$@"
-  exit $?
+if [[ -n "${ARGO:-}" ]]; then
+  IS_ARGO_EXPLICIT=true
+  case "${ARGO,,}" in
+    true|y|yes|1 ) IS_ARGO=is_argo ;;
+    false|n|no|0 ) IS_ARGO=no_argo ;;
+  esac
 fi
+unset ARGO
 
 check_root
 select_language
