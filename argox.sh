@@ -26,7 +26,7 @@ SERVICE_FIREWALL_STATE_FILE="${FIREWALL_STATE_DIR}/service_ports.list"
 TLS_SERVER='addons.mozilla.org'
 START_PORT_DEFAULT='30000'  # WS/XHTTP 内部端口起始值，各协议在此基础上顺数
 NGINX_PORT_DEFAULT='8080'   # Nginx 默认端口，可交互修改
-CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
+CDN_DOMAIN=("openai.com" "staticdelivery.nexusmods.com" "www.shopify.com" "cdn.204910.best" "xin.usfox.qzz.io" "saas.sin.fan" "nrt.xxxxxxxx.nyc.mn" "cf.877771.xyz" "nrtcfdns.zone.id" "cloudflare-ip.mofashi.ltd")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 DEFAULT_XRAY_VERSION='26.11.9'
 IP_API_NODES=('https://ip.cloudflare.now.cc' 'https://ip.cloudflare.nyc.mn')
@@ -230,16 +230,16 @@ E[85]="API does not have enough permissions. Please check at https://dash.cloudf
 C[85]="API 没有足够权限，请在 https://dash.cloudflare.com/profile/api-tokens 检查 Token 权限配置\n\n [*] Token: 访问 https://dash.cloudflare.com/ ，Zero Trust > 网络 > 连接器 > 创建隧道 > 选择 Cloudflared\n\n [*] Json: 用户通过以下网站轻松获取: https://fscarmen.cloudflare.now.cc\n\n [*] Cloudflare API: 访问 https://dash.cloudflare.com/profile/api-tokens > 创建令牌 > 创建自定义令牌 > 添加以下权限:\n - 帐户 > Cloudflare One连接器: Cloudflared > 编辑\n - 区域 > DNS > 编辑\n\n - 帐户资源: 包括 > 所需账户\n - 区域资源: 包括 > 特定区域 > 所需域名"
 E[86]="Please enter [Token, Json, API] value:"
 C[86]="请输入 [Token, Json, API] 的值:"
-E[87]="(\${STEP_NUM}/\${TOTAL_STEPS:-?}) Select protocols to install (e.g. bdf). a = all (default):"
-C[87]="(\${STEP_NUM}/\${TOTAL_STEPS:-?}) 选择要安装的协议（如 bdf），a = 全部（默认）:"
+E[87]="(\${STEP_NUM}/\${TOTAL_STEPS:-?}) Select protocols to install (e.g. bdf). The input order determines port assignment, and nodes are listed in ascending port order. a = all (default):"
+C[87]="(\${STEP_NUM}/\${TOTAL_STEPS:-?}) 选择要安装的协议（如 bdf），输入顺序决定端口分配，订阅节点按端口升序排列。a = 全部（默认）:"
 E[88]="Installed protocols."
 C[88]="已安装的协议"
 E[89]="Please select protocols to remove (multiple allowed, Enter to skip):"
 C[89]="请选择需要删除的协议（可多选，回车跳过）:"
 E[90]="Uninstalled protocols."
 C[90]="未安装的协议"
-E[91]="Please select protocols to add (multiple allowed, Enter to skip):"
-C[91]="请选择需要增加的协议（可多选，回车跳过）:"
+E[91]="Please select protocols to add (multiple allowed, Enter to skip). The input order determines port assignment, and nodes are listed in ascending port order:"
+C[91]="请选择需要增加的协议（可多选，回车跳过），输入顺序决定端口分配，订阅节点按端口升序排列:"
 E[92]="Confirm all protocols for reloading."
 C[92]="确认重装的所有协议"
 E[93]="Press [n] if there is an error, other keys to continue:"
@@ -1940,7 +1940,8 @@ xray_variable() {
   fi
 
   if [[ -n "$SERVER" && "$SERVER" != '__CDN_UNSET__' ]]; then
-    parse_preferred_addr "${SERVER}:${SERVER_PORT:-443}" || error " $(text 118) "
+    # 纯 IPv6 SERVER 拼 host:port 会解析失败，含 : 时包 []（parse_preferred_addr 支持 [IPv6]:port）
+    parse_preferred_addr "$( [[ "$SERVER" == *:* ]] && echo "[${SERVER}]:${SERVER_PORT:-443}" || echo "${SERVER}:${SERVER_PORT:-443}" )" || error " $(text 118) "
     SERVER="$PREFERRED_ADDR"
     SERVER_PORT="$PREFERRED_PORT"
     SERVER_DISPLAY="$PREFERRED_DISPLAY"
@@ -2045,7 +2046,8 @@ fast_install_variables() {
   SERVER=${SERVER:-"${CDN_DOMAIN[0]}"}
   SERVER_PORT=${SERVER_PORT:-${cdnPort:-443}}
   if [ "$SERVER" != '__CDN_UNSET__' ]; then
-    parse_preferred_addr "${SERVER}:${SERVER_PORT}" || error " $(text 118) "
+    # 同上：纯 IPv6 SERVER 拼 host:port 前包 []
+    parse_preferred_addr "$( [[ "$SERVER" == *:* ]] && echo "[${SERVER}]:${SERVER_PORT}" || echo "${SERVER}:${SERVER_PORT}" )" || error " $(text 118) "
     SERVER="$PREFERRED_ADDR"
     SERVER_PORT="$PREFERRED_PORT"
     SERVER_DISPLAY="$PREFERRED_DISPLAY"
@@ -2170,6 +2172,18 @@ input_nginx_port() {
   done
 }
 
+# IPv6 地址按使用场景加方括号：仅 URI host（vless://...@[IPv6]:port）需要；
+# Clash(mihomo) 的 server 字段必须纯地址——YAML 会把 [x] 解析成数组，且 mihomo 的
+# net.JoinHostPort 会对含 : 的 host 再包一层 []（[[a:a::a]]:443）导致拨号失败。
+format_uri_host() {
+  local HOST_VALUE=$1
+  if [[ "$HOST_VALUE" == *:* && ! "$HOST_VALUE" =~ ^\[.*\]$ ]]; then
+    printf '[%s]' "$HOST_VALUE"
+  else
+    printf '%s' "$HOST_VALUE"
+  fi
+}
+
 parse_preferred_addr() {
   local _raw="$1" _host='' _port='443'
   _raw=$(printf '%s' "$_raw" | sed 's/[[:space:]]//g; s/：/:/g; s/。/./g; s/【/[/g; s/】/]/g')
@@ -2178,6 +2192,9 @@ parse_preferred_addr() {
   if [[ "$_raw" =~ ^\[([0-9A-Fa-f:]+)\](:([0-9]{1,5}))?$ ]]; then
     _host="${BASH_REMATCH[1]}"
     [ -n "${BASH_REMATCH[3]}" ] && _port="${BASH_REMATCH[3]}"
+  elif [[ "$_raw" =~ ^([0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}$ ]]; then
+    # 纯 IPv6（无括号无端口）：整个输入视为 server，端口用默认值
+    _host="$_raw"
   elif [[ "$_raw" =~ ^((([0-9]{1,3})\.){3}([0-9]{1,3}))(:([0-9]{1,5}))?$ ]]; then
     _host="${BASH_REMATCH[1]}"
     [ -n "${BASH_REMATCH[6]}" ] && _port="${BASH_REMATCH[6]}"
@@ -2220,6 +2237,10 @@ fetch_nodes_value() {
   REALITY_PRIVATE="${privateKey:-}"
   REALITY_PUBLIC="${publicKey:-}"
   SERVER="${cdn:-}"
+  # 兼容旧 conf 存的 [IPv6] 形式：统一剥方括号存纯地址（Clash/sing-box JSON 的 server 不允许 []），
+  # URI 输出处使用 SERVER_URI（IPv6 时带 []）
+  [[ "$SERVER" =~ ^\[(.+)\]$ ]] && SERVER="${BASH_REMATCH[1]}"
+  SERVER_URI=$(format_uri_host "$SERVER")
   SERVER_PORT="${cdnPort:-443}"
   FINGER_PRINT="${fingerprint:-chrome}"
   BIND_IFACE="${bind_interface:-}"
@@ -2232,9 +2253,12 @@ fetch_nodes_value() {
   [ -z "$JSON" ] && [ ! -s "$CUSTOM_FILE" ] && return 1
   [ -z "$JSON" ] && return 0
 
-  REALITY_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[0].port // empty')
+  # 端口/凭据一律按 tag 精确匹配回读，不能用 inbounds[0]：多协议按输入顺序分配端口后，
+  # inbounds[0] 可能是任何协议（如 xhttp-h1.1-cdn），旧写法会把它的端口当成 reality-vision 的。
+  REALITY_PORT=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | select(.tag | split(" ")[-1] == "reality-vision") | .port] | .[0] // empty' 2>/dev/null)
   TLS_SERVER=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[] | select(.streamSettings.security=="reality") | .streamSettings.realitySettings.serverNames[0]' 2>/dev/null | head -1)
-  UUID=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[0].settings.clients[0].id // .inbounds[0].settings.clients[0].password // .inbounds[0].settings.clients[0].auth // empty')
+  # UUID 所有协议共用：取第一个含 settings.clients 的 inbound（ss2022-direct 无 clients，需跳过）
+  UUID=$(echo "$JSON" | $WORK_DIR/jq -r '[.inbounds[] | .settings.clients[0].id // .settings.clients[0].password // .settings.clients[0].auth // empty] | map(select(length > 0)) | .[0] // empty' 2>/dev/null)
   WS_PATH=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[] | select(.streamSettings.network=="ws") | .streamSettings.wsSettings.path' 2>/dev/null | head -1 | sed 's|/||; s|-vl$||; s|-vm$||; s|-tr$||; s|-sh$||; s|-xh$||')
   NODE_NAME=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[0].tag // empty' | sed 's/ [^ ]*$//')
   SS_WS_METHOD=$(echo "$JSON" | $WORK_DIR/jq -r '.inbounds[] | select(.tag | split(" ")[-1] == "ss-ws") | .settings.clients[0].method // empty' 2>/dev/null | head -1)
@@ -2277,7 +2301,7 @@ fetch_nodes_value() {
     SERVER='__CDN_UNSET__'
     SERVER_PORT=443
     SERVER_DISPLAY='__CDN_UNSET__'
-  elif parse_preferred_addr "${SERVER}:${SERVER_PORT}"; then
+  elif parse_preferred_addr "$( [[ "$SERVER" == *:* ]] && echo "[${SERVER}]:${SERVER_PORT}" || echo "${SERVER}:${SERVER_PORT}" )"; then
     SERVER="$PREFERRED_ADDR"
     SERVER_PORT="$PREFERRED_PORT"
     SERVER_DISPLAY="$PREFERRED_DISPLAY"
@@ -2285,6 +2309,9 @@ fetch_nodes_value() {
     SERVER_PORT=443
     SERVER_DISPLAY="$SERVER"
   fi
+
+  # URI host（vless://...@[IPv6]:port）需要 []；Clash/sing-box JSON 的 server 用纯地址 SERVER
+  SERVER_URI=$(format_uri_host "$SERVER")
 
   [[ "$SERVER_IP" =~ : ]] && SERVER_IP_1="[$SERVER_IP]" || SERVER_IP_1="$SERVER_IP"
 
@@ -3480,7 +3507,8 @@ json_nginx() {
   fi
   [ -z "$WS_PATH" ] && WS_PATH="$WS_PATH_DEFAULT"
   if [ -z "$UUID" ] && [ -s $WORK_DIR/inbound.json ]; then
-    UUID=$(grep -v '^//' $WORK_DIR/inbound.json | $WORK_DIR/jq -r '.inbounds[0].settings.clients[0].id // .inbounds[0].settings.clients[0].password // empty')
+    # 不能依赖 inbounds[0]：ss2022-direct 无 clients 且可能排在首位，按第一个有效 clients 取
+    UUID=$(grep -v '^//' $WORK_DIR/inbound.json | $WORK_DIR/jq -r '[.inbounds[] | .settings.clients[0].id // .settings.clients[0].password // .settings.clients[0].auth // empty] | map(select(length > 0)) | .[0] // empty' 2>/dev/null)
   fi
   if [ -z "$NGINX_PORT" ]; then
     if [ -s $WORK_DIR/nginx.conf ]; then
@@ -4930,16 +4958,42 @@ export_list() {
 
   # 统一生成所有客户端订阅
   local SERVER_PORT_NOW=${SERVER_PORT:-443}
+  # 节点排序：按各协议真实监听端口升序（与 sing-box.sh 对齐）。排序键取 xray inbound
+  # 实际监听端口（fetch_nodes_value 已从 inbound.json 读出）；WS/XHTTP-CDN 节点 URI 里的
+  # CDN 端口 443 保持原样、不参与排序。端口并列时保持 NODE_TAG 固定次序（稳定插入排序）。
+  local -a _AX_PORTS=("$REALITY_PORT" "$HY2_PORT" "$GRPC_PORT" "$VLESS_WS_PORT" "$VMESS_WS_PORT" "$TROJAN_WS_PORT" "$SS_WS_PORT" "$VLESS_XHTTP_PORT" "$XHTTP_H2_PORT" "$XHTTP_PORT" "$TROJAN_PORT" "$SS2022_PORT")
+  local -a _AX_ENABLED=() _AX_SORT_KEY=() _AX_NODE_ORDER=()
+  local _ax_i _ax_j _ax_key_port _ax_key_idx _ax_prev_idx
+  for _ax_i in "${!_AX_PORTS[@]}"; do
+    [ -n "${_AX_PORTS[_ax_i]}" ] || continue
+    _AX_ENABLED+=("$_ax_i")
+    [[ "${_AX_PORTS[_ax_i]}" =~ ^[0-9]+$ ]] && _AX_SORT_KEY[_ax_i]=${_AX_PORTS[_ax_i]} || _AX_SORT_KEY[_ax_i]=999999
+  done
+  _AX_NODE_ORDER=("${_AX_ENABLED[@]}")
+  for ((_ax_i=1; _ax_i<${#_AX_NODE_ORDER[@]}; _ax_i++)); do
+    _ax_key_idx=${_AX_NODE_ORDER[_ax_i]} && _ax_key_port=${_AX_SORT_KEY[_ax_key_idx]}
+    for ((_ax_j=_ax_i-1; _ax_j>=0; _ax_j--)); do
+      _ax_prev_idx=${_AX_NODE_ORDER[_ax_j]}
+      [ "${_AX_SORT_KEY[_ax_prev_idx]}" -le "$_ax_key_port" ] && break
+      _AX_NODE_ORDER[_ax_j+1]=$_ax_prev_idx
+    done
+    _AX_NODE_ORDER[_ax_j+1]=$_ax_key_idx
+  done
+
   local CLASH='proxies:' SHADOWROCKET_SUBSCRIBE='' V2RAYN_SUBSCRIBE='' SHADOWROCKET_DISPLAY='' V2RAYN_DISPLAY=''
-  local SINGBOX_OUTBOUNDS='' SINGBOX_TAGS='' SINGBOX_SEP=''
-  _sb_add() { SINGBOX_OUTBOUNDS+="${SINGBOX_SEP}$1"; SINGBOX_TAGS+="${SINGBOX_SEP}$2"; SINGBOX_SEP=', '; }
+  # 先按固定次序收集各格式节点块，最后按 _AX_NODE_ORDER 一次性拼装。
+  # 各格式节点集合不同（xhttp-h1.1-cdn 无 throne/sing-box、xhttp-h2/h3 无 sing-box 等），
+  # 必须分别记录各自的下标集合，拼装时按集合过滤——不能按全部协议数校验，否则块数
+  # 不一致会整体回退原序（sing-box.sh 踩过的坑）。
+  local -a _AX_CLASH=() _AX_SR=() _AX_V2=() _AX_TH=() _AX_SB=() _AX_SBTAG=()
+  local -a _AX_CLASH_IDS=() _AX_SR_IDS=() _AX_V2_IDS=() _AX_TH_IDS=() _AX_SB_IDS=()
   _add() {
-    local clash="$1" shadowrocket="$2" v2rayn="$3" singbox="$4" throne="$5" tag="$6"
-    [ -n "$clash" ] && CLASH+="\n  - $clash"
-    [ -n "$shadowrocket" ] && { SHADOWROCKET_SUBSCRIBE+="$shadowrocket"$'\n'; SHADOWROCKET_DISPLAY+="$shadowrocket\n\n"; }
-    [ -n "$v2rayn" ] && { V2RAYN_SUBSCRIBE+="$v2rayn"$'\n'; V2RAYN_DISPLAY+="$v2rayn\n\n"; }
-    [ -n "$throne" ] && { THRONE_SUBSCRIBE+="$throne"$'\n'; THRONE_DISPLAY+="$throne\n\n"; }
-    [ -n "$singbox" ] && _sb_add "$singbox" "\"$tag\""
+    local clash="$1" shadowrocket="$2" v2rayn="$3" singbox="$4" throne="$5" tag="$6" idx="$7"
+    [ -n "$clash" ] && { _AX_CLASH+=("$clash"); _AX_CLASH_IDS+=("$idx"); }
+    [ -n "$shadowrocket" ] && { _AX_SR+=("$shadowrocket"); _AX_SR_IDS+=("$idx"); }
+    [ -n "$v2rayn" ] && { _AX_V2+=("$v2rayn"); _AX_V2_IDS+=("$idx"); }
+    [ -n "$throne" ] && { _AX_TH+=("$throne"); _AX_TH_IDS+=("$idx"); }
+    [ -n "$singbox" ] && { _AX_SB+=("$singbox"); _AX_SBTAG+=("\"$tag\""); _AX_SB_IDS+=("$idx"); }
   }
 
   # reality-vision
@@ -4949,7 +5003,7 @@ export_list() {
     "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=tcp&headerType=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
     "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[0]}\", \"server\":\"${SERVER_IP}\", \"server_port\": ${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"xtls-rprx-vision\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } } }" \
     "vless://${UUID}@${SERVER_IP_1}:${REALITY_PORT}?security=reality&sni=${TLS_SERVER}&fp=firefox&pbk=${REALITY_PUBLIC}&type=tcp&flow=xtls-rprx-vision&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[0]}" \
-    "${NODE_NAME} ${NODE_TAG[0]}"
+    "${NODE_NAME} ${NODE_TAG[0]}" "0"
 
   # hysteria2
   if grep -q 'hysteria2' <<< "$PROTOS_NOW"; then
@@ -4979,7 +5033,7 @@ export_list() {
       "v2rayn://hysteria2/$(echo -n "{\"ConfigType\":7,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[1]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${HY2_PORT},\"Password\":\"${UUID}\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${TLS_SERVER}\",\"Cert\":\"${CERT_URL_2}\",\"ProtoExtraObj\":{${_v2realm}\"UpMbps\":${_hy2_up},\"DownMbps\":${_hy2_down}${_v2hop}}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
       "{ \"type\": \"hysteria2\", \"tag\": \"${NODE_NAME} ${NODE_TAG[1]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${HY2_PORT}${_sbhp}, \"up_mbps\": ${_hy2_up}, \"down_mbps\": ${_hy2_down}, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${FP_BASE64}\"], \"alpn\": [ \"h3\" ] }${_sbrealm} }" \
       "hysteria2://${UUID}@${SERVER_IP_1}:${HY2_PORT}?allowInsecure=false&alpn&security=tls&sni=${TLS_SERVER}&upmbps=${_hy2_up}&downmbps=${_hy2_down}&security=tls&tls_certificate=${CERT_URL_1}${_thop}&fp=${FINGER_PRINT:-chrome}#${NODE_NAME// /%20}%20${NODE_TAG[1]}" \
-      "${NODE_NAME} ${NODE_TAG[1]}"
+      "${NODE_NAME} ${NODE_TAG[1]}" "1"
   fi
 
   # reality-grpc
@@ -4989,52 +5043,52 @@ export_list() {
     "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=grpc&serviceName=grpc&encryption=none#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
     "{ \"type\": \"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[2]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${GRPC_PORT}, \"uuid\": \"${UUID}\", \"packet_encoding\":\"xudp\", \"tls\": { \"enabled\": true, \"server_name\": \"${TLS_SERVER}\", \"utls\": { \"enabled\": true, \"fingerprint\": \"${FINGER_PRINT:-chrome}\" }, \"reality\": { \"enabled\": true, \"public_key\": \"${REALITY_PUBLIC}\", \"short_id\": \"\" } }, \"transport\": { \"type\": \"grpc\", \"service_name\": \"grpc\" } }" \
     "vless://${UUID}@${SERVER_IP_1}:${GRPC_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&sid&type=grpc&serviceName=grpc&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[2]}" \
-    "${NODE_NAME} ${NODE_TAG[2]}"
+    "${NODE_NAME} ${NODE_TAG[2]}" "2"
 
   # vless-ws
   grep -q 'vless-ws' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[3]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vl\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"} }" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
+    "vless://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2560&sni=${ARGO_DOMAIN}#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
+    "vless://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl%3Fed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
     "{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} ${NODE_TAG[3]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&alpn&fp=${FINGER_PRINT:-chrome}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
-    "${NODE_NAME} ${NODE_TAG[3]}"
+    "vless://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&alpn&fp=${FINGER_PRINT:-chrome}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol&packetEncoding=xudp#${NODE_NAME// /%20}%20${NODE_TAG[3]}" \
+    "${NODE_NAME} ${NODE_TAG[3]}" "3"
 
   # vmess-ws
   grep -q 'vmess-ws' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[4]}\", type: vmess, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, alterId: 0, cipher: aes-128-gcm, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-vm\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\"}}" \
-    "vmess://$(echo -n "aes-128-gcm:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
+    "vmess://$(echo -n "aes-128-gcm:${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}" | base64 -w0)?remarks=${NODE_NAME// /%20}%20${NODE_TAG[4]}&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2560&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0" \
     "vmess://$(echo -n "{ \"v\": \"2\", \"ps\": \"${NODE_NAME} ${NODE_TAG[4]}\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"aes-128-gcm\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2560\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }" | base64 -w0)" \
     "{ \"type\":\"vmess\", \"tag\":\"${NODE_NAME} ${NODE_TAG[4]}\", \"server\":\"${SERVER}\", \"server_port\":${SERVER_PORT_NOW}, \"uuid\":\"${UUID}\", \"security\":\"aes-128-gcm\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "vmess://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=aes-128-gcm&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol#${NODE_NAME// /%20}%20${NODE_TAG[4]}" \
-    "${NODE_NAME} ${NODE_TAG[4]}"
+    "vmess://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?encryption=aes-128-gcm&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol#${NODE_NAME// /%20}%20${NODE_TAG[4]}" \
+    "${NODE_NAME} ${NODE_TAG[4]}" "4"
 
   # trojan-ws
   grep -q 'trojan-ws' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[5]}\", type: trojan, server: ${SERVER}, port: ${SERVER_PORT_NOW}, password: ${UUID}, udp: true, tls: true, servername: ${ARGO_DOMAIN}, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: {path: \"/${WS_PATH}-tr\", headers: {Host: ${ARGO_DOMAIN}}, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
-    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&insecure=0&allowInsecure=0&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
+    "trojan://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
+    "trojan://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&insecure=0&allowInsecure=0&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr?ed%3D2560#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
     "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} ${NODE_TAG[5]}\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"${FINGER_PRINT:-chrome}\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2560, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" } }" \
-    "trojan://${UUID}@${SERVER}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&alpn&fp=${FINGER_PRINT:-chrome}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
-    "${NODE_NAME} ${NODE_TAG[5]}"
+    "trojan://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?security=tls&sni=${ARGO_DOMAIN}&alpn&fp=${FINGER_PRINT:-chrome}&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-tr#${NODE_NAME// /%20}%20${NODE_TAG[5]}" \
+    "${NODE_NAME} ${NODE_TAG[5]}" "5"
 
   # ss-ws
   grep -qw 'ss-ws' <<< "$PROTOS_NOW" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[6]}\", type: ss, server: ${SERVER}, port: ${SERVER_PORT_NOW}, cipher: ${SS_WS_METHOD}, password: ${UUID}, udp: true, plugin: v2ray-plugin, plugin-opts: { mode: websocket, host: ${ARGO_DOMAIN}, path: \"/${WS_PATH}-sh\", tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, mux: false } }" \
-    "ss://$(echo -n "${SS_WS_METHOD}:${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20${NODE_TAG[6]}" \
+    "ss://$(echo -n "${SS_WS_METHOD}:${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}" | base64 -w0)?uot=2&v2ray-plugin=$(echo -n "{\"peer\":\"${ARGO_DOMAIN}\",\"mux\":false,\"path\":\"\\/${WS_PATH}-sh\",\"host\":\"${ARGO_DOMAIN}\",\"mode\":\"websocket\",\"tls\":true}" | base64 -w0)#${NODE_NAME// /%20}%20${NODE_TAG[6]}" \
     "v2rayn://shadowsocks/$(echo -n "{\"ConfigType\":3,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[6]}\",\"Address\":\"${SERVER}\",\"Port\":${SERVER_PORT_NOW},\"Password\":\"${UUID}\",\"Network\":\"ws\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${ARGO_DOMAIN}\",\"Fingerprint\":\"${FINGER_PRINT:-chrome}\",\"AlterId\":0,\"ProtoExtraObj\":{\"SsMethod\":\"${SS_WS_METHOD}\"},\"TransportExtraObj\":{\"Host\":\"${ARGO_DOMAIN}\",\"Path\":\"/${WS_PATH}-sh\"}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
     "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ${NODE_TAG[6]}\", \"server\": \"${SERVER}\", \"server_port\": ${SERVER_PORT_NOW}, \"method\": \"${SS_WS_METHOD}\", \"password\": \"${UUID}\", \"udp_over_tcp\": {\"enabled\": true,\"version\": 2}, \"plugin\": \"v2ray-plugin\", \"plugin_opts\": \"mode=websocket;host=${ARGO_DOMAIN};path=/${WS_PATH}-sh;tls=true;servername=${ARGO_DOMAIN};skip-cert-verify=false;mux=0\"}" \
-    "ss://$(echo -n "${SS_WS_METHOD}:${UUID}" | base64 -w0)@${SERVER}:${SERVER_PORT_NOW}?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0&uot=1#${NODE_NAME// /%20}%20${NODE_TAG[6]}" \
-    "${NODE_NAME} ${NODE_TAG[6]}"
+    "ss://$(echo -n "${SS_WS_METHOD}:${UUID}" | base64 -w0)@${SERVER_URI}:${SERVER_PORT_NOW}?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3D${ARGO_DOMAIN}%3Bpath%3D%2F${WS_PATH}-sh%3Btls%3Dtrue%3Bservername%3D${ARGO_DOMAIN}%3Bskip-cert-verify%3Dfalse%3Bmux%3D0&uot=1#${NODE_NAME// /%20}%20${NODE_TAG[6]}" \
+    "${NODE_NAME} ${NODE_TAG[6]}" "6"
 
   # xhttp-h1.1-cdn（固定隧道下输出，使用 HTTP/1.1）
   grep -q 'xhttp-h1.1-cdn' <<< "$PROTOS_NOW" && ! grep -q 'trycloudflare\.com$' <<< "${ARGO_DOMAIN}" && _add \
     "{name: \"${NODE_NAME} ${NODE_TAG[7]}\", type: vless, server: ${SERVER}, port: ${SERVER_PORT_NOW}, uuid: ${UUID}, udp: true, tls: true, network: xhttp, alpn: [h2,http/1.1], servername: ${ARGO_DOMAIN}, client-fingerprint: ${FINGER_PRINT:-chrome}, encryption: \"\", xhttp-opts: {path: \"/${WS_PATH}-xh\", host: ${ARGO_DOMAIN}, mode: auto} }" \
-    "vless://$(echo -n ":${UUID}@${SERVER}:${SERVER_PORT_NOW}" | base64 -w0)?path=/${WS_PATH}-xh&remarks=${NODE_NAME// /%20}%20${NODE_TAG[7]}&obfsParam=%7B%22Host%22:%22${ARGO_DOMAIN}%22%7D&obfs=xhttp&tls=1&peer=${ARGO_DOMAIN}&alpn=h2,http/1.1&h2=1&mode=auto" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
+    "vless://$(echo -n ":${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}" | base64 -w0)?path=/${WS_PATH}-xh&remarks=${NODE_NAME// /%20}%20${NODE_TAG[7]}&obfsParam=%7B%22Host%22:%22${ARGO_DOMAIN}%22%7D&obfs=xhttp&tls=1&peer=${ARGO_DOMAIN}&alpn=h2,http/1.1&h2=1&mode=auto" \
+    "vless://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
     "" \
-    "vless://${UUID}@${SERVER}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
-    ""
+    "vless://${UUID}@${SERVER_URI}:${SERVER_PORT_NOW}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=${FINGER_PRINT:-chrome}&alpn=h2%2Chttp%2F1.1&type=xhttp&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-xh&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[7]}" \
+    "" "7"
 
   # xhttp-h2-reality（直连，Reality 安全层，HTTP/2）
   grep -q 'xhttp-h2-reality' <<< "$PROTOS_NOW" && _add \
@@ -5043,7 +5097,7 @@ export_list() {
     "vless://${UUID}@${SERVER_IP_1}:${XHTTP_H2_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=xhttp&path=%2F${WS_PATH}-xh2&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[8]}" \
     "" \
     "vless://${UUID}@${SERVER_IP_1}:${XHTTP_H2_PORT}?encryption=none&security=reality&sni=${TLS_SERVER}&fp=${FINGER_PRINT:-chrome}&pbk=${REALITY_PUBLIC}&type=xhttp&path=%2F${WS_PATH}-xh2&mode=auto#${NODE_NAME// /%20}%20${NODE_TAG[8]}" \
-    "${NODE_NAME} ${NODE_TAG[8]}"
+    "${NODE_NAME} ${NODE_TAG[8]}" "8"
 
   # xhttp-h3-direct
   grep -q 'xhttp-h3-direct' <<< "$PROTOS_NOW" && _add \
@@ -5052,7 +5106,7 @@ export_list() {
     "v2rayn://vless/$(echo -n "{\"ConfigType\":5,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[9]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${XHTTP_PORT},\"Password\":\"${UUID}\",\"Network\":\"xhttp\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${CERT_SNI}\",\"Alpn\":\"h3\",\"Fingerprint\":\"${FINGER_PRINT:-chrome}\",\"Cert\":\"${CERT_URL_2}\",\"TransportExtraObj\":{\"Path\":\"/${WS_PATH}-xh3\",\"XhttpMode\":\"stream-up\"}}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
     "" \
     "vless://${UUID}@${SERVER_IP_1}:${XHTTP_PORT}?encryption=none&security=tls&sni=${CERT_SNI}&fp=${FINGER_PRINT:-chrome}&alpn=h3&pcs=${FP_SHA256//:/}&type=xhttp&path=%2F${WS_PATH}-xh3&mode=stream-up#${NODE_NAME// /%20}%20${NODE_TAG[9]}" \
-    ""
+    "" "9"
 
   # trojan-direct
   grep -q 'trojan-direct' <<< "$PROTOS_NOW" && _add \
@@ -5061,7 +5115,7 @@ export_list() {
     "v2rayn://trojan/$(echo -n "{\"ConfigType\":6,\"ConfigVersion\":4,\"Remarks\":\"${NODE_NAME} ${NODE_TAG[10]}\",\"Address\":\"${SERVER_IP}\",\"Port\":${TROJAN_PORT},\"Password\":\"${UUID}\",\"Network\":\"raw\",\"StreamSecurity\":\"tls\",\"AllowInsecure\":\"false\",\"Sni\":\"${CERT_SNI}\",\"Fingerprint\":\"${FINGER_PRINT:-chrome}\",\"Cert\":\"${CERT_URL_2}\"}" | base64 -w0 | tr '+/' '-_' | tr -d '=')" \
     "{ \"type\":\"trojan\", \"tag\":\"${NODE_NAME} ${NODE_TAG[10]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${TROJAN_PORT}, \"password\": \"${UUID}\", \"tls\": { \"enabled\": true, \"server_name\": \"${CERT_SNI}\", \"certificate_public_key_sha256\": [\"${FP_BASE64}\"] } }" \
     "trojan://${UUID}@${SERVER_IP_1}:${TROJAN_PORT}?security=tls&sni=${TLS_SERVER}&tls_certificate=${CERT_URL_1}&fp=${FINGER_PRINT:-chrome}#${NODE_NAME// /%20}%20${NODE_TAG[10]}" \
-    "${NODE_NAME} ${NODE_TAG[10]}"
+    "${NODE_NAME} ${NODE_TAG[10]}" "10"
 
   # ss2022-direct
   grep -q 'ss2022-direct' <<< "$PROTOS_NOW" && _add \
@@ -5070,7 +5124,54 @@ export_list() {
     "ss://$(echo -n "${SS_DIRECT_METHOD}:${SS2022_PASSWORD}" | base64 -w0)@${SERVER_IP_1}:${SS2022_PORT}#${NODE_NAME// /%20}%20${NODE_TAG[11]}" \
     "{ \"type\": \"shadowsocks\", \"tag\": \"${NODE_NAME} ${NODE_TAG[11]}\", \"server\": \"${SERVER_IP}\", \"server_port\": ${SS2022_PORT}, \"method\": \"${SS_DIRECT_METHOD}\", \"password\": \"${SS2022_PASSWORD}\" }" \
     "ss://${SS_DIRECT_METHOD}:${SS2022_PASSWORD}@${SERVER_IP_1}:${SS2022_PORT}#${NODE_NAME// /%20}%20${NODE_TAG[11]}" \
-    "${NODE_NAME} ${NODE_TAG[11]}"
+    "${NODE_NAME} ${NODE_TAG[11]}" "11"
+
+  # 按真实监听端口升序拼装各格式订阅串。先拼后写：订阅文件与 list 展示（*_DISPLAY、
+  # CLASH_DISPLAY、SINGBOX_DISPLAY）共用同一份结果，天然保持同序，无需二次重排。
+  # CLASH 保持字面 "\n  - " 前缀（echo -e 后 proxies: 独立成首行、节点两空格缩进）；
+  # *_DISPLAY 保持字面 '\n\n' 分隔（展示时 echo -e 解释）。
+  local SINGBOX_OUTBOUNDS='' SINGBOX_TAGS='' SINGBOX_SEP=''
+  local _ax_pos
+  for _ax_i in "${_AX_NODE_ORDER[@]}"; do
+    [[ " ${_AX_CLASH_IDS[*]} " == *" $_ax_i "* ]] || continue
+    for _ax_pos in "${!_AX_CLASH_IDS[@]}"; do
+      [ "${_AX_CLASH_IDS[_ax_pos]}" -eq "$_ax_i" ] && break
+    done
+    CLASH+="\n  - ${_AX_CLASH[_ax_pos]}"
+  done
+  for _ax_i in "${_AX_NODE_ORDER[@]}"; do
+    [[ " ${_AX_SR_IDS[*]} " == *" $_ax_i "* ]] || continue
+    for _ax_pos in "${!_AX_SR_IDS[@]}"; do
+      [ "${_AX_SR_IDS[_ax_pos]}" -eq "$_ax_i" ] && break
+    done
+    SHADOWROCKET_SUBSCRIBE+="${_AX_SR[_ax_pos]}"$'\n'
+    SHADOWROCKET_DISPLAY+="${_AX_SR[_ax_pos]}"'\n\n'
+  done
+  for _ax_i in "${_AX_NODE_ORDER[@]}"; do
+    [[ " ${_AX_V2_IDS[*]} " == *" $_ax_i "* ]] || continue
+    for _ax_pos in "${!_AX_V2_IDS[@]}"; do
+      [ "${_AX_V2_IDS[_ax_pos]}" -eq "$_ax_i" ] && break
+    done
+    V2RAYN_SUBSCRIBE+="${_AX_V2[_ax_pos]}"$'\n'
+    V2RAYN_DISPLAY+="${_AX_V2[_ax_pos]}"'\n\n'
+  done
+  for _ax_i in "${_AX_NODE_ORDER[@]}"; do
+    [[ " ${_AX_TH_IDS[*]} " == *" $_ax_i "* ]] || continue
+    for _ax_pos in "${!_AX_TH_IDS[@]}"; do
+      [ "${_AX_TH_IDS[_ax_pos]}" -eq "$_ax_i" ] && break
+    done
+    THRONE_SUBSCRIBE+="${_AX_TH[_ax_pos]}"$'\n'
+    THRONE_DISPLAY+="${_AX_TH[_ax_pos]}"'\n\n'
+  done
+  for _ax_i in "${_AX_NODE_ORDER[@]}"; do
+    [[ " ${_AX_SB_IDS[*]} " == *" $_ax_i "* ]] || continue
+    for _ax_pos in "${!_AX_SB_IDS[@]}"; do
+      [ "${_AX_SB_IDS[_ax_pos]}" -eq "$_ax_i" ] && break
+    done
+    SINGBOX_OUTBOUNDS+="${SINGBOX_SEP}${_AX_SB[_ax_pos]}"
+    SINGBOX_TAGS+="${SINGBOX_SEP}${_AX_SBTAG[_ax_pos]}"
+    SINGBOX_SEP=', '
+  done
 
   # 订阅文件目录：动态模板与静态文件完全隔离。
   local SUB_OUT_DIR="$WORK_DIR/subscribe" SUB_TPL_SRC="$TEMP_DIR"
@@ -5086,9 +5187,9 @@ export_list() {
     elif [ "$SUB_MODE" != 'dynamic_template' ]; then
       wget --no-check-certificate -qO- --tries=3 --timeout=2 ${SUBSCRIBE_TEMPLATE}/clash | sed "s#NODE_NAME#${NODE_NAME}#g; s#PROXY_PROVIDERS_URL#${_SUB_SCHEME}://${_SUB_DOMAIN}/${UUID}/proxies#" > "$SUB_OUT_DIR/clash"
     fi
-    echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > "$SUB_OUT_DIR/shadowrocket.tmp" && mv "$SUB_OUT_DIR/shadowrocket.tmp" "$SUB_OUT_DIR/shadowrocket"
-    echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > "$SUB_OUT_DIR/v2rayn.tmp" && mv "$SUB_OUT_DIR/v2rayn.tmp" "$SUB_OUT_DIR/v2rayn"
-    echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d' | sed '/^$/d' | base64 -w0 > "$SUB_OUT_DIR/throne.tmp" && mv "$SUB_OUT_DIR/throne.tmp" "$SUB_OUT_DIR/throne"
+    echo -n "$SHADOWROCKET_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d; /^$/d' | base64 -w0 > "$SUB_OUT_DIR/shadowrocket.tmp" && mv "$SUB_OUT_DIR/shadowrocket.tmp" "$SUB_OUT_DIR/shadowrocket"
+    echo -n "$V2RAYN_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d; /^$/d' | base64 -w0 > "$SUB_OUT_DIR/v2rayn.tmp" && mv "$SUB_OUT_DIR/v2rayn.tmp" "$SUB_OUT_DIR/v2rayn"
+    echo -n "$THRONE_SUBSCRIBE" | sed -E '/^[ ]*#|^--/d; /^$/d' | base64 -w0 > "$SUB_OUT_DIR/throne.tmp" && mv "$SUB_OUT_DIR/throne.tmp" "$SUB_OUT_DIR/throne"
   fi
 
   # sing-box 订阅：纯 xhttp 场景直接跳过；其余场景仅在确实生成了 sing-box outbound 时才处理
@@ -7092,13 +7193,13 @@ uninstall() {
 # Argo 与 Xray 的最新版本
 version() {
   # Argo (cloudflared) 版本检测：仅在已部署 Argo（守护进程文件存在）时进行
-  local ARGO_ONLINE ARGO_LOCAL
   if [ -s ${ARGO_DAEMON_FILE} ]; then
-    ARGO_ONLINE=$(wget --no-check-certificate --tries=2 --timeout=10 -qO- "${GH_PROXY}https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
-    grep -q '.' <<< "$ARGO_ONLINE" || error " $(text 74) \n"
-    ARGO_LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}')
-    local APP=ARGO && info "\n $(text 43) "
-    [[ -n "$ARGO_ONLINE" && "$ARGO_ONLINE" != "$ARGO_LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
+    local APP=ARGO LOCAL ONLINE
+    ONLINE=$(wget --no-check-certificate --tries=2 --timeout=10 -qO- "${GH_PROXY}https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
+    grep -q '.' <<< "$ONLINE" || error " $(text 74) \n"
+    LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=1; i<NF; i++) if ($i=="version") {print $(i+1); exit}}')
+    info "\n $(text 43) "
+    [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
   fi
 
   # Xray 版本检测
